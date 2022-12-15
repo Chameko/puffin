@@ -1,7 +1,8 @@
 use crate::common::{Token, TokenType};
-use crate::diagnostic::PetrelError;
+use crate::diagnostic::PuffinError;
 use std::fs::File;
 use std::io::Read;
+use std::path::PathBuf;
 
 use super::source::Span;
 use super::Source;
@@ -14,11 +15,12 @@ pub struct Scanner {
     line: usize,
     /// The starting index
     start: usize,
+    origin: PathBuf,
 }
 
 impl Scanner {
     /// Read from file
-    pub fn from_file(path: &str) -> Result<Scanner, PetrelError> {
+    pub fn from_file(path: &str) -> Result<Scanner, PuffinError> {
         // Read file
         let mut file = File::open(path)?;
         let mut input: String = "".into();
@@ -32,6 +34,7 @@ impl Scanner {
             source,
             line: 1,
             start: 0,
+            origin: PathBuf::from(path),
         })
     }
 
@@ -41,6 +44,7 @@ impl Scanner {
             source: src.src.chars().collect::<Vec<char>>(),
             line: 1,
             start: 0,
+            origin: src.origin.clone(),
         }
     }
 
@@ -68,7 +72,7 @@ impl Scanner {
         Token {
             tt,
             line: self.line,
-            span: Span::new(self.start, len),
+            span: Span::new(self.start, len, self.origin.clone()),
         }
     }
 
@@ -79,7 +83,7 @@ impl Scanner {
         Token {
             tt,
             line: self.line,
-            span: Span::new(self.start - (len - 1), len),
+            span: Span::new(self.start - (len - 1), len, self.origin.clone()),
         }
     }
 
@@ -120,7 +124,7 @@ impl Scanner {
     }
 
     /// Create a string literal
-    fn string(&mut self) -> Result<Token, PetrelError> {
+    fn string(&mut self) -> Result<Token, PuffinError> {
         // Get the first character of the string
         let mut s = self.peek();
         // Length of string
@@ -143,7 +147,7 @@ impl Scanner {
             s = self.peek();
         }
         // If we reach the end of the file, report error
-        Err(PetrelError::MissingDoubleQuote)
+        Err(PuffinError::MissingDoubleQuote)
     }
 
     /// Create a number literal
@@ -183,12 +187,12 @@ impl Scanner {
                         break;
                     }
                 }
-                self.make_consumed_token(TokenType::Number, length)
+                self.make_consumed_token(TokenType::Float, length)
             } else {
-                self.make_consumed_token(TokenType::Number, length)
+                self.make_consumed_token(TokenType::Integer, length)
             }
         } else {
-            self.make_consumed_token(TokenType::Number, length)
+            self.make_consumed_token(TokenType::Integer, length)
         }
     }
 
@@ -299,7 +303,7 @@ impl Scanner {
     }
 
     /// Scan the input into the tokens
-    pub fn scan(&mut self) -> Result<Vec<Token>, PetrelError> {
+    pub fn scan(&mut self) -> Result<Vec<Token>, PuffinError> {
         // The tokens in the file
         let mut tokens: Vec<Token> = vec![];
 
@@ -314,7 +318,7 @@ impl Scanner {
     }
 
     /// Scan a singular token
-    pub fn scan_token(&mut self) -> Result<Token, PetrelError> {
+    pub fn scan_token(&mut self) -> Result<Token, PuffinError> {
         // The token is (usually) one character long
         if let Some(c) = self.current() {
             // For convinience
@@ -389,7 +393,7 @@ impl Scanner {
                         self.advance();
                         self.scan_token()
                     } else {
-                        Err(PetrelError::UnknownCharacter(*c))
+                        Err(PuffinError::UnknownCharacter(*c))
                     }
                 }
             }
@@ -446,13 +450,13 @@ mod scanner_test {
         let correct = vec![
             (TT::String, "A quick brown fox jumped over the lazy dog"),
             (TT::NL, "\n"),
-            (TT::Number, "134"),
+            (TT::Integer, "134"),
             (TT::NL, "\n"),
-            (TT::Number, "12.3242"),
+            (TT::Float, "12.3242"),
             (TT::NL, "\n"),
-            (TT::Number, "12.5"),
+            (TT::Float, "12.5"),
             (TT::Dot, "."),
-            (TT::Number, "1"),
+            (TT::Integer, "1"),
             (TT::NL, "\n"),
             (TT::String, "escape \\\""),
             (TT::NL, "\n"),

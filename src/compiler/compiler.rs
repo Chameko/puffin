@@ -1,5 +1,5 @@
 use crate::common::{Opcode, Token, TokenType, Value};
-use crate::diagnostic::{Annotation, PetrelError};
+use crate::diagnostic::{Annotation, PuffinError};
 use crate::runtime::VM;
 
 use super::Source;
@@ -41,7 +41,7 @@ impl From<u8> for Precedence {
     }
 }
 
-type ParseFn = fn(&mut Compiler) -> Result<(), PetrelError>;
+type ParseFn = fn(&mut Compiler) -> Result<(), PuffinError>;
 /// Rule for parsing a token
 pub struct ParseRule {
     pub prefix: Option<ParseFn>,
@@ -76,7 +76,7 @@ pub struct Compiler {
     /// The virtual machine we're writing our instructions to
     pub vm: VM,
     /// Collected errors
-    pub errors: Vec<PetrelError>,
+    pub errors: Vec<PuffinError>,
     /// Used to skip tokens until we can recover
     panicMode: bool,
 }
@@ -146,7 +146,7 @@ impl Compiler {
 
     /// Used to report error. Mostly exists so I don't forget to set panic mode to true.
     #[inline]
-    fn report_error(&mut self, code_error: PetrelError) -> Result<(), PetrelError> {
+    fn report_error(&mut self, code_error: PuffinError) -> Result<(), PuffinError> {
         self.panicMode = true;
         Err(code_error)
     }
@@ -170,7 +170,7 @@ impl Compiler {
     ///
     /// ## Panics
     /// Panics when it can't get the line the token references
-    fn consume(&mut self, tt: TokenType) -> Result<(), PetrelError> {
+    fn consume(&mut self, tt: TokenType) -> Result<(), PuffinError> {
         let current = self.current();
         if tt == current.tt {
             self.advance();
@@ -178,7 +178,7 @@ impl Compiler {
         } else {
             let a =
                 self.create_annotation(current, format!("Expected {}, found {}", tt, current.tt));
-            self.report_error(PetrelError::SyntaxError(a))
+            self.report_error(PuffinError::SyntaxError(Box::new(a)))
         }
     }
 
@@ -188,7 +188,7 @@ impl Compiler {
     /// This function panics when it can't get the string from the token and when it cannot
     /// convert the string into the number. The reason is if we cannot do this then our compiler
     /// is broken :( and we cannot really "recover"
-    pub(crate) fn number(&mut self) -> Result<(), PetrelError> {
+    pub(crate) fn number(&mut self) -> Result<(), PuffinError> {
         let previous_start = self.previous().span.start;
         let previous_end = self.previous().span.end;
         let value = self
@@ -196,14 +196,14 @@ impl Compiler {
             .src
             .get(previous_start..previous_end)
             .expect("token should reference valid number");
-        self.add_constant(Value::Number(
+        self.add_constant(Value::Float(
             value.parse().expect("string should represent valid number"),
         ));
         Ok(())
     }
 
     /// Compile grouping operators like ()
-    pub(crate) fn grouping(&mut self) -> Result<(), PetrelError> {
+    pub(crate) fn grouping(&mut self) -> Result<(), PuffinError> {
         // We compile whatever's in the brackets
         self.expression();
         // Then consume the ")"
@@ -214,7 +214,7 @@ impl Compiler {
     ///
     /// ## Panics
     /// Panics when the token type isn't capable of unary negation.
-    pub(crate) fn unary(&mut self) -> Result<(), PetrelError> {
+    pub(crate) fn unary(&mut self) -> Result<(), PuffinError> {
         let tt = self.previous().tt;
 
         // Compile the operand
@@ -232,7 +232,7 @@ impl Compiler {
     ///
     /// ## Panics
     /// Panics when used for anything other than the literals listed above
-    pub(crate) fn literal(&mut self) -> Result<(), PetrelError> {
+    pub(crate) fn literal(&mut self) -> Result<(), PuffinError> {
         match self.previous().tt {
             TokenType::False => self.add_instruction(Opcode::OpFalse),
             TokenType::True => self.add_instruction(Opcode::OpTrue),
@@ -247,7 +247,7 @@ impl Compiler {
     ///
     /// ## Panics
     /// Panics when its given an invalid binary operation
-    pub(crate) fn binary(&mut self) -> Result<(), PetrelError> {
+    pub(crate) fn binary(&mut self) -> Result<(), PuffinError> {
         let tt = self.previous().tt;
         let rule: ParseRule = tt.get_rule();
         self.parse_precidence((rule.precedence as u8 + 1).into())?;
@@ -269,14 +269,14 @@ impl Compiler {
     }
 
     /// Parse an expression of a given precidence level or higher
-    fn parse_precidence(&mut self, precedence: Precedence) -> Result<(), PetrelError> {
+    fn parse_precidence(&mut self, precedence: Precedence) -> Result<(), PuffinError> {
         self.advance();
         if let Some(prefix_rule) = self.previous().tt.get_rule().prefix {
             prefix_rule(self)?;
         } else {
-            self.report_error(PetrelError::SyntaxError(
+            self.report_error(PuffinError::SyntaxError(Box::new(
                 self.create_annotation(self.previous(), "Expected expression".to_string()),
-            ))?;
+            )))?;
         }
 
         while precedence <= self.current().tt.get_rule().precedence {

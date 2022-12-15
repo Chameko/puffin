@@ -3,9 +3,16 @@ use crate::common::Value;
 /// Compares values and determines if they are equal
 pub fn values_equal(a: Value, b: Value) -> bool {
     match a {
-        Value::Number(an) => {
-            if let Value::Number(bn) = b {
+        Value::Float(an) => {
+            if let Value::Float(bn) = b {
                 an == bn
+            } else {
+                false
+            }
+        }
+        Value::Int(ai) => {
+            if let Value::Int(bi) = b {
+                ai == bi
             } else {
                 false
             }

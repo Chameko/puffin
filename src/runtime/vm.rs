@@ -1,6 +1,6 @@
 use crate::common::{Opcode, Value};
 use crate::diagnostic::debug::dissasemble_instruction;
-use crate::diagnostic::{Context, PetrelError, VMError};
+use crate::diagnostic::{Context, PuffinError, VMError};
 use crate::runtime::operations::values_equal;
 
 #[derive(Debug)]
@@ -21,11 +21,11 @@ pub struct VM {
 macro_rules! binary_op {
     ($s:tt, $v:ident, $i:ident, $var: ident) => {
         {
-            if let Value::Number(_) = $v.peek(0)? {
-                if let Value::Number(_) = $v.peek(1)? {
+            if let Value::Float(_) = $v.peek(0)? {
+                if let Value::Float(_) = $v.peek(1)? {
                     // Pop off the values
-                    if let Value::Number(an) = $v.pop()? {
-                        if let Value::Number(bn) = $v.pop()? {
+                    if let Value::Float(an) = $v.pop()? {
+                        if let Value::Float(bn) = $v.pop()? {
                             // Push on the result
                             $v.stack.push(Value::$var(bn $s an));
                         }
@@ -50,7 +50,7 @@ impl VM {
         }
     }
 
-    pub fn run(&mut self, stack_trace: bool) -> Result<(), PetrelError> {
+    pub fn run(&mut self, stack_trace: bool) -> Result<(), PuffinError> {
         loop {
             if stack_trace {
                 for val in &self.stack {
@@ -62,16 +62,16 @@ impl VM {
             use crate::common::Opcode::*;
             match Opcode::try_from(instruction.opcode)? {
                 OpReturn => break,
-                OpAdd => binary_op!(+, self, instruction, Number),
-                OpSubtract => binary_op!(-, self, instruction, Number),
-                OpMultiply => binary_op!(*, self, instruction, Number),
-                OpDivide => binary_op!(/, self, instruction, Number),
+                OpAdd => binary_op!(+, self, instruction, Float),
+                OpSubtract => binary_op!(-, self, instruction, Float),
+                OpMultiply => binary_op!(*, self, instruction, Float),
+                OpDivide => binary_op!(/, self, instruction, Float),
                 OpNegate => {
-                    if let Value::Number(_) = self.peek(0)? {
+                    if let Value::Float(_) = self.peek(0)? {
                         // Actually pop the value off the stack
-                        if let Value::Number(n) = self.pop()? {
+                        if let Value::Float(n) = self.pop()? {
                             // Add the negated value to the stack
-                            self.stack.push(Value::Number(-n));
+                            self.stack.push(Value::Float(-n));
                         }
                     } else {
                         // Error out
@@ -128,7 +128,7 @@ impl VM {
     }
 
     /// Peek at the opcode distance from the top of the stack. Use 0 for top
-    fn peek(&self, distance: usize) -> Result<&Value, PetrelError> {
+    fn peek(&self, distance: usize) -> Result<&Value, PuffinError> {
         #[allow(clippy::unnecessary_lazy_evaluations)]
         let v = self
             .stack
@@ -137,7 +137,7 @@ impl VM {
         Ok(v)
     }
 
-    fn pop(&mut self) -> Result<Value, PetrelError> {
+    fn pop(&mut self) -> Result<Value, PuffinError> {
         #[allow(clippy::unnecessary_lazy_evaluations)]
         let v = self.stack.pop().ok_or_else(|| VMError::EmptyStack)?;
         Ok(v)
@@ -177,9 +177,9 @@ mod vm_test {
     #[test]
     fn basic_arithmatic() {
         let mut vm = VM::new();
-        let a = vm.write_constant(Value::Number(2.5));
-        let b = vm.write_constant(Value::Number(7.5));
-        let c = vm.write_constant(Value::Number(2.0));
+        let a = vm.write_constant(Value::Float(2.5));
+        let b = vm.write_constant(Value::Float(7.5));
+        let c = vm.write_constant(Value::Float(2.0));
         vm.write_operation(Opcode::OpConstant.into(), 123);
         vm.write_operation(a, 123);
         vm.write_operation(Opcode::OpConstant.into(), 123);

@@ -60,7 +60,8 @@ pub enum TokenType {
     // Literals
     Identifier,
     String,
-    Number,
+    Integer,
+    Float,
     // End of file
     EOF,
     // New Line
@@ -221,7 +222,7 @@ pub struct Token {
 
 impl Token {
     /// Return the string of text the token represents in the source code
-    pub fn contained_string<'a>(&self, source: &'a Source) -> &'a str {
+    pub fn contained_string<'b>(&self, source: &'b Source) -> &'b str {
         source
             .slice(&self.span)
             .expect("Token should point to valid string from source")

@@ -4,9 +4,11 @@ use crate::common::{Opcode, Token};
 use colored::*;
 use thiserror::Error;
 
+pub type Result<T> = std::result::Result<T, PuffinError>;
+
 /// The overarching error type for petrel
 #[derive(Error, Debug)]
-pub enum PetrelError {
+pub enum PuffinError {
     #[error("file {0} not found")]
     FileNotFound(#[from] std::io::Error),
     #[error("unknown character {0}")]
@@ -18,7 +20,7 @@ pub enum PetrelError {
     #[error("tried to use token {0} in array of length {1}")]
     TokenOutOfBounds(usize, usize),
     #[error("{}{0}", "Syntax error\n".blue().bold())]
-    SyntaxError(Annotation),
+    SyntaxError(Box<Annotation>),
 }
 
 /// Errors that can occur in the VM (runtime errors)
@@ -73,7 +75,7 @@ pub struct Annotation {
     info: String,
 }
 
-impl Display for Annotation {
+impl<'a> Display for Annotation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.print_error())
     }

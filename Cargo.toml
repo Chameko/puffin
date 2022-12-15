@@ -9,3 +9,4 @@ edition = "2021"
 thiserror = { version = "1.0" }
 colored = "2.0"
 tracing = "0.1"
+ahash = "0.8"
