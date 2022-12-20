@@ -117,7 +117,8 @@ impl std::fmt::Display for TokenType {
             While => write!(f, "while"),
             Identifier => write!(f, "identifier"),
             String => write!(f, "string"),
-            Number => write!(f, "number"),
+            Float => write!(f, "float"),
+            Integer => write!(f, "int"),
             EOF => write!(f, "end of file"),
             NL => write!(f, "new line"),
         }
@@ -154,13 +155,18 @@ impl TokenType {
                 infix: Some(Compiler::binary),
                 precedence: Precedence::Factor,
             },
-            Number => ParseRule {
+            Float => ParseRule {
                 prefix: Some(Compiler::number),
                 infix: None,
                 precedence: Precedence::None,
             },
             False => ParseRule {
                 prefix: Some(Compiler::literal),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            Integer => ParseRule {
+                prefix: Some(Compiler::number),
                 infix: None,
                 precedence: Precedence::None,
             },

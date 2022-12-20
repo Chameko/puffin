@@ -1,0 +1,93 @@
+# Syntax
+
+## About
+
+This document is designed to give a general overview of the syntax of puffin and intended
+to help with the design of the recursive descent parser.
+
+## Rules
+- Anything in "" are the literal strings
+- | is logical or 
+- () is for precedence
+- * able to repeat
+- ? conditional
+- ; end of Rules
+
+## Defenitions
+
+### Program
+
+program -> statement* EOF ;
+
+### Statements
+
+statement -> exprStatement
+            | varStatement
+            | block
+            | ifStatement
+            | whileStatement;
+            | structStatement;
+            | funcStatement
+
+block -> "{" statement* "}";
+
+exprStatement -> expression NEWLINE ;
+
+ifStatement -> "if" expression block ("else" block)? NEWLINE ;
+
+matchStatement -> "match" expression "{" match "}" NEWLINE ;
+match -> (patternMatch "->" statement",")* ;
+
+whileStatement -> "while" expression block NEWLINE ;
+
+forStatement -> "for" IDENTIFIER "in" expression block NEWLINE ;
+
+reternStatement -> "return" expression? NEWLINE ;
+
+structStatement -> "struct" IDENTIFIER "{" structDef* "}" NEWLINE ;
+structDef -> IDENTIFIER (: path)?,
+
+implStatement -> "impl" (IDENTIFIER | IDENTIFIER "for" IDENTIFIER) "{" funcStatement* "}" NEWLINE
+
+traitStatement -> "trait" IDENTIFIER (: IDENTIFIER (+ IDENTIFIER)* )? "{" funcStatement* "}" NEWLINE
+
+useStatement -> "use" path NEWLINE
+
+funcStatement -> "fun" function NEWLINE ;
+function -> IDENTIFIER "(" parameters? ")" ("->" path)? block ;
+parameters -> IDENTIFIER(: IDENTIFIER)? ("," IDENTIFIER(: IDENTIFIER))* ;
+
+varStatement -> "var" (varDeclare | patternMatch) NEWLINE ;
+varDeclare -> IDENTIFIER ;
+
+
+### Pattern
+
+pattern -> structPattern | literalPattern | tuplePattern | arrayPattern | objectPattern | ignorePattern | continuePattern ;
+
+patternMatch -> pattern "=" pattern ;
+
+structPattern -> IDENTIFIER { ((IDENTIFIER): pattern, )* } ;
+literalPattern -> LITERAL ;
+tuplePattern -> ((pattern,)*) ;
+arrayPattern -> [ (pattern,)* ] ;
+objectPattern -> # { (STRING: pattern,)* } ;
+ignorePattern -> "_" ;
+continuePattern -> ".." ;
+
+### Expressions
+
+expression -> assignment ;
+assignment -> patternMatch | logic_or ;
+logic_or -> logic_and ( "or" logic_and )* ;
+logic_and -> equality ("and" equality)* ;
+equality -> comparison ( ( "!=" | "==") comparison)* ;
+comparison -> term ( (">" | ">=" | "<" | "<=") term )* ;
+term -> factor ( ("+" | "-") factor ) * ;
+factor -> unary ( ("/" | "*") unary ) * ;
+unary -> ("-" | "!") unary | call ;
+call -> primary ( "(" arguments? ")" )*;
+arguments -> expression ("," expression )* ;
+primary -> NUMBER | STRING | "true" | "false" | "null" | "(" expression ")" | path;
+
+path -> ( IDENTIFIER::)* IDENTIFIER ;

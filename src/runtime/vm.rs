@@ -82,8 +82,15 @@ impl VM {
                     }
                 }
                 OpConstant => {
-                    let val =
-                        self.constants[self.instructions[self.ip + 1].opcode as usize].clone();
+                    let repl = Value::Null;
+                    use std::mem::replace;
+                    // We do a replace as we need to keep the indicies consistant but don't want to clone the value
+                    let val = std::mem::replace(
+                        self.constants
+                            .get_mut(self.instructions[self.ip + 1].opcode as usize)
+                            .unwrap(),
+                        repl,
+                    );
                     self.stack.push(val);
                     self.ip += 1;
                 }

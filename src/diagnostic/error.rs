@@ -19,6 +19,20 @@ pub enum PuffinError {
     VMError(#[from] VMError),
     #[error("tried to use token {0} in array of length {1}")]
     TokenOutOfBounds(usize, usize),
+    #[error("{0}")]
+    ParsingErrors(Output),
+}
+
+impl From<Vec<ParsingError>> for PuffinError {
+    fn from(v: Vec<ParsingError>) -> Self {
+        PuffinError::ParsingErrors(Output {
+            errors: Box::new(v),
+        })
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ParsingError {
     #[error("{}{0}", "Syntax error\n".blue().bold())]
     SyntaxError(Box<Annotation>),
 }
@@ -75,7 +89,7 @@ pub struct Annotation {
     info: String,
 }
 
-impl<'a> Display for Annotation {
+impl Display for Annotation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.print_error())
     }
@@ -103,5 +117,22 @@ impl Annotation {
             "^".repeat(self.token.length())
         );
         l1 + &l2 + l3 + &l4 + &l5
+    }
+}
+
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct Output {
+    errors: Box<Vec<ParsingError>>,
+}
+
+impl Display for Output {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self
+            .errors
+            .iter()
+            .map(|e| format!("{}\n", e))
+            .collect::<String>();
+        write!(f, "{}", s)
     }
 }

@@ -25,6 +25,6 @@ pub fn values_equal(a: Value, b: Value) -> bool {
             }
         }
         Value::Null => b == Value::Null,
-        _ => false,
+        _ => unimplemented!(),
     }
 }
