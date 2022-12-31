@@ -1,5 +1,3 @@
-use crate::diagnostic::error::VMError;
-
 #[derive(Debug)]
 #[repr(u8)]
 pub enum Opcode {
@@ -22,28 +20,27 @@ pub enum Opcode {
     OpNotEqual,
 }
 
-impl TryFrom<u8> for Opcode {
-    type Error = VMError;
-    fn try_from(src: u8) -> Result<Self, Self::Error> {
+impl From<u8> for Opcode {
+    fn from(src: u8) -> Self {
         match src {
-            0 => Ok(Opcode::OpReturn),
-            1 => Ok(Opcode::OpConstant),
-            2 => Ok(Opcode::OpNegate),
-            3 => Ok(Opcode::OpAdd),
-            4 => Ok(Opcode::OpSubtract),
-            5 => Ok(Opcode::OpMultiply),
-            6 => Ok(Opcode::OpDivide),
-            7 => Ok(Opcode::OpNull),
-            8 => Ok(Opcode::OpTrue),
-            9 => Ok(Opcode::OpFalse),
-            10 => Ok(Opcode::OpNot),
-            11 => Ok(Opcode::OpEqual),
-            12 => Ok(Opcode::OpGreater),
-            13 => Ok(Opcode::OpLess),
-            14 => Ok(Opcode::OpGreaterThanOrEqual),
-            15 => Ok(Opcode::OpLessThanOrEqual),
-            16 => Ok(Opcode::OpNotEqual),
-            _ => Err(VMError::InvalidOpcodeConversion(src)),
+            0 => Opcode::OpReturn,
+            1 => Opcode::OpConstant,
+            2 => Opcode::OpNegate,
+            3 => Opcode::OpAdd,
+            4 => Opcode::OpSubtract,
+            5 => Opcode::OpMultiply,
+            6 => Opcode::OpDivide,
+            7 => Opcode::OpNull,
+            8 => Opcode::OpTrue,
+            9 => Opcode::OpFalse,
+            10 => Opcode::OpNot,
+            11 => Opcode::OpEqual,
+            12 => Opcode::OpGreater,
+            13 => Opcode::OpLess,
+            14 => Opcode::OpGreaterThanOrEqual,
+            15 => Opcode::OpLessThanOrEqual,
+            16 => Opcode::OpNotEqual,
+            _ => panic!("Invalid opcode conversion"),
         }
     }
 }

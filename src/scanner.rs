@@ -1,50 +1,25 @@
+use crate::common::File;
 use crate::common::{Token, TokenType};
-use crate::diagnostic::PuffinError;
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
-
-use super::source::Span;
-use super::Source;
+use crate::diagnostic::{ErrorMsg, PuffinError, Snippet};
 
 /// Scanner used to conver the file into a vector of tokens
-pub struct Scanner {
+pub struct Scanner<'a> {
+    /// The file the scanner is scanning
+    pub file: &'a File,
     /// The input for the scanner
     pub source: Vec<char>,
-    /// The line number
-    line: usize,
     /// The starting index
     start: usize,
-    origin: PathBuf,
 }
 
-impl Scanner {
-    /// Read from file
-    pub fn from_file(path: &str) -> Result<Scanner, PuffinError> {
-        // Read file
-        let mut file = File::open(path)?;
-        let mut input: String = "".into();
-        file.read_to_string(&mut input)?;
-
-        // Create an iterator of said characters.
-        // This is done as chars() references input, which is a local variable
-        let source = input.chars().collect::<Vec<char>>();
-
-        Ok(Scanner {
-            source,
-            line: 1,
-            start: 0,
-            origin: PathBuf::from(path),
-        })
-    }
-
-    /// Create a new scanner from source
-    pub fn new(src: &Source) -> Self {
+impl<'a> Scanner<'a> {
+    /// Create a new scanner from a file
+    pub fn new<'b: 'a>(src: &'b File) -> Self {
+        let chars = src.get_chars();
         Self {
-            source: src.src.chars().collect::<Vec<char>>(),
-            line: 1,
+            file: src,
+            source: chars,
             start: 0,
-            origin: src.origin.clone(),
         }
     }
 
@@ -52,16 +27,12 @@ impl Scanner {
     pub fn output(&self, tokens: &Vec<Token>) {
         for t in tokens {
             println!(
-                "[{:?} | {}:{}->{}] \"{}\"",
+                "[{} | {}:{}->{}] \"{}\"",
                 t.tt,
-                t.line,
-                t.span.start,
-                t.span.end,
-                self.source
-                    .get(t.span.start..t.span.end)
-                    .expect("Text out of range")
-                    .iter()
-                    .collect::<String>()
+                t.line(self.file) + 1,
+                t.range.start,
+                t.range.end,
+                self.file.get_slice(&t.range)
             )
         }
     }
@@ -71,8 +42,7 @@ impl Scanner {
     fn make_token(&self, tt: TokenType, len: usize) -> Token {
         Token {
             tt,
-            line: self.line,
-            span: Span::new(self.start, len, self.origin.clone()),
+            range: self.start..(self.start + len),
         }
     }
 
@@ -82,8 +52,7 @@ impl Scanner {
     fn make_consumed_token(&self, tt: TokenType, len: usize) -> Token {
         Token {
             tt,
-            line: self.line,
-            span: Span::new(self.start - (len - 1), len, self.origin.clone()),
+            range: (self.start - (len - 1)..(self.start + 1)),
         }
     }
 
@@ -124,7 +93,7 @@ impl Scanner {
     }
 
     /// Create a string literal
-    fn string(&mut self) -> Result<Token, PuffinError> {
+    fn string(&mut self) -> Result<Token, PuffinError<'a>> {
         // Get the first character of the string
         let mut s = self.peek();
         // Length of string
@@ -147,7 +116,13 @@ impl Scanner {
             s = self.peek();
         }
         // If we reach the end of the file, report error
-        Err(PuffinError::MissingDoubleQuote)
+        let snip = Snippet::new(
+            self.start - (length - 1)..(self.start + 1),
+            self.start - (length - 1)..(self.start + 1),
+            "Missing double quote",
+        );
+        let msg = ErrorMsg::new(self.file, "String doesn't end", vec![snip]);
+        Err(PuffinError::Error(msg))
     }
 
     /// Create a number literal
@@ -201,7 +176,6 @@ impl Scanner {
         // Discard until we reach a new line
         while let Some(c) = self.next() {
             if *c == '\n' {
-                self.line += 1;
                 break;
             }
         }
@@ -303,7 +277,22 @@ impl Scanner {
     }
 
     /// Scan the input into the tokens
-    pub fn scan(&mut self) -> Result<Vec<Token>, PuffinError> {
+    pub fn scan(&mut self) -> Result<Vec<Token>, PuffinError<'a>> {
+        // The tokens in the file
+        let mut tokens: Vec<Token> = vec![];
+
+        while !Self::end_of_file(&tokens) {
+            let t = self.scan_token()?;
+
+            tokens.push(t);
+            self.advance();
+        }
+
+        Ok(tokens)
+    }
+
+    /// Scans the input into tokens and consumes the source
+    pub fn scan_into(mut self) -> Result<Vec<Token>, PuffinError<'a>> {
         // The tokens in the file
         let mut tokens: Vec<Token> = vec![];
 
@@ -318,7 +307,7 @@ impl Scanner {
     }
 
     /// Scan a singular token
-    pub fn scan_token(&mut self) -> Result<Token, PuffinError> {
+    pub fn scan_token(&mut self) -> Result<Token, PuffinError<'a>> {
         // The token is (usually) one character long
         if let Some(c) = self.current() {
             // For convinience
@@ -378,10 +367,7 @@ impl Scanner {
                     self.comment();
                     self.scan_token()
                 }
-                '\n' => {
-                    self.line += 1;
-                    Ok(self.make_token(NL, 1))
-                }
+                '\n' => Ok(self.make_token(NL, 1)),
 
                 _ => {
                     if c.is_ascii_digit() {
@@ -407,11 +393,12 @@ impl Scanner {
 #[cfg(test)]
 mod scanner_test {
     use super::*;
+    use crate::common::Source;
     /// Test some simple example function code
     #[test]
     fn function() {
-        let src = Source::from_file("./scripts/tests/function.puf").unwrap();
-        let mut scanner = Scanner::new(&src);
+        let src = Source::new("./scripts/tests/function.puf").unwrap();
+        let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         use super::TokenType as TT;
         let correct = vec![
@@ -433,7 +420,7 @@ mod scanner_test {
         let correct = correct.iter().map(|e| (e.0, e.1.to_string()));
         let tks: TokenTest = tks
             .into_iter()
-            .map(|t| (t.tt, t.contained_string(&src).to_string()))
+            .map(|t| (t.tt, t.contained_string(&src.files[0]).to_string()))
             .collect();
         for test_case in correct.into_iter().zip(tks) {
             assert_eq!(test_case.0, test_case.1);
@@ -443,8 +430,8 @@ mod scanner_test {
     /// Test literal passing such as strings and numbers
     #[test]
     fn literals() {
-        let src = Source::from_file("./scripts/tests/literal.puf").unwrap();
-        let mut scanner = Scanner::new(&src);
+        let src = Source::new("./scripts/tests/literal.puf").unwrap();
+        let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         use super::TokenType as TT;
         let correct = vec![
@@ -467,7 +454,7 @@ mod scanner_test {
         let correct = correct.iter().map(|e| (e.0, e.1.to_string()));
         let tks: TokenTest = tks
             .into_iter()
-            .map(|t| (t.tt, t.contained_string(&src).to_string()))
+            .map(|t| (t.tt, t.contained_string(&src.files[0]).to_string()))
             .collect();
         for test_case in correct.into_iter().zip(tks) {
             assert_eq!(test_case.0, test_case.1);

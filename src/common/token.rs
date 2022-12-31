@@ -1,6 +1,8 @@
-use crate::compiler::compiler::{ParseRule, Precedence};
-use crate::compiler::source::Span;
-use crate::compiler::{Compiler, Source};
+use std::ops::Range;
+
+use ropey::RopeSlice;
+
+use super::source::File;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenType {
@@ -125,116 +127,28 @@ impl std::fmt::Display for TokenType {
     }
 }
 
-impl TokenType {
-    /// Get the parser rule for the token
-    pub fn get_rule(&self) -> ParseRule {
-        use TokenType::*;
-        match self {
-            LeftParen => ParseRule {
-                prefix: Some(Compiler::grouping),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Minus => ParseRule {
-                prefix: Some(Compiler::unary),
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Term,
-            },
-            Plus => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Term,
-            },
-            Slash => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Factor,
-            },
-            Star => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Factor,
-            },
-            Float => ParseRule {
-                prefix: Some(Compiler::number),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            False => ParseRule {
-                prefix: Some(Compiler::literal),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Integer => ParseRule {
-                prefix: Some(Compiler::number),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            True => ParseRule {
-                prefix: Some(Compiler::literal),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Null => ParseRule {
-                prefix: Some(Compiler::literal),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            Bang => ParseRule {
-                prefix: Some(Compiler::unary),
-                infix: None,
-                precedence: Precedence::None,
-            },
-            BangEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Equality,
-            },
-            DoubleEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Equality,
-            },
-            Greater => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Comparison,
-            },
-            GreaterEqual => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Comparison,
-            },
-            Less => ParseRule {
-                prefix: None,
-                infix: Some(Compiler::binary),
-                precedence: Precedence::Comparison,
-            },
-            _ => ParseRule::default(),
-        }
-    }
-}
-
 /// Represents a "word" in the program. Should be cheap to copy but I want to be explicit about when I'm copying
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Token {
     /// Token Type
     pub tt: TokenType,
-    /// Which line the token is on
-    pub line: usize,
     /// The part of source that the token is from
-    pub span: Span,
+    pub range: Range<usize>,
 }
 
 impl Token {
     /// Return the string of text the token represents in the source code
-    pub fn contained_string<'b>(&self, source: &'b Source) -> &'b str {
-        source
-            .slice(&self.span)
-            .expect("Token should point to valid string from source")
+    pub fn contained_string<'a>(&'a self, file: &'a File) -> RopeSlice {
+        file.get_slice(&self.range)
     }
 
+    /// Gets the line the token is on (zero indexed)
+    pub fn line(&self, file: &File) -> usize {
+        file.text.char_to_line(self.range.start)
+    }
+
+    /// Gets the length of the token
     pub fn length(&self) -> usize {
-        self.span.end - self.span.start
+        self.range.len()
     }
 }
