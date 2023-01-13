@@ -1,0 +1,5 @@
+number = Point { x: 4, y: 32 }
+cool = [1, 2, 4, "Bob", 4.2]
+call = wack()
+method = number.x.wack(4, "42")
+field = number.x

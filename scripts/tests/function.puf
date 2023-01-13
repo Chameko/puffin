@@ -1,5 +1,5 @@
-# This is a function
+// This is a function
 fun helloWorld(name) {
-    # This is a function call
+    // This is a function call
     doSomething()
 }
