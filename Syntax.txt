@@ -67,8 +67,9 @@ pattern -> structPattern | literalPattern | tuplePattern | arrayPattern | object
 
 patternMatch -> pattern "=" pattern ;
 
-structPattern -> IDENTIFIER { ((IDENTIFIER): pattern, )* } ;
+structPattern -> path { ((IDENTIFIER): pattern, )* } ;
 literalPattern -> LITERAL ;
+typePattern -> @ path
 tuplePattern -> ((pattern,)*) ;
 arrayPattern -> [ (pattern,)* ] ;
 objectPattern -> # { (STRING: pattern,)* } ;
