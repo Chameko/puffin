@@ -2,12 +2,12 @@ use super::prelude::*;
 
 #[derive(Debug, PartialEq)]
 pub struct Assignment {
-    assignee: Pat,
-    value: Pat,
+    assignee: Expr,
+    value: Expr,
 }
 
 impl Assignment {
-    pub fn new(assignee: Pat, value: Pat) -> Self {
+    pub fn new(assignee: Expr, value: Expr) -> Self {
         Self { assignee, value }
     }
 }

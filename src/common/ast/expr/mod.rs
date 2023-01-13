@@ -1,21 +1,29 @@
+pub mod access;
 pub mod binary;
+pub mod call;
+pub use super::prelude;
 use super::prelude::*;
 use super::stmt::{Block, If, Match};
+pub use access::Access;
 pub use binary::BinaryExpr;
+pub use call::Call;
 
 /// The building blocks of expressions
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     /// A binary expression
     BinaryExpr(BinaryExpr),
-    /// A literal
-    LiteralExpr(Literal),
-    /// An identifier
-    IdentExpr(Ident),
+    /// A pattern expression (this can also be used to represent literals and identifiers)
+    ///
+    /// The reason for this is because its near impossible to tell whether
+    /// a pattern is a pattern or a literal without the proper context. Hence
+    /// we determine this later by analysing the AST with context and just parse
+    /// everything as a pattern as a valid literal is also a valid pattern
+    PatExpr(Pat),
     /// A call to a function
-    CallExpr(Path),
+    CallExpr(Box<Call>),
     /// An access to a field
-    GetExpr(Box<Expr>),
+    AccessExpr(Box<Access>),
     /// An if statement that returns a value
     IfExpr(If),
     /// A match statement that returns a value
