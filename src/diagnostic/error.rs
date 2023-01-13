@@ -123,13 +123,13 @@ impl Snippet {
             // Possible highlight line
             let mut push = String::new();
             for num in 0..line.len_chars() {
-                if self.highlight.start <= (total_len + num)
-                    && self.highlight.end >= (total_len + num)
+                if self.highlight.start <= (total_len + num + self.src.start)
+                    && self.highlight.end >= (total_len + num + self.src.start)
                 {
                     // Add highlight to part we need to highlight
-                    push.push_str(&"~".color(color).bold());
+                    push.push_str(&"^".color(color).bold());
                     // If we're at then end of a highlight
-                    if self.highlight.end == total_len + num {
+                    if self.highlight.end == total_len + num + self.src.start {
                         // Add the text annotation
                         push.push_str(&format!(" {}", self.anno));
                         // We're done so break out of the loop
@@ -141,7 +141,7 @@ impl Snippet {
                 }
             }
             // If we contain a highlight add the line (and do pretty formatting)
-            if push.contains('~') {
+            if push.contains('^') {
                 rtrn.push_str(&format!(
                     "{:>spacing$}{}{}\n",
                     " ",
@@ -165,7 +165,7 @@ mod error_print_tests {
     #[test]
     fn error_one() {
         let src = Source::new("./scripts/tests/function.puf").unwrap();
-        let snip = Snippet::new(0..93, 26..34, "bad spelling");
+        let snip = Snippet::new(0..93, 26..35, "bad spelling");
         let error_msg = ErrorMsg::new(&src.files[0], "imagine", vec![snip]);
         println!("{}", error_msg.error())
     }
@@ -174,8 +174,8 @@ mod error_print_tests {
     #[test]
     fn warn_multiple() {
         let src = Source::new("./scripts/tests/function.puf").unwrap();
-        let snip = Snippet::new(0..93, 26..34, "bad spelling");
-        let snip2 = Snippet::new(0..93, 21..23, "not actually fun");
+        let snip = Snippet::new(0..93, 26..35, "bad spelling");
+        let snip2 = Snippet::new(0..93, 22..24, "not actually fun");
         let error_msg = ErrorMsg::new(&src.files[0], "Unhappy times", vec![snip, snip2]);
         println!("{}", error_msg.warn())
     }
