@@ -29,6 +29,12 @@ impl File {
             .expect("Expected in bounds range")
     }
 
+    /// Get a slice of the text as a string
+    pub fn get_string<R: RangeBounds<usize> + Clone>(&self, range: &R) -> String {
+        self.get_slice(range).to_string()
+    }
+
+    /// Get the path as a string
     pub fn display_path(&self) -> String {
         format!("{}", self.path.display())
     }

@@ -201,7 +201,9 @@ impl<'a> Scanner<'a> {
         if let Some(c) = self.current() {
             use crate::common::TokenType::*;
             match c {
+                'a' => self.check_word("and", 1, And),
                 'e' => self.check_word("else", 1, Else),
+                'o' => self.check_word("or", 1, Or),
                 'r' => self.check_word("return", 1, Return),
                 'u' => self.check_word("use", 1, Use),
                 'v' => self.check_word("var", 1, Var),
@@ -314,12 +316,13 @@ impl<'a> Scanner<'a> {
             use crate::common::TokenType::*;
             match c {
                 // Single character tokens
-                '.' => Ok(self.make_token(Dot, 1)),
                 '?' => Ok(self.make_token(QuestionMark, 1)),
                 '+' => Ok(self.make_token(Plus, 1)),
-                '/' => Ok(self.make_token(Slash, 1)),
                 '*' => Ok(self.make_token(Star, 1)),
                 ',' => Ok(self.make_token(Comma, 1)),
+                '@' => Ok(self.make_token(At, 1)),
+                '_' => Ok(self.make_token(Underscore, 1)),
+                '#' => Ok(self.make_token(Hash, 1)),
 
                 // Various brackets
                 '(' => Ok(self.make_token(LeftParen, 1)),
@@ -333,6 +336,10 @@ impl<'a> Scanner<'a> {
                 '!' => match self.peek() {
                     Some('=') => Ok(self.make_token(BangEqual, 2)),
                     _ => Ok(self.make_token(Bang, 1)),
+                },
+                '.' => match self.peek() {
+                    Some('.') => Ok(self.make_token(DoubleDot, 2)),
+                    _ => Ok(self.make_token(Dot, 1)),
                 },
                 '-' => match self.peek() {
                     Some('>') => Ok(self.make_token(Arrow, 2)),
@@ -354,6 +361,13 @@ impl<'a> Scanner<'a> {
                     Some('=') => Ok(self.make_token(DoubleEqual, 2)),
                     _ => Ok(self.make_token(Equal, 1)),
                 },
+                '/' => match self.peek() {
+                    Some('/') => {
+                        self.comment();
+                        self.scan_token()
+                    }
+                    _ => Ok(self.make_token(Slash, 1)),
+                },
 
                 // Special
                 '"' => {
@@ -362,10 +376,6 @@ impl<'a> Scanner<'a> {
                     // Go past remaining quote
                     self.advance();
                     tk
-                }
-                '#' => {
-                    self.comment();
-                    self.scan_token()
                 }
                 '\n' => Ok(self.make_token(NL, 1)),
 

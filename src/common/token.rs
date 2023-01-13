@@ -19,6 +19,9 @@ pub enum TokenType {
     Equal,
     Colon,
     Comma,
+    At,
+    Underscore,
+    Hash,
 
     // Brackets -> []
     LeftBracket,
@@ -36,9 +39,11 @@ pub enum TokenType {
     LessEqual,
     DoubleEqual,
     DoubleColon,
+    DoubleDot,
     BangEqual,
 
     // Keywords
+    And,
     Const,
     Else,
     False,
@@ -49,6 +54,7 @@ pub enum TokenType {
     Impl,
     In,
     Null,
+    Or,
     Return,
     Struct,
     Super,
@@ -68,6 +74,12 @@ pub enum TokenType {
     EOF,
     // New Line
     NL,
+}
+
+impl TokenType {
+    pub const fn is_value(&self) -> bool {
+        matches!(self, Self::String | Self::Integer | Self::Float)
+    }
 }
 
 impl std::fmt::Display for TokenType {
@@ -123,6 +135,12 @@ impl std::fmt::Display for TokenType {
             Integer => write!(f, "int"),
             EOF => write!(f, "end of file"),
             NL => write!(f, "new line"),
+            And => write!(f, "and"),
+            Or => write!(f, "or"),
+            At => write!(f, "@"),
+            Underscore => write!(f, "_"),
+            DoubleDot => write!(f, ".."),
+            Hash => write!(f, "#"),
         }
     }
 }
