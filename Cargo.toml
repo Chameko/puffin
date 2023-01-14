@@ -11,3 +11,4 @@ colored = "2.0"
 tracing = "0.1"
 ahash = "0.8"
 ropey = "1.5"
+puffin_macro = { path = "../puffin_macro"}
