@@ -3,6 +3,7 @@ use super::Block;
 
 /// A for loop
 #[derive(Debug, PartialEq)]
+#[ast(Stmt)]
 pub struct For {
     /// Identifier for value to be bound to
     bind: Ident,

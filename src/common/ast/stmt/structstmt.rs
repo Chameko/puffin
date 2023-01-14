@@ -4,6 +4,7 @@ use ahash::AHashMap;
 
 /// A struct
 #[derive(Debug, PartialEq)]
+#[ast(Stmt)]
 pub struct Struct {
     /// Name of the struct
     name: Ident,

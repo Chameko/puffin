@@ -2,14 +2,7 @@ use super::prelude::*;
 
 /// Represents a block of executable statements
 #[derive(Debug, PartialEq)]
-#[repr(transparent)]
+#[ast(Stmt)]
 pub struct Block {
-    contents: Vec<Statement>,
-}
-
-impl Block {
-    /// Create a new block
-    pub fn new(contents: Vec<Statement>) -> Self {
-        Self { contents }
-    }
+    contents: Vec<Stmt>,
 }

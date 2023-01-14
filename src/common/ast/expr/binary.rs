@@ -2,19 +2,32 @@ use super::Expr;
 
 #[derive(Debug, PartialEq)]
 pub enum BinaryExpr {
-    Multiply(Box<Expr>, Box<Expr>),
-    Divide(Box<Expr>, Box<Expr>),
-    Add(Box<Expr>, Box<Expr>),
-    Subtract(Box<Expr>, Box<Expr>),
-    Equal(Box<Expr>, Box<Expr>),
-    NotEqual(Box<Expr>, Box<Expr>),
-    Greater(Box<Expr>, Box<Expr>),
-    Less(Box<Expr>, Box<Expr>),
-    GreaterOrEqual(Box<Expr>, Box<Expr>),
-    LessOrEqual(Box<Expr>, Box<Expr>),
-    Or(Box<Expr>, Box<Expr>),
-    And(Box<Expr>, Box<Expr>),
-    Negate(Box<Expr>),
-    Not(Box<Expr>),
-    Group(Box<Expr>),
+    Multiply(Infix),
+    Divide(Infix),
+    Add(Infix),
+    Subtract(Infix),
+    Equal(Infix),
+    NotEqual(Infix),
+    Greater(Infix),
+    Less(Infix),
+    GreaterOrEqual(Infix),
+    LessOrEqual(Infix),
+    Or(Infix),
+    And(Infix),
+    Negate(Prefix),
+    Not(Prefix),
+    Group(Prefix),
+}
+
+#[derive(Debug, PartialEq)]
+#[puffin_macro::ast(_)]
+pub struct Infix {
+    a: Expr,
+    b: Expr,
+}
+
+#[derive(Debug, PartialEq)]
+#[puffin_macro::ast(_)]
+pub struct Prefix {
+    a: Expr,
 }

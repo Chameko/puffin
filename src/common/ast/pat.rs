@@ -11,7 +11,7 @@ pub enum Pat {
     /// Used to match types (usefull as this is a dynamic language)
     TypePat(Path),
     /// Struct Pattern
-    StructPat(StructPat),
+    StructPat(Struct),
     /// List Pattern
     ListPat(Vec<Expr>),
     /// Object Pattern
@@ -24,16 +24,10 @@ pub enum Pat {
 
 /// A struct pattern
 #[derive(Debug, PartialEq)]
-pub struct StructPat {
+#[puffin_macro::ast(Pat)]
+pub struct Struct {
     /// The type of the struct
     ty: Path,
     /// Its fields each of which hold a corresponding pattern
     fields: AHashMap<Ident, Expr>,
-}
-
-impl StructPat {
-    /// Create new struct pat
-    pub fn new(ty: Path, fields: AHashMap<Ident, Expr>) -> Self {
-        Self { ty, fields }
-    }
 }

@@ -18,12 +18,12 @@ pub use ident::Ident;
 pub use lit::Literal;
 pub use pat::Pat;
 pub use path::Path;
-pub use stmt::Statement;
+pub use stmt::Stmt;
 
 /// The root of the Abstract Syntax Tree
 #[derive(Debug, PartialEq)]
 pub struct Root {
-    contents: Vec<Statement>,
+    contents: Vec<Stmt>,
 }
 
 impl Root {
@@ -33,7 +33,7 @@ impl Root {
     }
 
     /// Push a statement onto the AST
-    pub fn push(&mut self, stmt: Statement) {
+    pub fn push(&mut self, stmt: Stmt) {
         self.contents.push(stmt);
     }
 }

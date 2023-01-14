@@ -14,7 +14,7 @@ pub mod whilestmt;
 
 pub use super::prelude;
 use super::Expr;
-pub use assign::Assignment;
+pub use assign::Assign;
 pub use block::Block;
 pub use forstmt::For;
 pub use func::Func;
@@ -29,10 +29,10 @@ pub use var::Var;
 pub use whilestmt::While;
 
 #[derive(Debug, PartialEq)]
-pub enum Statement {
+pub enum Stmt {
     ExprStmt(Expr),
     VarStmt(Var),
-    AssignStmt(Assignment),
+    AssignStmt(Assign),
     IfStmt(If),
     WhileStmt(While),
     TraitStmt(Trait),

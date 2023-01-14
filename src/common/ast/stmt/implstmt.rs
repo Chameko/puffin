@@ -3,6 +3,7 @@ use super::Func;
 
 /// An impl
 #[derive(Debug, PartialEq)]
+#[ast(Stmt)]
 pub struct Impl {
     /// Which struct we apply it to
     apply: Path,

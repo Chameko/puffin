@@ -7,10 +7,9 @@ use expr::{
 use crate::{
     common::{
         ast::{
-            expr::{self, Access},
-            pat::StructPat,
-            stmt::Assignment,
-            Root, Statement,
+            expr::{self, Access, Infix, Prefix},
+            stmt::Assign,
+            Root, Stmt,
         },
         File, Token, TokenType,
     },
@@ -19,11 +18,13 @@ use crate::{
 
 /// Used to create binary expressions without giving me headache
 macro_rules! binexp {
-    ($var: ident, $itm: expr) => {
-        Expr::BinaryExpr(expr::BinaryExpr::$var(Box::new($itm)))
+    ($var: ident, $itm: expr, $range: expr) => {
+        Expr::BinaryExpr(Box::new(expr::BinaryExpr::$var(Prefix::new($itm, $range))))
     };
-    ($var: ident, $itm: ident, $itm2: ident) => {
-        Expr::BinaryExpr(expr::BinaryExpr::$var(Box::new($itm), Box::new($itm2)))
+    ($var: ident, $itm: expr, $itm2: expr, $range: expr) => {
+        Expr::BinaryExpr(Box::new(expr::BinaryExpr::$var(Infix::new(
+            $itm, $itm2, $range,
+        ))))
     };
 }
 
@@ -32,13 +33,14 @@ macro_rules! parse_precedence {
     ($self:ident, $higher:ident, $expr:ident, $([$tk:ident | $astn:ident]),+) => {
         let valid = [$(TokenType::$tk,)+];
         while $self.check_match(&valid) {
+            let rng = $self.peek().range.clone();
             $self.advance();
             $self.advance();
             let op = $self.previous().tt;
             let rhs = $self.$higher()?;
 
             match op {
-                $(TokenType::$tk => $expr = binexp!($astn, $expr, rhs),)+
+                $(TokenType::$tk => $expr = binexp!($astn, $expr, rhs, rng),)+
                 _ => panic!("Operator should be valid. Unreachable.")
             }
         }
@@ -126,7 +128,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a statement
-    fn statement(&mut self) -> Result<Statement, PuffinError<'a>> {
+    fn statement(&mut self) -> Result<Stmt, PuffinError<'a>> {
         match self.current().tt {
             // TODO: Other statement types
             _ => self.expression_stmt(),
@@ -134,7 +136,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse expression statements
-    fn expression_stmt(&mut self) -> Result<Statement, PuffinError<'a>> {
+    fn expression_stmt(&mut self) -> Result<Stmt, PuffinError<'a>> {
         let stmt = self.assignment_stmt()?;
         // Only check for the newline if we aren't at the end of file
         // This removes the requirement for a New line at then end of a file
@@ -146,15 +148,16 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse assignments
-    fn assignment_stmt(&mut self) -> Result<Statement, PuffinError<'a>> {
+    fn assignment_stmt(&mut self) -> Result<Stmt, PuffinError<'a>> {
         let expr = self.expression()?;
-        self.advance();
-        if self.current().tt == TokenType::Equal {
+        if self.peek().tt == TokenType::Equal {
+            self.advance();
+            let rng = self.peek().range.clone();
             self.advance();
             let rhs = self.expression()?;
-            return Ok(Statement::AssignStmt(Assignment::new(expr, rhs)));
+            return Ok(Assign::ast_node(expr, rhs, rng));
         }
-        Ok(Statement::ExprStmt(expr))
+        Ok(Stmt::ExprStmt(expr))
     }
 
     /// Parse expressions
@@ -216,12 +219,14 @@ impl<'a> Parser<'a> {
     fn unary(&mut self) -> Result<Expr, PuffinError<'a>> {
         Ok(match self.current().tt {
             TokenType::Bang => {
+                let rng = self.current().range.clone();
                 self.advance();
-                binexp!(Not, self.unary()?)
+                binexp!(Not, self.unary()?, rng)
             }
             TokenType::Minus => {
+                let rng = self.current().range.clone();
                 self.advance();
-                binexp!(Negate, self.unary()?)
+                binexp!(Negate, self.unary()?, rng)
             }
             _ => self.method()?,
         })
@@ -231,9 +236,10 @@ impl<'a> Parser<'a> {
     fn call(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.primary()?;
         while self.check_match(&[TokenType::LeftParen]) {
+            let rng = self.peek().range.clone();
             self.advance();
             let args = self.arguments()?;
-            expr = Expr::CallExpr(Box::new(expr::Call::new(expr, args)));
+            expr = Expr::CallExpr(Box::new(expr::Call::new(expr, args, rng)));
         }
         Ok(expr)
     }
@@ -242,10 +248,16 @@ impl<'a> Parser<'a> {
         let mut expr = self.call()?;
         // Ignore newlines between field accesses. This allows for neater syntax
         while self.check_match_ignore_newline(&[TokenType::Dot]) {
+            let rng;
+            if TokenType::NL == self.peek().tt {
+                rng = self.double_peek().range.clone();
+            } else {
+                rng = self.peek().range.clone()
+            }
             self.advance();
             self.advance();
             let rhs = self.method()?;
-            expr = Expr::AccessExpr(Box::new(Access::new(expr, rhs)));
+            expr = Expr::AccessExpr(Box::new(Access::new(expr, rhs, rng)));
         }
         Ok(expr)
     }
@@ -440,6 +452,7 @@ impl<'a> Parser<'a> {
 
     /// Parse a struct or identifier pattern
     fn struct_pattern(&mut self) -> Result<Pat, PuffinError<'a>> {
+        let rng = self.current().range.clone();
         match self.peek().tt {
             TokenType::LeftBrace => {
                 let path = self.path()?;
@@ -513,7 +526,7 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-                Ok(Pat::StructPat(StructPat::new(path, map)))
+                Ok(crate::common::ast::pat::Struct::ast_node(path, map, rng))
             }
             _ => Ok(Pat::IdentPat(Ident::new(
                 self.file.get_string(&self.current().range),

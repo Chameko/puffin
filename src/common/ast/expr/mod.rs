@@ -5,14 +5,14 @@ pub use super::prelude;
 use super::prelude::*;
 use super::stmt::{Block, If, Match};
 pub use access::Access;
-pub use binary::BinaryExpr;
+pub use binary::*;
 pub use call::Call;
 
 /// The building blocks of expressions
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     /// A binary expression
-    BinaryExpr(BinaryExpr),
+    BinaryExpr(Box<BinaryExpr>),
     /// A pattern expression (this can also be used to represent literals and identifiers)
     ///
     /// The reason for this is because its near impossible to tell whether
@@ -25,7 +25,7 @@ pub enum Expr {
     /// An access to a field
     AccessExpr(Box<Access>),
     /// An if statement that returns a value
-    IfExpr(If),
+    IfExpr(Box<If>),
     /// A match statement that returns a value
     MatchExpr(Match),
     /// A block statement that returns a value

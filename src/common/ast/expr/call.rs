@@ -2,6 +2,7 @@ use super::prelude::*;
 
 /// A function call
 #[derive(Debug, PartialEq)]
+#[ast(<Expr>)]
 pub struct Call {
     /// The name of the function being called
     source: Expr,
@@ -10,11 +11,6 @@ pub struct Call {
 }
 
 impl Call {
-    /// Create a new call
-    pub fn new(source: Expr, arguments: Vec<Expr>) -> Self {
-        Self { source, arguments }
-    }
-
     /// Adds an argument to the back of Call's arguments list
     pub fn push_arg(&mut self, arg: Expr) {
         self.arguments.push(arg)
