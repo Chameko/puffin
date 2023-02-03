@@ -248,12 +248,11 @@ impl<'a> Parser<'a> {
         let mut expr = self.call()?;
         // Ignore newlines between field accesses. This allows for neater syntax
         while self.check_match_ignore_newline(&[TokenType::Dot]) {
-            let rng;
-            if TokenType::NL == self.peek().tt {
-                rng = self.double_peek().range.clone();
+            let rng = if TokenType::NL == self.peek().tt {
+                self.double_peek().range.clone()
             } else {
-                rng = self.peek().range.clone()
-            }
+                self.peek().range.clone()
+            };
             self.advance();
             self.advance();
             let rhs = self.method()?;
