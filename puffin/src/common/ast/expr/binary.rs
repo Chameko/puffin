@@ -1,33 +1,36 @@
 use super::Expr;
 
+#[puffin_macro::ast_enum]
 #[derive(Debug, PartialEq)]
 pub enum BinaryExpr {
-    Multiply(Infix),
-    Divide(Infix),
-    Add(Infix),
-    Subtract(Infix),
-    Equal(Infix),
-    NotEqual(Infix),
-    Greater(Infix),
-    Less(Infix),
-    GreaterOrEqual(Infix),
-    LessOrEqual(Infix),
-    Or(Infix),
-    And(Infix),
-    Negate(Prefix),
-    Not(Prefix),
-    Group(Prefix),
-}
-
-#[derive(Debug, PartialEq)]
-#[puffin_macro::ast(_)]
-pub struct Infix {
-    a: Expr,
-    b: Expr,
-}
-
-#[derive(Debug, PartialEq)]
-#[puffin_macro::ast(_)]
-pub struct Prefix {
-    a: Expr,
+    /// Multiply operation
+    Multiply { a: Expr, b: Expr },
+    /// Divide operation
+    Divide { a: Expr, b: Expr },
+    /// Add operation
+    Add { a: Expr, b: Expr },
+    /// Subtract operation
+    Subtract { a: Expr, b: Expr },
+    /// Equality operation
+    Equal { a: Expr, b: Expr },
+    /// Inequality operation
+    NotEqual { a: Expr, b: Expr },
+    /// Greater than operation
+    Greater { a: Expr, b: Expr },
+    /// Less than operation
+    Less { a: Expr, b: Expr },
+    /// Greater than or equal to operation
+    GreaterOrEqual { a: Expr, b: Expr },
+    /// Less than or equal to operation
+    LessOrEqual { a: Expr, b: Expr },
+    /// Logical or
+    Or { a: Expr, b: Expr },
+    /// Logical and
+    And { a: Expr, b: Expr },
+    /// Negate operation
+    Negate { a: Expr },
+    /// Logical not
+    Not { a: Expr },
+    /// Parentheses and grouping operation
+    Group { a: Expr },
 }

@@ -1,33 +1,42 @@
-use super::prelude::*;
 use ahash::AHashMap;
 
+pub use super::prelude;
+use super::prelude::*;
+
 /// Enum for pattern
+#[puffin_macro::ast_enum(ignore = Literal, Type)]
 #[derive(Debug, PartialEq)]
 pub enum Pat {
     /// Identifier pattern
-    IdentPat(Ident),
+    Ident { name: String },
     /// Literal pattern
-    LiteralPat(Literal),
-    /// Used to match types (usefull as this is a dynamic language)
-    TypePat(Path),
+    Literal(Literal),
+    /// Used to match types (useful as this is a dynamic language)
+    Type(Path),
     /// Struct Pattern
-    StructPat(Struct),
+    Struct {
+        /// Which struct we're referring to
+        ty: Path,
+        /// Fields in pattern
+        fields: AHashMap<Ident, Expr>,
+    },
     /// List Pattern
-    ListPat(Vec<Expr>),
+    List {
+        /// The expressions in the list pattern
+        list: Vec<Expr>,
+    },
+    /// Tuple Pattern
+    Tuple {
+        /// The expressions in the tuple pattern
+        tuple: Vec<Expr>,
+    },
     /// Object Pattern
-    ObjectPat(AHashMap<String, Expr>),
+    Object {
+        /// The fields in the object pattern
+        fields: AHashMap<String, Expr>,
+    },
     /// Signifies that a specific part of the pattern should be ignored
-    IgnorePat,
+    Ignore {},
     /// Signifies that the rest of the pattern should be ignored
-    ContinuePat,
-}
-
-/// A struct pattern
-#[derive(Debug, PartialEq)]
-#[puffin_macro::ast(Pat)]
-pub struct Struct {
-    /// The type of the struct
-    ty: Path,
-    /// Its fields each of which hold a corresponding pattern
-    fields: AHashMap<Ident, Expr>,
+    Continue {},
 }

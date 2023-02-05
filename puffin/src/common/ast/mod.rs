@@ -1,4 +1,4 @@
-/// Experssions
+/// Expressions
 pub mod expr;
 /// Identifier
 pub mod ident;

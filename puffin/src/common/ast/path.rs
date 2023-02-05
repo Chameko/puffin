@@ -1,16 +1,11 @@
 use super::Ident;
 
 /// A path to a module in puffin
+#[puffin_macro::ast(_)]
 #[derive(Debug, PartialEq)]
 pub struct Path {
     /// The path as a vec of literals
     path: Vec<Ident>,
-}
-
-impl Path {
-    pub fn new(path: Vec<Ident>) -> Self {
-        Self { path }
-    }
 }
 
 impl std::fmt::Display for Path {
