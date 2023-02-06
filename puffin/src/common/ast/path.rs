@@ -15,7 +15,7 @@ impl std::fmt::Display for Path {
             "{}",
             self.path
                 .iter()
-                .map(|l| format!("{}::", l))
+                .map(|l| format!("{l}::"))
                 .collect::<String>()
                 .trim_end_matches("::")
         )

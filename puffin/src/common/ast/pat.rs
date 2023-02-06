@@ -4,15 +4,18 @@ pub use super::prelude;
 use super::prelude::*;
 
 /// Enum for pattern
-#[puffin_macro::ast_enum(ignore = Literal, Type)]
+#[puffin_macro::ast_enum(ignore = Literal, Ident)]
 #[derive(Debug, PartialEq)]
 pub enum Pat {
     /// Identifier pattern
-    Ident { name: String },
+    Ident(Ident),
     /// Literal pattern
     Literal(Literal),
     /// Used to match types (useful as this is a dynamic language)
-    Type(Path),
+    Type {
+        /// Type path
+        ty: Path,
+    },
     /// Struct Pattern
     Struct {
         /// Which struct we're referring to

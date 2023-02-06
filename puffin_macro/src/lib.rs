@@ -4,7 +4,6 @@ use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse::{Parse, Parser},
     parse2, parse_macro_input,
-    punctuated::Punctuated,
     spanned::Spanned,
     Fields, ItemEnum, ItemStruct, Token, Variant,
 };
@@ -68,7 +67,7 @@ impl Parse for ASTEnumException {
                     return Err(syn::Error::new(phrase.span(), "Expected valid phrase"));
                 }
             }
-            if let Err(_) = input.parse::<Token![|]>() {
+            if input.parse::<Token![|]>().is_err() {
                 cont = false;
             }
         }

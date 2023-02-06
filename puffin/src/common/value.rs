@@ -35,38 +35,38 @@ pub struct PuffTuple {
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Float(n) => write!(f, "{}", n),
-            Self::Int(i) => write!(f, "{}", i),
-            Self::Bool(b) => write!(f, "{}", b),
+            Self::Float(n) => write!(f, "{n}"),
+            Self::Int(i) => write!(f, "{i}"),
+            Self::Bool(b) => write!(f, "{b}"),
             Self::Struct(s) => write!(
                 f,
                 "{} {{ {} }}",
                 s.name,
                 s.fields
                     .iter()
-                    .map(|(i, v)| format!("{}: {}, ", i, v))
+                    .map(|(i, v)| format!("{i}: {v}, "))
                     .collect::<String>()
             ),
-            Self::String(s) => write!(f, "{}", s),
+            Self::String(s) => write!(f, "{s}"),
             Self::Tuple(t) => write!(
                 f,
                 "({})",
                 t.fields
                     .iter()
-                    .map(|v| format!("{}, ", v))
+                    .map(|v| format!("{v}, "))
                     .collect::<String>()
             ),
             Self::Object(o) => write!(
                 f,
                 "#{{{}}}",
                 o.iter()
-                    .map(|(i, v)| format!("{}: {}, ", i, v))
+                    .map(|(i, v)| format!("{i}: {v}, "))
                     .collect::<String>()
             ),
             Self::List(l) => write!(
                 f,
                 "[{}]",
-                l.iter().map(|v| format!("{}, ", v)).collect::<String>()
+                l.iter().map(|v| format!("{v}, ")).collect::<String>()
             ),
             Self::Null => write!(f, "null"),
         }
