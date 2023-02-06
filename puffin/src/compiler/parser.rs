@@ -1,53 +1,33 @@
-use ahash::AHashMap;
-use expr::{
-    prelude::{Ident, Literal, Pat, Path},
-    Expr,
-};
-
 use crate::{
     common::{
-        ast::{
-            expr::{self, Access, Infix, Prefix},
-            stmt::Assign,
-            Root, Stmt,
-        },
+        ast::{expr, expr::binary, lit, pat, stmt, Expr, Ident, Pat, Path, Root, Stmt},
         File, Token, TokenType,
     },
     diagnostic::{ErrorMsg, PuffinError, Snippet},
 };
+use ahash::AHashMap;
 
-/// Used to create binary expressions without giving me headache
-macro_rules! binexp {
-    ($var: ident, $itm: expr, $range: expr) => {
-        Expr::BinaryExpr(Box::new(expr::BinaryExpr::$var(Prefix::new($itm, $range))))
-    };
-    ($var: ident, $itm: expr, $itm2: expr, $range: expr) => {
-        Expr::BinaryExpr(Box::new(expr::BinaryExpr::$var(Infix::new(
-            $itm, $itm2, $range,
-        ))))
-    };
-}
-
-/// Used to create the binary expression functions in the parser.
+/// Used to create the binary expression parsing functions in the parser.
 macro_rules! parse_precedence {
-    ($self:ident, $higher:ident, $expr:ident, $([$tk:ident | $astn:ident]),+) => {
+    ($self:ident, $higher:ident, $expr:ident, $([$tk:ident | $astn:ty]),+) => {
         let valid = [$(TokenType::$tk,)+];
         while $self.check_match(&valid) {
-            let rng = $self.peek().range.clone();
             $self.advance();
+            let rng = $self.current().range.clone();
+            let op = $self.current().tt;
             $self.advance();
-            let op = $self.previous().tt;
-            let rhs = $self.$higher()?;
+            let rhs = $self.$higher();
+            let rhs = $self.handle_error(&Parser::$higher, rhs)?;
 
             match op {
-                $(TokenType::$tk => $expr = binexp!($astn, $expr, rhs, rng),)+
+                $(TokenType::$tk => $expr = Expr::Binary(Box::new(<$astn>::ast_node(rng, $expr, rhs))),)+
                 _ => panic!("Operator should be valid. Unreachable.")
             }
         }
     };
 }
 
-/// The recursive descent parser for puffin. This is simmilar to the one found in
+/// The recursive descent parser for puffin. This is similar to the one found in
 /// Crafting Interpreters, which I recommend you read if you want to understand how
 /// this parser works
 pub struct Parser<'a> {
@@ -57,6 +37,8 @@ pub struct Parser<'a> {
     tokens: Vec<Token>,
     /// The current tokens index
     index: usize,
+    /// The errors caught by the parser
+    errors: Vec<PuffinError<'a>>,
 }
 
 impl<'a> Parser<'a> {
@@ -106,24 +88,24 @@ impl<'a> Parser<'a> {
             file,
             tokens: tks,
             index: 0,
+            errors: vec![],
         }
     }
 
     /// Parse the tokens
-    pub fn parse(&mut self) -> Result<Root, Vec<PuffinError>> {
+    pub fn parse(&mut self) -> Option<Root> {
         let mut root = Root::default();
-        let mut errors: Vec<PuffinError> = vec![];
         while !self.end_of_file() {
             match self.statement() {
                 Ok(stmt) => root.push(stmt),
-                Err(e) => errors.push(e),
+                Err(e) => self.errors.push(e),
             }
             self.advance();
         }
-        if errors.is_empty() {
-            Ok(root)
+        if self.errors.is_empty() {
+            Some(root)
         } else {
-            Err(errors)
+            None
         }
     }
 
@@ -139,11 +121,10 @@ impl<'a> Parser<'a> {
     fn expression_stmt(&mut self) -> Result<Stmt, PuffinError<'a>> {
         let stmt = self.assignment_stmt()?;
         // Only check for the newline if we aren't at the end of file
-        // This removes the requirement for a New line at then end of a file
         if self.peek().tt != TokenType::EOF {
             self.check_consume(TokenType::NL)?;
         }
-        println!("Stmts: {:?}", stmt);
+        println!("Stmts: {stmt:?}");
         Ok(stmt)
     }
 
@@ -155,12 +136,13 @@ impl<'a> Parser<'a> {
             let rng = self.peek().range.clone();
             self.advance();
             let rhs = self.expression()?;
-            return Ok(Assign::ast_node(expr, rhs, rng));
+            return Ok(stmt::AssignStmt::ast_node(rng, expr, rhs));
         }
         Ok(Stmt::ExprStmt(expr))
     }
 
     /// Parse expressions
+    #[inline]
     fn expression(&mut self) -> Result<Expr, PuffinError<'a>> {
         self.logical_or()
     }
@@ -168,21 +150,26 @@ impl<'a> Parser<'a> {
     /// Parse a logical or
     fn logical_or(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.logical_and()?;
-        parse_precedence!(self, logical_and, expr, [Or | Or]);
+        parse_precedence!(self, logical_and, expr, [Or | binary::OrBinaryExpr]);
         Ok(expr)
     }
 
     /// Parse a logical and
     fn logical_and(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.equality()?;
-        parse_precedence!(self, equality, expr, [And | And]);
+        parse_precedence!(self, equality, expr, [And | binary::AndBinaryExpr]);
         Ok(expr)
     }
 
     /// Parse an equality comparison
     fn equality(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.comparison()?;
-        parse_precedence!(self, comparison, expr, [DoubleEqual | Equal]);
+        parse_precedence!(
+            self,
+            comparison,
+            expr,
+            [DoubleEqual | binary::EqualBinaryExpr]
+        );
         Ok(expr)
     }
 
@@ -193,10 +180,10 @@ impl<'a> Parser<'a> {
             self,
             term,
             expr,
-            [GreaterEqual | GreaterOrEqual],
-            [LessEqual | LessOrEqual],
-            [Greater | Greater],
-            [Less | Less]
+            [GreaterEqual | binary::GreaterOrEqualBinaryExpr],
+            [LessEqual | binary::LessOrEqualBinaryExpr],
+            [Greater | binary::GreaterBinaryExpr],
+            [Less | binary::LessBinaryExpr]
         );
         Ok(expr)
     }
@@ -204,14 +191,26 @@ impl<'a> Parser<'a> {
     /// Parse an addition or subtraction
     fn term(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.product()?;
-        parse_precedence!(self, product, expr, [Plus | Add], [Minus | Subtract]);
+        parse_precedence!(
+            self,
+            product,
+            expr,
+            [Plus | binary::AddBinaryExpr],
+            [Minus | binary::SubtractBinaryExpr]
+        );
         Ok(expr)
     }
 
     /// Parse a multiplication or division
     fn product(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.unary()?;
-        parse_precedence!(self, product, expr, [Star | Multiply], [Slash | Divide]);
+        parse_precedence!(
+            self,
+            product,
+            expr,
+            [Star | binary::MultiplyBinaryExpr],
+            [Slash | binary::DivideBinaryExpr]
+        );
         Ok(expr)
     }
 
@@ -221,25 +220,31 @@ impl<'a> Parser<'a> {
             TokenType::Bang => {
                 let rng = self.current().range.clone();
                 self.advance();
-                binexp!(Not, self.unary()?, rng)
+                Expr::Binary(Box::new(binary::NotBinaryExpr::ast_node(
+                    rng,
+                    self.unary()?,
+                )))
             }
             TokenType::Minus => {
                 let rng = self.current().range.clone();
                 self.advance();
-                binexp!(Negate, self.unary()?, rng)
+                Expr::Binary(Box::new(binary::NegateBinaryExpr::ast_node(
+                    rng,
+                    self.unary()?,
+                )))
             }
             _ => self.method()?,
         })
     }
 
-    /// Parse a call to a fuction
+    /// Parse a call to a function
     fn call(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.primary()?;
         while self.check_match(&[TokenType::LeftParen]) {
             let rng = self.peek().range.clone();
             self.advance();
             let args = self.arguments()?;
-            expr = Expr::CallExpr(Box::new(expr::Call::new(expr, args, rng)));
+            expr = expr::CallExpr::ast_node(rng, expr, args);
         }
         Ok(expr)
     }
@@ -256,14 +261,14 @@ impl<'a> Parser<'a> {
             self.advance();
             self.advance();
             let rhs = self.method()?;
-            expr = Expr::AccessExpr(Box::new(Access::new(expr, rhs, rng)));
+            expr = expr::AccessExpr::ast_node(rng, expr, rhs);
         }
         Ok(expr)
     }
 
     /// Parse the arguments to a function
     fn arguments(&mut self) -> Result<Vec<Expr>, PuffinError<'a>> {
-        self.comma_seperated_list_pattern(TokenType::RightParen)
+        self.comma_separated_list_pattern(TokenType::RightParen)
     }
 
     /// Parse a module path
@@ -272,72 +277,127 @@ impl<'a> Parser<'a> {
 
         // Filters for only valid path characters
         if self.current().tt == TokenType::Identifier {
-            path.push(Ident::new(self.file.get_string(&self.current().range)));
+            let rng = self.current().range.clone();
+            path.push(Ident::new(rng, self.file.get_string(&self.current().range)));
             while self.check_match(&[TokenType::DoubleColon]) {
                 // Make sure the next token is an ident
                 self.check_consume(TokenType::Identifier)?;
-                path.push(Ident::new(self.file.get_string(&self.current().range)));
+                path.push(Ident::new(
+                    self.current().range.clone(),
+                    self.file.get_string(&self.current().range),
+                ));
                 self.advance()
             }
-            Ok(Path::new(path))
+            // Create range with entire path
+            let rng = path
+                .first()
+                .expect("Path should have at least one ident. Unreachable")
+                .range
+                .start
+                ..path
+                    .last()
+                    .expect("Path should have at least one ident. Unreachable")
+                    .range
+                    .end;
+            Ok(Path::new(rng, path))
         } else {
             let err = ErrorMsg::new(
                 self.file,
                 "Empty module path",
-                vec![self.make_line_snippet(self.current(), "Type expected here")],
+                vec![self.make_line_snippet(self.current(), "Path expected here")],
             );
             Err(PuffinError::Error(err))
         }
     }
 
     /// Parse various literals
+    #[inline]
     fn primary(&mut self) -> Result<Expr, PuffinError<'a>> {
-        Ok(Expr::PatExpr(self.pattern()?))
+        self.pattern()
     }
 
     /// Parse a pattern
-    fn pattern(&mut self) -> Result<Pat, PuffinError<'a>> {
+    fn pattern(&mut self) -> Result<Expr, PuffinError<'a>> {
         match self.current().tt {
-            // Array pat
-            TokenType::LeftBracket => Ok(Pat::ListPat(
-                self.comma_seperated_list_pattern(TokenType::RightBracket)?,
-            )),
+            // Array pattern
+            TokenType::LeftBracket => {
+                let start = self.current().range.start;
+                let array = self.comma_separated_list_pattern(TokenType::RightBracket)?;
+                let rng = start..self.current().range.end;
+                Ok(Expr::Pat(pat::ListPat::ast_node(rng, array)))
+            }
+            // Tuple pattern or grouping
+            TokenType::LeftParen => {
+                let start = self.current().range.start;
+                let mut pat = self.comma_separated_list_pattern(TokenType::RightParen)?;
+                let rng = start..self.current().range.end;
+                // If a tuple has a length of one its a grouping operator
+                if pat.len() == 1 {
+                    Ok(Expr::Binary(Box::new(binary::GroupBinaryExpr::ast_node(
+                        rng,
+                        pat.remove(0),
+                    ))))
+                } else {
+                    Ok(Expr::Pat(pat::TuplePat::ast_node(rng, pat)))
+                }
+            }
             // Continue pattern
-            TokenType::DoubleDot => Ok(Pat::ContinuePat),
-            // Ignore patterm
-            TokenType::Underscore => Ok(Pat::IgnorePat),
-            // Struct and Ident pat
-            TokenType::Identifier => Ok(self.struct_pattern()?),
+            TokenType::DoubleDot => Ok(Expr::Pat(pat::ContinuePat::ast_node(
+                self.current().range.clone(),
+            ))),
+            // Ignore pattern
+            TokenType::Underscore => Ok(Expr::Pat(pat::IgnorePat::ast_node(
+                self.current().range.clone(),
+            ))),
+            // Struct and Ident pattern
+            TokenType::Identifier => Ok(Expr::Pat(self.struct_pattern()?)),
             // Type pattern
             TokenType::At => {
+                let start = self.current().range.start;
                 self.advance();
                 let path = self.path()?;
-                Ok(Pat::TypePat(path))
+                Ok(Expr::Pat(pat::TypePat::ast_node(
+                    start..self.current().range.end,
+                    path,
+                )))
             }
             TokenType::Hash => {
                 self.advance();
-                Ok(self.object_pattern()?)
+                Ok(Expr::Pat(self.object_pattern()?))
             }
             // Literal patterns
-            TokenType::String => Ok(Pat::LiteralPat(Literal::String(self.current_string()))),
+            TokenType::String => Ok(Expr::Pat(Pat::Literal(lit::StringLiteral::ast_node(
+                self.current().range.clone(),
+                self.current_string(),
+            )))),
             TokenType::Float => {
                 let str = self.current_string();
-                Ok(Pat::LiteralPat(Literal::Float(
+                Ok(Expr::Pat(Pat::Literal(lit::FloatLiteral::ast_node(
+                    self.current().range.clone(),
                     str.parse::<f64>().expect("String should convert to f64"),
-                )))
+                ))))
             }
             TokenType::Integer => {
                 let str = self.current_string();
-                Ok(Pat::LiteralPat(Literal::Int(
+                Ok(Expr::Pat(Pat::Literal(lit::IntLiteral::ast_node(
+                    self.current().range.clone(),
                     str.parse::<i64>()
                         .expect("String should convert to valid i64"),
-                )))
+                ))))
             }
-            TokenType::False => Ok(Pat::LiteralPat(Literal::Bool(false))),
-            TokenType::True => Ok(Pat::LiteralPat(Literal::Bool(true))),
-            TokenType::Null => Ok(Pat::LiteralPat(Literal::Null)),
+            TokenType::False => Ok(Expr::Pat(Pat::Literal(lit::BoolLiteral::ast_node(
+                self.current().range.clone(),
+                false,
+            )))),
+            TokenType::True => Ok(Expr::Pat(Pat::Literal(lit::BoolLiteral::ast_node(
+                self.current().range.clone(),
+                true,
+            )))),
+            TokenType::Null => Ok(Expr::Pat(Pat::Literal(lit::NullLiteral::ast_node(
+                self.current().range.clone(),
+            )))),
             _ => {
-                let snip = self.make_line_snippet(self.current(), "Not valid expression");
+                let snip = self.make_line_snippet(self.current(), "Not valid syntax");
                 Err(PuffinError::Error(self.create_error(
                     &format!("Expected valid expression, found {}", self.current().tt),
                     vec![snip],
@@ -346,13 +406,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parse a pattern that involves a list of expressions seperated by commas and held inside
+    /// Parse a pattern that involves a list of expressions separated by commas and held inside
     /// two limiters. i.e. (1, 2) and [5, 2]
-    fn comma_seperated_list_pattern(
+    fn comma_separated_list_pattern(
         &mut self,
         delimiter: TokenType,
     ) -> Result<Vec<Expr>, PuffinError<'a>> {
-        // ALllow for NL after bracket
+        // AAllow for NL after bracket
         self.skip_newline();
         let mut expr = vec![];
         // Check that we aren't already at the end
@@ -387,6 +447,7 @@ impl<'a> Parser<'a> {
 
     /// Parse an object pattern
     fn object_pattern(&mut self) -> Result<Pat, PuffinError<'a>> {
+        let start = self.previous().range.start;
         self.check_consume(TokenType::LeftBrace)?;
         let mut map: AHashMap<String, Expr> = AHashMap::new();
         // Parse the struct fields
@@ -403,10 +464,9 @@ impl<'a> Parser<'a> {
                             map.insert(ident, expr);
                         }
                         _ => {
-                            let snip =
-                                self.make_line_snippet(self.current(), "Expected `:` or `,`");
+                            let snip = self.make_line_snippet(self.current(), "Expected `:`");
                             Err(PuffinError::Error(self.create_error(
-                                &format!("Expected `:` or `,` found {}", self.current().tt),
+                                &format!("Expected `:` found {}", self.current().tt),
                                 vec![snip],
                             )))?;
                         }
@@ -415,8 +475,11 @@ impl<'a> Parser<'a> {
                 // Continue pattern
                 TokenType::DoubleDot => {
                     // As struct uses a map we use an impossible identifier to signal
-                    // the use of a continue pattern as it has no assosiated ident
-                    map.insert("@cont".to_string(), Expr::PatExpr(Pat::ContinuePat));
+                    // the use of a continue pattern as it has no associated ident
+                    map.insert(
+                        "@cont".to_string(),
+                        Expr::Pat(pat::ContinuePat::ast_node(self.current().range.clone())),
+                    );
                     self.advance();
                     // Pass over possible trailing comma
                     if self.current().tt == TokenType::Comma {
@@ -437,7 +500,7 @@ impl<'a> Parser<'a> {
                     )))?;
                 }
             }
-            // Consume the seperating comma
+            // Consume the separating comma
             if self.current().tt == TokenType::Comma {
                 self.advance();
                 // Allow newlines
@@ -446,7 +509,10 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        Ok(Pat::ObjectPat(map))
+        Ok(pat::ObjectPat::ast_node(
+            start..self.current().range.end,
+            map,
+        ))
     }
 
     /// Parse a struct or identifier pattern
@@ -463,7 +529,10 @@ impl<'a> Parser<'a> {
                 while self.current().tt != TokenType::RightBrace {
                     match self.current().tt {
                         TokenType::Identifier => {
-                            let ident = Ident::new(self.file.get_string(&self.current().range));
+                            let ident = Ident::new(
+                                self.current().range.clone(),
+                                self.file.get_string(&self.current().range),
+                            );
                             self.advance();
                             match self.current().tt {
                                 // Field with expression
@@ -473,9 +542,9 @@ impl<'a> Parser<'a> {
                                     map.insert(ident, expr);
                                     self.advance();
                                 }
-                                // Implisitly assign
+                                // Implicitly assign
                                 TokenType::Comma => {
-                                    map.insert(ident.clone(), Expr::PatExpr(Pat::IdentPat(ident)));
+                                    map.insert(ident.clone(), Expr::Pat(Pat::Ident(ident)));
                                     self.advance();
                                 }
                                 _ => {
@@ -491,10 +560,10 @@ impl<'a> Parser<'a> {
                         // Continue pattern
                         TokenType::DoubleDot => {
                             // As struct uses a map we use an impossible identifier to signal
-                            // the use of a continue pattern as it has no assosiated ident
+                            // the use of a continue pattern as it has no associated ident
                             map.insert(
-                                Ident::new("@cont".to_string()),
-                                Expr::PatExpr(Pat::ContinuePat),
+                                Ident::new(self.current().range.clone(), "@cont".to_string()),
+                                Expr::Pat(pat::ContinuePat::ast_node(self.current().range.clone())),
                             );
                             self.advance();
                             // Pass over possible trailing comma
@@ -516,7 +585,7 @@ impl<'a> Parser<'a> {
                             )))?;
                         }
                     }
-                    // Consume the seperating comma
+                    // Consume the separating comma
                     if self.current().tt == TokenType::Comma {
                         self.advance();
                         // Allow newlines
@@ -525,10 +594,11 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-                Ok(crate::common::ast::pat::Struct::ast_node(path, map, rng))
+                Ok(pat::StructPat::ast_node(rng, path, map))
             }
-            _ => Ok(Pat::IdentPat(Ident::new(
-                self.file.get_string(&self.current().range),
+            _ => Ok(Pat::Ident(Ident::new(
+                self.current().range.clone(),
+                self.current_string(),
             ))),
         }
     }
@@ -576,7 +646,7 @@ impl<'a> Parser<'a> {
         false
     }
 
-    /// Moves the cursor ahead and checkes if the token has the expected type
+    /// Moves the cursor ahead and checks if the token has the expected type
     fn check_consume(&mut self, expected: TokenType) -> Result<(), PuffinError<'a>> {
         // Move to the next token
         self.advance();
@@ -584,7 +654,7 @@ impl<'a> Parser<'a> {
         if current.tt == expected {
             Ok(())
         } else {
-            let snip = self.make_line_snippet(current, &format!("expected `{}`", expected));
+            let snip = self.make_line_snippet(current, &format!("expected `{expected}`"));
             let error = ErrorMsg::new(
                 self.file,
                 &format!("Expected `{}` found `{}`", expected, current.tt),
@@ -604,6 +674,42 @@ impl<'a> Parser<'a> {
     fn current_string(&self) -> String {
         self.file.get_string(&self.current().range)
     }
+
+    /// Continuously retries to parse using provided function until it either hits a line end or finds a valid
+    /// expr to continue on with. If it hits the line end it returns the original error.
+    fn handle_error<F: Fn(&mut Self) -> Result<Expr, PuffinError<'a>>>(
+        &mut self,
+        retry: &F,
+        err: Result<Expr, PuffinError<'a>>,
+    ) -> Result<Expr, PuffinError<'a>> {
+        // Let Ok result through and catch the error
+        let err = match err {
+            Ok(e) => return Ok(e),
+            Err(e) => e,
+        };
+        // Common check
+        let at_end =
+            |p: &Self| -> bool { p.peek().tt == TokenType::EOF && p.peek().tt == TokenType::NL };
+
+        if at_end(self) {
+            return Err(err);
+        }
+        self.advance();
+        let mut eval = retry(self);
+        // Recursively parse until at end or we get a valid result
+        while !at_end(self) && eval.is_err() {
+            self.advance();
+            eval = retry(self);
+        }
+        match eval {
+            Ok(expr) => {
+                // Record the error
+                self.errors.push(err);
+                Ok(expr)
+            }
+            Err(_) => Err(err),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -620,10 +726,10 @@ mod parser_test {
         let mut parse = Parser::new(&src.files[0], tks);
         let root = parse.parse();
         match root {
-            Ok(r) => println!("Root: {:?}", r),
-            Err(el) => {
-                for e in el {
-                    println!("{}", e)
+            Some(r) => println!("Root: {r:?}"),
+            None => {
+                for e in parse.errors {
+                    println!("{e}")
                 }
             }
         }
@@ -637,10 +743,28 @@ mod parser_test {
         let mut parse = Parser::new(&src.files[0], tks);
         let root = parse.parse();
         match root {
-            Ok(r) => println!("Root: {:?}", r),
-            Err(el) => {
-                for e in el {
-                    println!("{}", e)
+            Some(r) => println!("Root: {r:?}"),
+            None => {
+                for e in parse.errors {
+                    println!("{e}")
+                }
+                panic!()
+            }
+        }
+    }
+
+    #[test]
+    fn syntax_error() {
+        let src = Source::new("./scripts/tests/syntax_error.puf").unwrap();
+        let mut scanner = Scanner::new(&src.files[0]);
+        let tks = scanner.scan().expect("Scanning failed");
+        let mut parse = Parser::new(&src.files[0], tks);
+        let root = parse.parse();
+        match root {
+            Some(r) => println!("Root: {r:?}"),
+            None => {
+                for e in parse.errors {
+                    println!("{e}")
                 }
                 panic!()
             }
