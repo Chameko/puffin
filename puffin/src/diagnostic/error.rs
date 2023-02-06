@@ -171,7 +171,7 @@ mod error_print_tests {
     /// Test a singular snippet
     #[test]
     fn error_one() {
-        let src = Source::new("./scripts/tests/function.puf").unwrap();
+        let src = Source::new("./scripts/tests/function.pf").unwrap();
         let snip = Snippet::new(0..93, 26..36, "bad spelling");
         let error_msg = ErrorMsg::new(&src.files[0], "imagine", vec![snip]);
         println!("{}", error_msg.error())
@@ -180,7 +180,7 @@ mod error_print_tests {
     /// Test multiple snippets
     #[test]
     fn warn_multiple() {
-        let src = Source::new("./scripts/tests/function.puf").unwrap();
+        let src = Source::new("./scripts/tests/function.pf").unwrap();
         let snip = Snippet::new(0..93, 26..36, "bad spelling");
         let snip2 = Snippet::new(0..93, 22..25, "not actually fun");
         let error_msg = ErrorMsg::new(&src.files[0], "Unhappy times", vec![snip, snip2]);

@@ -720,7 +720,7 @@ mod parser_test {
 
     #[test]
     fn arithmatic() {
-        let src = Source::new("./scripts/tests/arithmatic.puf").unwrap();
+        let src = Source::new("./scripts/tests/arithmatic.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         let mut parse = Parser::new(&src.files[0], tks);
@@ -737,7 +737,7 @@ mod parser_test {
 
     #[test]
     fn pattern() {
-        let src = Source::new("./scripts/tests/pattern.puf").unwrap();
+        let src = Source::new("./scripts/tests/pattern.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         let mut parse = Parser::new(&src.files[0], tks);
@@ -754,8 +754,9 @@ mod parser_test {
     }
 
     #[test]
+    #[should_panic(expected = "Syntax error detected")]
     fn syntax_error() {
-        let src = Source::new("./scripts/tests/syntax_error.puf").unwrap();
+        let src = Source::new("./scripts/tests/syntax_error.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         let mut parse = Parser::new(&src.files[0], tks);
@@ -766,7 +767,7 @@ mod parser_test {
                 for e in parse.errors {
                     println!("{e}")
                 }
-                panic!()
+                panic!("Syntax error detected")
             }
         }
     }

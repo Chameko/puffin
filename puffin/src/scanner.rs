@@ -407,7 +407,7 @@ mod scanner_test {
     /// Test some simple example function code
     #[test]
     fn function() {
-        let src = Source::new("./scripts/tests/function.puf").unwrap();
+        let src = Source::new("./scripts/tests/function.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         use super::TokenType as TT;
@@ -440,7 +440,7 @@ mod scanner_test {
     /// Test literal passing such as strings and numbers
     #[test]
     fn literals() {
-        let src = Source::new("./scripts/tests/literal.puf").unwrap();
+        let src = Source::new("./scripts/tests/literal.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         use super::TokenType as TT;
