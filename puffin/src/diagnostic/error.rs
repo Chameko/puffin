@@ -110,7 +110,7 @@ impl Snippet {
         let src = file.get_slice(&self.src);
         // The string we're going to return
         let mut rtrn = String::new();
-        let mut total_len = 0;
+        let mut processed_snippet_len = 0;
         for (extra, line) in src.lines().enumerate() {
             // Push the line into the return (also does some formatting)
             rtrn.push_str(&format!(
@@ -122,14 +122,21 @@ impl Snippet {
             ));
             // Possible highlight line
             let mut push = String::new();
-            for num in 0..line.len_chars() {
-                if self.highlight.start <= (total_len + num + self.src.start)
-                    && self.highlight.end > (total_len + num + self.src.start)
+            for processed_line_len in 0..line.len_chars() {
+                if self.highlight.start
+                    <= (processed_snippet_len + processed_line_len + self.src.start)
+                    && self.highlight.end
+                        > (processed_snippet_len + processed_line_len + self.src.start)
                 {
                     // Add highlight to part we need to highlight
                     push.push_str(&"^".color(color).bold());
-                    // If we're at then end of a highlight
-                    if self.highlight.end == total_len + num + self.src.start {
+                    // If we're at then end of a highlight. Needs to have - 1 as the end of ranges is non inclusive i.e.
+                    // e x a m p l e
+                    // 1 2 3 4 5 6 7
+                    // To highlight the last e highlight would read 7..8 and there are only 7 characters in the line
+                    if self.highlight.end - 1
+                        == processed_snippet_len + processed_line_len + self.src.start
+                    {
                         // Add the text annotation
                         push.push_str(&format!(" {}", self.anno));
                         // We're done so break out of the loop
@@ -150,7 +157,7 @@ impl Snippet {
                 ))
             }
             // Add to the total length
-            total_len += line.len_chars()
+            processed_snippet_len += line.len_chars()
         }
         rtrn
     }
