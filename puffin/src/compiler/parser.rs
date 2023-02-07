@@ -719,8 +719,8 @@ mod parser_test {
     use crate::scanner::Scanner;
 
     #[test]
-    fn arithmatic() {
-        let src = Source::new("./scripts/tests/arithmatic.pf").unwrap();
+    fn binary_ops() {
+        let src = Source::new("./scripts/tests/binary_ops.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         let mut parse = Parser::new(&src.files[0], tks);
