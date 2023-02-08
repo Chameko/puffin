@@ -4,14 +4,35 @@ use super::Expr;
 use ahash::AHashMap;
 
 /// Represents type restrictions used in puffin
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Restrict {
     Type(Path),
     Trait(Vec<Ident>),
 }
 
+impl TestCmp for Restrict {
+    fn test_ast_cmp(&self, b: &Self) -> bool {
+        match self {
+            Restrict::Type(p) => {
+                if let Restrict::Type(p2) = b {
+                    p.test_ast_cmp(p2)
+                } else {
+                    false
+                }
+            }
+            Restrict::Trait(t) => {
+                if let Restrict::Trait(t2) = b {
+                    t.test_ast_cmp(t2)
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
 #[puffin_macro::ast_enum(ignore = ExprStmt | boxed = If)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Stmt {
     /// Expression statement
     ExprStmt(Expr),

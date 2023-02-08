@@ -1,11 +1,10 @@
 use ahash::AHashMap;
 
-pub use super::prelude;
 use super::prelude::*;
 
 /// Enum for pattern
 #[puffin_macro::ast_enum(ignore = Literal, Ident)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Pat {
     /// Identifier pattern
     Ident(Ident),
@@ -21,7 +20,7 @@ pub enum Pat {
         /// Which struct we're referring to
         ty: Path,
         /// Fields in pattern
-        fields: AHashMap<Ident, Expr>,
+        pub fields: AHashMap<Ident, Expr>,
     },
     /// List Pattern
     List {

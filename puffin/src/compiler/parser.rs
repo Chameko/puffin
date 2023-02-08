@@ -124,7 +124,6 @@ impl<'a> Parser<'a> {
         if self.peek().tt != TokenType::EOF {
             self.check_consume(TokenType::NL)?;
         }
-        println!("Stmts: {stmt:?}");
         Ok(stmt)
     }
 
@@ -233,13 +232,13 @@ impl<'a> Parser<'a> {
                     self.unary()?,
                 )))
             }
-            _ => self.method()?,
+            _ => self.call()?,
         })
     }
 
     /// Parse a call to a function
     fn call(&mut self) -> Result<Expr, PuffinError<'a>> {
-        let mut expr = self.primary()?;
+        let mut expr = self.method()?;
         while self.check_match(&[TokenType::LeftParen]) {
             let rng = self.peek().range.clone();
             self.advance();
@@ -250,7 +249,7 @@ impl<'a> Parser<'a> {
     }
 
     fn method(&mut self) -> Result<Expr, PuffinError<'a>> {
-        let mut expr = self.call()?;
+        let mut expr = self.primary()?;
         // Ignore newlines between field accesses. This allows for neater syntax
         while self.check_match_ignore_newline(&[TokenType::Dot]) {
             let rng = if TokenType::NL == self.peek().tt {
@@ -715,8 +714,26 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod parser_test {
     use super::*;
+    use crate::common::ast::expr::binary;
+    use crate::common::ast::ident::ident_expr;
+    use crate::common::ast::ident::ident_pat;
+    use crate::common::ast::lit::literal_expr;
+    use crate::common::ast::*;
     use crate::common::Source;
     use crate::scanner::Scanner;
+    use ahash::AHashMap;
+
+    /// Trait used to extend [AHashMap] and allow chaining insert statements for adding multiple fields
+    trait ChainExt<K, V> {
+        fn chain_insert(self, key: K, value: V) -> Self;
+    }
+
+    impl<K: std::hash::Hash + std::cmp::Eq, V> ChainExt<K, V> for AHashMap<K, V> {
+        fn chain_insert(mut self, key: K, value: V) -> Self {
+            self.insert(key, value);
+            self
+        }
+    }
 
     #[test]
     fn binary_ops() {
@@ -725,8 +742,25 @@ mod parser_test {
         let tks = scanner.scan().expect("Scanning failed");
         let mut parse = Parser::new(&src.files[0], tks);
         let root = parse.parse();
+
+        let mut test = Root::new();
+        test.push(binary::binary_expr_stmt(
+            binary::SubtractBinaryExpr::test_node(
+                binary::binary_expr(binary::AddBinaryExpr::test_node(
+                    lit::literal_expr(lit::IntLiteral::test_node(1)),
+                    binary::binary_expr(binary::MultiplyBinaryExpr::test_node(
+                        lit::literal_expr(lit::IntLiteral::test_node(5)),
+                        lit::literal_expr(lit::IntLiteral::test_node(3)),
+                    )),
+                )),
+                lit::literal_expr(lit::IntLiteral::test_node(6)),
+            ),
+        ));
+
         match root {
-            Some(r) => println!("Root: {r:?}"),
+            Some(r) => {
+                assert!(r.test_ast_cmp(&test), "Generated AST did not match expected value: \n\nGenerated >>\n {r:?}\n\nExpected >>\n {test:?}")
+            }
             None => {
                 for e in parse.errors {
                     println!("{e}")
@@ -742,13 +776,59 @@ mod parser_test {
         let tks = scanner.scan().expect("Scanning failed");
         let mut parse = Parser::new(&src.files[0], tks);
         let root = parse.parse();
+
+        let mut test = Root::new();
+        test.push(stmt::AssignStmt::test_node(
+            ident::ident_expr(Ident::test_node("number")),
+            Expr::Pat(pat::StructPat::test_node(
+                Path::test_node(vec![Ident::test_node("Point")]),
+                AHashMap::new()
+                    .chain_insert(
+                        Ident::test_node("x"),
+                        literal_expr(lit::IntLiteral::test_node(4)),
+                    )
+                    .chain_insert(
+                        Ident::test_node("y"),
+                        literal_expr(lit::IntLiteral::test_node(32)),
+                    ),
+            )),
+        ));
+        test.push(stmt::AssignStmt::test_node(
+            ident_expr(Ident::test_node("cool")),
+            Expr::Pat(pat::ListPat::test_node(vec![
+                literal_expr(lit::IntLiteral::test_node(1)),
+                literal_expr(lit::IntLiteral::test_node(2)),
+                literal_expr(lit::IntLiteral::test_node(4)),
+                literal_expr(lit::StringLiteral::test_node("Bob".to_string())),
+                literal_expr(lit::FloatLiteral::test_node(4.2)),
+            ])),
+        ));
+        test.push(stmt::AssignStmt::test_node(
+            ident_expr(Ident::test_node("call")),
+            expr::CallExpr::test_node(ident_expr(Ident::test_node("wack")), vec![]),
+        ));
+        test.push(Stmt::ExprStmt(expr::CallExpr::test_node(
+            expr::AccessExpr::test_node(
+                Expr::Pat(ident_pat(Ident::test_node("number"))),
+                expr::AccessExpr::test_node(
+                    ident::ident_expr(Ident::test_node("x")),
+                    ident::ident_expr(Ident::test_node("wack")),
+                ),
+            ),
+            vec![
+                literal_expr(lit::IntLiteral::test_node(4)),
+                literal_expr(lit::StringLiteral::test_node("42".to_string())),
+            ],
+        )));
+
         match root {
-            Some(r) => println!("Root: {r:?}"),
+            Some(r) => {
+                assert!(r.test_ast_cmp(&test), "Generated AST did not match expected value: \n\nGenerated >>\n {r:?}\n\nExpected >>\n {test:?}")
+            }
             None => {
                 for e in parse.errors {
                     println!("{e}")
                 }
-                panic!()
             }
         }
     }

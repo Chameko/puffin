@@ -1,7 +1,7 @@
-use super::Expr;
+use super::prelude::*;
 
 #[puffin_macro::ast_enum]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BinaryExpr {
     /// Multiply operation
     Multiply { a: Expr, b: Expr },
@@ -33,4 +33,12 @@ pub enum BinaryExpr {
     Not { a: Expr },
     /// Parentheses and grouping operation
     Group { a: Expr },
+}
+
+pub fn binary_expr(bin: BinaryExpr) -> Expr {
+    Expr::Binary(Box::new(bin))
+}
+
+pub fn binary_expr_stmt(bin: BinaryExpr) -> Stmt {
+    Stmt::ExprStmt(binary_expr(bin))
 }

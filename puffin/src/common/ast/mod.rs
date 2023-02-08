@@ -23,7 +23,7 @@ pub use stmt::Stmt;
 /// The root of the Abstract Syntax Tree
 #[derive(Debug, PartialEq)]
 pub struct Root {
-    contents: Vec<Stmt>,
+    pub contents: Vec<Stmt>,
 }
 
 impl Root {
@@ -41,5 +41,17 @@ impl Root {
 impl Default for Root {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Trait for ast nodes which allows us to determine whether the ast tree structure matches or not
+pub trait TestCmp {
+    /// Compare between two ast nodes
+    fn test_ast_cmp(&self, b: &Self) -> bool;
+}
+
+impl TestCmp for Root {
+    fn test_ast_cmp(&self, b: &Self) -> bool {
+        self.contents.test_ast_cmp(&b.contents)
     }
 }

@@ -10,7 +10,7 @@ use super::stmt::{BlockStmt, IfStmt, MatchStmt};
     ignore = Binary, Pat, If, Match, Block
     | boxed = Call, Access
 )]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
     /// A binary expression
     Binary(Box<BinaryExpr>),

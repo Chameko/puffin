@@ -136,7 +136,7 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         // Create the new struct from the variant
         let enum_struct = quote!(
-            #[derive(Debug, PartialEq)]
+            #[derive(Debug, PartialEq, Clone)]
             pub struct #struct_name {
                 pub range: std::ops::Range<usize>,
                 #(#struct_fields),*
@@ -166,6 +166,12 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #enum_name::#variant_name(#potential_box)
                 }
             }
+
+            impl crate::common::ast::TestCmp for #struct_name {
+                fn test_ast_cmp(&self, b: &Self) -> bool {
+                    (true #(&& self.#field_idents.test_ast_cmp(&b.#field_idents))*)
+                }
+            }
         );
 
         gen_struct.push(enum_struct.into());
@@ -183,11 +189,34 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    let variants = input
+        .variants
+        .iter()
+        .map(|v| v.ident.clone())
+        .collect::<Vec<Ident>>();
+
+    let enum_impl = quote!(
+        impl crate::common::ast::TestCmp for #enum_name {
+            fn test_ast_cmp(&self, b: &Self) -> bool {
+                match self {
+                    #(#enum_name::#variants( node1 ) => {
+                        if let #enum_name::#variants( node2 ) = b {
+                            node1.test_ast_cmp(node2)
+                        } else {
+                            false
+                        }
+                    }),*
+                }
+            }
+        }
+    );
+
     // Combine the token streams
     let mut output: TokenStream = input.to_token_stream().into();
     for stream in gen_struct {
         output.extend(stream);
     }
+    output.extend::<TokenStream>(enum_impl.into());
 
     output
 }
@@ -234,6 +263,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
     let extra = match path {
         Surround::Box(var) => {
             let variant = format_ident!("{}{}", name, var);
+            let value = quote!(std::boxed::Box::new(value));
             quote!(
                 impl #name {
                     pub fn ast_node(range: std::ops::Range<usize>, #(#idents: #types),*) -> #var {
@@ -241,7 +271,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
                             range,
                             #(#idents),*
                         };
-                        #var::#variant(std::boxed::Box::new(value))
+                        #var::#variant(#value)
                     }
 
                     pub fn test_node(#(#idents: #types),*) -> #var {
@@ -249,13 +279,14 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
                             range: 0..0,
                             #(#idents),*
                         };
-                        #var::#variant(std::boxed::Box::new(value))
+                        #var::#variant(#value)
                     }
                 }
             )
         }
         Surround::Unboxed(var) => {
             let variant = format_ident!("{}{}", name, var);
+            let value = quote!(value);
             quote!(
                 impl #name {
                     pub fn ast_node(range: std::ops::Range<usize>, #(#idents: #types),*) -> #var {
@@ -263,7 +294,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
                             range,
                             #(#idents),*
                         };
-                        #var::#variant(value)
+                        #var::#variant(#value)
                     }
 
                     pub fn test_node(#(#idents: #types),*) -> #var {
@@ -271,12 +302,12 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
                             range: 0..0,
                             #(#idents),*
                         };
-                        #var::#variant(value)
+                        #var::#variant(#value)
                     }
                 }
             )
         }
-        Surround::Ignore => quote!(),
+        _ => quote!(),
     };
 
     quote!(

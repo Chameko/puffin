@@ -1,11 +1,24 @@
 use super::Ident;
+use super::TestCmp;
 
 /// A path to a module in puffin
 #[puffin_macro::ast(_)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Path {
     /// The path as a vec of literals
     path: Vec<Ident>,
+}
+
+impl TestCmp for Path {
+    fn test_ast_cmp(&self, b: &Self) -> bool {
+        self.path.test_ast_cmp(&b.path)
+    }
+}
+
+impl Path {
+    pub fn test_node(path: Vec<Ident>) -> Self {
+        Self { path, range: 0..1 }
+    }
 }
 
 impl std::fmt::Display for Path {
