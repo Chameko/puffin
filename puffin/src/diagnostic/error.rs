@@ -26,6 +26,18 @@ pub enum PuffinError<'a> {
     UnknownCharacter(char),
 }
 
+impl<'a> PuffinError<'a> {
+    /// Gets the error from inside the Error Warn and Info variants
+    pub fn get_inner_error(&mut self) -> Option<&mut ErrorMsg<'a>> {
+        match self {
+            Self::Error(e) => Some(e),
+            Self::Warn(e) => Some(e),
+            Self::Info(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
 /// An error message produced by puffin.
 #[derive(Debug)]
 pub struct ErrorMsg<'a> {
@@ -76,6 +88,11 @@ impl<'a> ErrorMsg<'a> {
                 // Trim the ... at the end
                 .trim_end_matches("\n...\n")
         )
+    }
+
+    /// Append a snippet to the error
+    pub fn append_snippet(&mut self, snip: Snippet) {
+        self.snippet.push(snip);
     }
 }
 

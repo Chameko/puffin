@@ -39,6 +39,9 @@ pub struct Parser<'a> {
     index: usize,
     /// The errors caught by the parser
     errors: Vec<PuffinError<'a>>,
+    /// Whether the parser is in panic mode. This means that any errors will not be
+    /// handled and instead bubbled all the way down.
+    panic: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -89,6 +92,7 @@ impl<'a> Parser<'a> {
             tokens: tks,
             index: 0,
             errors: vec![],
+            panic: false,
         }
     }
 
@@ -303,7 +307,7 @@ impl<'a> Parser<'a> {
             let err = ErrorMsg::new(
                 self.file,
                 "Empty module path",
-                vec![self.make_line_snippet(self.current(), "Path expected here")],
+                vec![self.create_line_snippet_with_token(self.current(), "Path expected here")],
             );
             Err(PuffinError::Error(err))
         }
@@ -396,7 +400,7 @@ impl<'a> Parser<'a> {
                 self.current().range.clone(),
             )))),
             _ => {
-                let snip = self.make_line_snippet(self.current(), "Not valid syntax");
+                let snip = self.create_line_snippet_with_token(self.current(), "Unexpected token");
                 Err(PuffinError::Error(self.create_error(
                     &format!("Expected valid expression, found {}", self.current().tt),
                     vec![snip],
@@ -463,7 +467,8 @@ impl<'a> Parser<'a> {
                             map.insert(ident, expr);
                         }
                         _ => {
-                            let snip = self.make_line_snippet(self.current(), "Expected `:`");
+                            let snip =
+                                self.create_line_snippet_with_token(self.current(), "Expected `:`");
                             Err(PuffinError::Error(self.create_error(
                                 &format!("Expected `:` found {}", self.current().tt),
                                 vec![snip],
@@ -486,7 +491,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 _ => {
-                    let snip = self.make_line_snippet(
+                    let snip = self.create_line_snippet_with_token(
                         self.current(),
                         &format!("Unexpected {}", self.current().tt),
                     );
@@ -547,8 +552,10 @@ impl<'a> Parser<'a> {
                                     self.advance();
                                 }
                                 _ => {
-                                    let snip = self
-                                        .make_line_snippet(self.current(), "Expected `:` or `,`");
+                                    let snip = self.create_line_snippet_with_token(
+                                        self.current(),
+                                        "Expected `:` or `,`",
+                                    );
                                     Err(PuffinError::Error(self.create_error(
                                         &format!("Expected `:` or `,` found {}", self.current().tt),
                                         vec![snip],
@@ -571,7 +578,7 @@ impl<'a> Parser<'a> {
                             }
                         }
                         _ => {
-                            let snip = self.make_line_snippet(
+                            let snip = self.create_line_snippet_with_token(
                                 self.current(),
                                 &format!("Unexpected {}", self.current().tt),
                             );
@@ -604,15 +611,8 @@ impl<'a> Parser<'a> {
 
     /// Constructs a snippet with the whole line as context, the underline underneath
     /// the provided token and the annotation next to it.
-    fn make_line_snippet(&self, token: &Token, anno: &str) -> Snippet {
-        // Get the line the characters are in
-        let line = self.file.text.char_to_line(token.range.start);
-        // Get the start of the line
-        let ls = self.file.text.line_to_char(line);
-        // Get the length of the line
-        let len = self.file.text.line(line).len_chars();
-        // Create the sippet
-        Snippet::new(ls..(ls + len - 1), token.range.clone(), anno)
+    fn create_line_snippet_with_token(&self, token: &Token, anno: &str) -> Snippet {
+        self.create_line_snippet(token.range.clone(), anno)
     }
 
     /// Check if the next token matches the token type. This does not advance the parser
@@ -627,6 +627,18 @@ impl<'a> Parser<'a> {
         false
     }
 
+    /// Constructs a snippet with the whole line as context, uses range provided for annotation.
+    fn create_line_snippet(&self, range: std::ops::Range<usize>, anno: &str) -> Snippet {
+        // Get the line the characters are in
+        let line = self.file.text.char_to_line(range.start);
+        // Get the start of the line
+        let ls = self.file.text.line_to_char(line);
+        // Get the length of the line
+        let len = self.file.text.line(line).len_chars();
+        // Create the sippet
+        Snippet::new(ls..(ls + len - 1), range, anno)
+    }
+
     /// Check if the next token matches the token type and also
     /// ignores a single newline
     /// This does not advance the parser
@@ -635,9 +647,11 @@ impl<'a> Parser<'a> {
             if let Some(pt) = self.tokens.get(self.index + 1) {
                 if pt.tt == *ty {
                     return true;
-                } else if let Some(dpt) = self.tokens.get(self.index + 2) {
-                    if dpt.tt == *ty {
-                        return true;
+                } else if pt.tt == TokenType::NL {
+                    if let Some(Token { tt, .. }) = self.tokens.get(self.index + 2) {
+                        if tt == ty {
+                            return true;
+                        }
                     }
                 }
             }
@@ -653,7 +667,8 @@ impl<'a> Parser<'a> {
         if current.tt == expected {
             Ok(())
         } else {
-            let snip = self.make_line_snippet(current, &format!("expected `{expected}`"));
+            let snip =
+                self.create_line_snippet_with_token(current, &format!("expected `{expected}`"));
             let error = ErrorMsg::new(
                 self.file,
                 &format!("Expected `{}` found `{}`", expected, current.tt),
@@ -674,6 +689,12 @@ impl<'a> Parser<'a> {
         self.file.get_string(&self.current().range)
     }
 
+    #[inline]
+    /// Determines whether the next token is at the end of a line/file
+    fn at_end(&self) -> bool {
+        self.peek().tt == TokenType::EOF && self.peek().tt == TokenType::NL
+    }
+
     /// Continuously retries to parse using provided function until it either hits a line end or finds a valid
     /// expr to continue on with. If it hits the line end it returns the original error.
     fn handle_error<F: Fn(&mut Self) -> Result<Expr, PuffinError<'a>>>(
@@ -686,17 +707,15 @@ impl<'a> Parser<'a> {
             Ok(e) => return Ok(e),
             Err(e) => e,
         };
-        // Common check
-        let at_end =
-            |p: &Self| -> bool { p.peek().tt == TokenType::EOF && p.peek().tt == TokenType::NL };
 
-        if at_end(self) {
+        if self.at_end() {
             return Err(err);
         }
+
         self.advance();
         let mut eval = retry(self);
         // Recursively parse until at end or we get a valid result
-        while !at_end(self) && eval.is_err() {
+        while !self.at_end() && eval.is_err() {
             self.advance();
             eval = retry(self);
         }
