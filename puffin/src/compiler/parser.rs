@@ -402,7 +402,7 @@ impl<'a> Parser<'a> {
             _ => {
                 let snip = self.create_line_snippet_with_token(self.current(), "Unexpected token");
                 Err(PuffinError::Error(self.create_error(
-                    &format!("Expected valid expression, found {}", self.current().tt),
+                    &format!("Expected valid expression, found `{}`", self.current().tt),
                     vec![snip],
                 )))
             }
@@ -426,12 +426,18 @@ impl<'a> Parser<'a> {
             // While we can't see valid end of array
             while !self.check_match_ignore_newline(&[delimiter]) {
                 // Check for comma
-                self.check_consume(TokenType::Comma)?;
-                self.advance();
+                if let Err(e) = self.check_consume(TokenType::Comma) {
+                    // Add the error
+                    self.errors.push(e);
+                } else {
+                    // Move past the comma
+                    self.advance();
+                }
                 // Allow for NL after comma
                 self.skip_newline();
                 // Parse expression
-                expr.push(self.expression()?);
+                let possible_expr = self.expression();
+                expr.push(self.handle_error(&Parser::expression, possible_expr)?);
             }
         }
         // Move onto NL or Bracket
@@ -636,7 +642,7 @@ impl<'a> Parser<'a> {
         // Get the length of the line
         let len = self.file.text.line(line).len_chars();
         // Create the sippet
-        Snippet::new(ls..(ls + len - 1), range, anno)
+        Snippet::new(ls..(ls + len), range, anno)
     }
 
     /// Check if the next token matches the token type and also
