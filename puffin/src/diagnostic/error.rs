@@ -144,13 +144,22 @@ impl Snippet {
                     <= (processed_snippet_len + processed_line_len + self.src.start)
                     && self.highlight.end
                         > (processed_snippet_len + processed_line_len + self.src.start)
+                    // This is to highlight the EOF
+                    || (processed_snippet_len + processed_line_len + self.src.start) == file.text.len_chars() - 1
                 {
+                    // Adds an extra space when highlighting EOF so the highlight is under the EOF and not some
+                    // other character
+                    if (processed_snippet_len + processed_line_len + self.src.start)
+                        == file.text.len_chars() - 1
+                    {
+                        push.push(' ');
+                    }
                     // Add highlight to part we need to highlight
                     push.push_str(&"^".color(color).bold());
                     // If we're at then end of a highlight. Needs to have - 1 as the end of ranges is non inclusive i.e.
                     // e x a m p l e
                     // 1 2 3 4 5 6 7
-                    // To highlight the last e highlight would read 7..8 and there are only 7 characters in the line
+                    // To highlight the last 'e' highlight would read 7..8 and there are only 7 characters in the line
                     if self.highlight.end - 1
                         == processed_snippet_len + processed_line_len + self.src.start
                     {
