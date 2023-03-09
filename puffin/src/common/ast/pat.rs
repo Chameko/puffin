@@ -35,7 +35,7 @@ pub enum Pat {
     /// Object Pattern
     Object {
         /// The fields in the object pattern
-        fields: AHashMap<String, Expr>,
+        fields: AHashMap<Ident, Expr>,
     },
     /// Signifies that a specific part of the pattern should be ignored
     Ignore {},
