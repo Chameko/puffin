@@ -1,3 +1,5 @@
+use std::{f32::consts::E, ops::Index};
+
 use crate::{
     common::{
         ast::{expr, expr::binary, lit, pat, stmt, Expr, Ident, Pat, Path, Root, Stmt},
@@ -59,9 +61,6 @@ pub struct Parser<'a> {
     index: usize,
     /// The errors caught by the parser
     errors: Vec<PuffinError<'a>>,
-    /// Whether the parser is in panic mode. This means that any errors will not be
-    /// handled and instead bubbled all the way down.
-    panic: bool,
     /// A list of the current tokens which handle_error is able to parse up to
     limit_tokens: Vec<TokenType>,
 }
@@ -76,13 +75,17 @@ impl<'a> Parser<'a> {
     /// Peek at the next token. Panics if used to peek beyond token vec
     #[inline]
     fn peek(&self) -> &Token {
-        self.tokens.get(self.index + 1).expect("Should not be EOF")
+        self.tokens
+            .get(self.index + 1)
+            .expect("Peek token should be valid")
     }
 
     /// Peek at the next next token. Panics if used to peek beyond token vec
     #[inline]
     fn double_peek(&self) -> &Token {
-        self.tokens.get(self.index + 2).expect("Should not be EOF")
+        self.tokens
+            .get(self.index + 2)
+            .expect("double peek token should be valid")
     }
 
     /// The current token
@@ -101,6 +104,12 @@ impl<'a> Parser<'a> {
             .expect("Previous token should be valid")
     }
 
+    #[inline]
+    /// Gets a token of the requested index
+    fn get(&self, index: usize) -> &Token {
+        self.tokens.get(index).expect("Get token should be valid")
+    }
+
     /// Check whether we are at the end of the token stream
     #[inline]
     fn end_of_file(&self) -> bool {
@@ -114,7 +123,6 @@ impl<'a> Parser<'a> {
             tokens: tks,
             index: 0,
             errors: vec![],
-            panic: false,
             limit_tokens: vec![TokenType::NL, TokenType::EOF],
         }
     }
@@ -427,7 +435,7 @@ impl<'a> Parser<'a> {
             TokenType::Null => Ok(Expr::Pat(Pat::Literal(lit::NullLiteral::ast_node(
                 self.current().range.clone(),
             )))),
-            _ => {
+            t => {
                 let snip = self.create_line_snippet_with_token(self.current(), "Unexpected token");
                 Err(PuffinError::Error(self.create_error(
                     &format!("Expected valid expression, found `{}`", self.current().tt),
@@ -448,60 +456,60 @@ impl<'a> Parser<'a> {
         let guard = self.update_limit_list(&[delimiter, TokenType::Comma]);
         // Check that we aren't already at the end
         while !self.check_match_ignore_newline(&[delimiter, TokenType::EOF]) {
+            let current_token_index: usize;
             // Ensure current is on expression
             self.advance();
             self.skip_newline();
+
             // Parse expression
-            let possible_expr = self.expression();
-            println!("State: {:?}", guard);
-            match self.handle_error(&Parser::expression, possible_expr) {
-                Ok(extracted_expr) => expr.push(extracted_expr),
-                Err(err) => self.push_error(err),
+            if let Some(exp) = self.try_expression() {
+                expr.push(exp);
+                current_token_index = self.index + 1;
+            } else {
+                current_token_index = self.index
             }
 
-            match self.peek().tt {
+            match self.get(current_token_index).tt {
                 TokenType::Comma => {
                     // Move onto comma
                     self.advance();
                     continue;
                 }
                 TokenType::NL => {
-                    if self.double_peek().tt == delimiter {
+                    if self.get(current_token_index + 1).tt == delimiter {
                         self.advance();
                         break;
                     }
                 }
-                TokenType::EOF => {
-                    let snip = self.create_line_snippet_separate_annotation(
-                        start..self.peek().range.end,
-                        self.peek().range.clone(),
+                _t if _t == delimiter => {
+                    break;
+                }
+                _t if self.limit_tokens.contains(&_t) => {
+                    let snip = self.create_line_snippet_with_token(
+                        self.get(current_token_index),
                         &format!("Expected `{delimiter}` or `,`"),
                     );
                     let error = self.create_error(
-                        &format!("Expected `{delimiter}` or `,` found {}", self.peek().tt),
+                        &format!(
+                            "Expected `{delimiter}` or `,` found {}",
+                            self.get(current_token_index).tt
+                        ),
                         vec![snip],
                     );
                     return Err(PuffinError::Error(error));
                 }
-                _t if _t == delimiter => {
-                    break;
-                }
+
                 _ => {}
             }
-            // Either highlight where the NL character is for NL styled literals or for single line structs
-            // highlight the space in between
-            let highlight = if self.peek().tt == TokenType::NL {
-                self.peek().range.clone()
-            } else {
-                self.current().range.end..self.peek().range.start
-            };
-            let snip = self.create_line_snippet_separate_annotation(
-                start..self.peek().range.end,
-                highlight,
+            let snip = self.create_line_snippet_with_token(
+                self.get(current_token_index),
                 &format!("Expected `{delimiter}` or `,`"),
             );
             let error = self.create_error(
-                &format!("Expected `{delimiter}` or `,` found {}", self.peek().tt),
+                &format!(
+                    "Expected `{delimiter}` or `,` found {}",
+                    self.get(current_token_index).tt
+                ),
                 vec![snip],
             );
             self.push_error(PuffinError::Error(error));
@@ -514,13 +522,6 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    /// Skips a possible newline character at current
-    fn skip_newline(&mut self) {
-        if self.current().tt == TokenType::NL {
-            self.advance();
-        }
-    }
-
     /// Parses the fields of structs and objects. Should enter with current being the opening delimiter
     fn field_pattern(&mut self, start: usize) -> Result<AHashMap<Ident, Expr>, PuffinError<'a>> {
         let mut map: AHashMap<Ident, Expr> = AHashMap::new();
@@ -531,8 +532,10 @@ impl<'a> Parser<'a> {
             if self.peek().tt == TokenType::NL {
                 self.advance();
             }
-            // This leaves the parser with the next token as peek. This is to prevent accidentally peeking
-            // over the EOF
+            // The reason for the check token is when our expression parsing succeeds it leaves the next token
+            // to be parsed on peek, but if it fails the token is on current. This variable allows the next token
+            // for the parser to check to be consistent
+            let check_token: usize;
             match self.peek().tt {
                 TokenType::Identifier => {
                     let ident = Ident::new(
@@ -546,37 +549,34 @@ impl<'a> Parser<'a> {
                             // Move so expression is on current
                             self.advance();
                             self.advance();
-                            let expr = self.expression();
-                            // If we get a successful expr then we add it, otherwise we record the error
-                            match self.handle_error(&Self::expression, expr) {
-                                Ok(expr) => {
-                                    map.insert(ident, expr);
-                                }
-                                Err(err) => self.push_error(err),
+                            if let Some(expr) = self.try_expression() {
+                                map.insert(ident, expr);
+                                check_token = self.index + 1;
+                            } else {
+                                check_token = self.index;
                             }
                         }
                         // Implicitly assign
                         TokenType::Comma => {
                             map.insert(ident.clone(), Expr::Pat(Pat::Ident(ident)));
+                            check_token = self.index + 1;
                         }
                         // Forgot colon or comma
                         _ => {
-                            let snip = self.create_line_snippet_separate_annotation(
-                                start..self.current().range.end,
-                                self.current().range.clone(),
-                                "Expected `:` or `,`",
-                            );
+                            let snip = self
+                                .create_line_snippet_with_token(self.peek(), "Expected `:` or `,`");
                             // Record the error
                             let error = PuffinError::Error(self.create_error(
-                                &format!("Expected `:` or `,` found {}", self.current().tt),
+                                &format!("Expected `:` or `,` found {}", self.peek().tt),
                                 vec![snip],
                             ));
                             self.push_error(error);
                             // Try to parse as expression
                             self.advance();
-                            let expr = self.expression();
-                            if let Err(e) = self.handle_error(&Self::expression, expr) {
-                                self.push_error(e);
+                            if self.try_expression().is_some() {
+                                check_token = self.index + 1;
+                            } else {
+                                check_token = self.index;
                             }
                         }
                     }
@@ -589,80 +589,80 @@ impl<'a> Parser<'a> {
                         Ident::new(self.current().range.clone(), "@cont".to_string()),
                         Expr::Pat(pat::ContinuePat::ast_node(self.current().range.clone())),
                     );
+                    check_token = self.index + 1;
                 }
                 // None
                 _ => {
-                    let snip = self.create_line_snippet_separate_annotation(
-                        start..self.current().range.end,
-                        self.current().range.clone(),
-                        "Expected `..` or identifier",
-                    );
+                    let snip = self
+                        .create_line_snippet_with_token(self.peek(), "Expected `..` or identifier");
                     let err = PuffinError::Error(self.create_error(
-                        &format!("Expected `..` or identifier found `{}`", self.current().tt),
+                        &format!("Expected `..` or identifier found `{}`", self.peek().tt),
                         vec![snip],
                     ));
                     self.push_error(err);
 
-                    // Attempt to parse the as expression
+                    // Attempt to parse as expression
                     self.advance();
-                    let expr = self.expression();
-                    if let Err(e) = self.handle_error(&Self::expression, expr) {
-                        self.push_error(e);
+                    if self.try_expression().is_some() {
+                        check_token = self.index + 1;
+                    } else {
+                        check_token = self.index;
                     }
                 }
             }
-            // Consume the separating comma
-            match self.peek().tt {
-                TokenType::Comma => {
+            match self.get(check_token) {
+                Token {
+                    tt: TokenType::Comma,
+                    ..
+                } => {
                     // Move onto comma
-                    self.advance();
+                    if self.peek() == self.get(check_token) {
+                        self.advance();
+                    }
                     continue;
                 }
-                TokenType::RightBrace => {
+                Token {
+                    tt: TokenType::RightBrace,
+                    ..
+                } => {
                     break;
                 }
-                TokenType::EOF => {
-                    let snip = self.create_line_snippet_separate_annotation(
-                        start..self.current().range.end,
-                        self.peek().range.clone(),
-                        "Expected `}` or `,`",
-                    );
-                    let error = self.create_error(
-                        &format!("Expected `}}` or `,` found {}", self.peek().tt),
-                        vec![snip],
-                    );
-                    return Err(PuffinError::Error(error));
-                }
                 // Allow NL if before delimiter
-                TokenType::NL => {
-                    if self.double_peek().tt == TokenType::RightBrace {
+                Token {
+                    tt: TokenType::NL, ..
+                } => {
+                    if self.get(check_token + 1).tt == TokenType::RightBrace {
                         self.advance();
                         break;
                     }
                 }
+                _t if self.limit_tokens.contains(&_t.tt) => {
+                    let snip = self.create_line_snippet_with_token(
+                        self.get(check_token),
+                        "Expected `}` or `,`",
+                    );
+                    let error = self.create_error(
+                        &format!("Expected `}}` or `,` found {}", self.get(check_token).tt),
+                        vec![snip],
+                    );
+                    return Err(PuffinError::Error(error));
+                }
                 _ => {}
             }
-            // Either highlight where the NL character is for NL styled structs or for single line structs
-            // highlight the space in between
-            let highlight = if self.peek().tt == TokenType::NL {
-                self.peek().range.clone()
-            } else {
-                self.current().range.end..self.peek().range.start
-            };
-            let snip = self.create_line_snippet_separate_annotation(
-                start..self.current().range.end,
-                highlight,
-                "Expected `}` or `,`",
-            );
+            let snip =
+                self.create_line_snippet_with_token(self.get(check_token), "Expected `}` or `,`");
             let error = self.create_error(
-                &format!("Expected `}}` or `,` found {}", self.peek().tt),
+                &format!("Expected `}}` or `,` found {}", self.get(check_token).tt),
                 vec![snip],
             );
             self.push_error(PuffinError::Error(error));
         }
-        // Advance to be on the closing bracket
-        self.advance();
-        self.skip_newline();
+
+        // Advance so the parser finishes on the right brace
+        if self.current().tt != TokenType::RightBrace {
+            self.advance();
+            self.skip_newline()
+        }
         guard.reset(self);
         Ok(map)
     }
@@ -693,18 +693,6 @@ impl<'a> Parser<'a> {
     /// the provided token and the annotation next to it.
     fn create_line_snippet_with_token(&self, token: &Token, anno: &str) -> Snippet {
         self.create_line_snippet(token.range.clone(), anno)
-    }
-
-    /// Check if the next token matches the token type. This does not advance the parser
-    fn check_match(&self, tt: &[TokenType]) -> bool {
-        for ty in tt {
-            if let Some(pt) = self.tokens.get(self.index + 1) {
-                if pt.tt == *ty {
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     /// Constructs a snippet with the whole line as context that range encompasses.
@@ -742,6 +730,18 @@ impl<'a> Parser<'a> {
         let end = self.file.text.line_to_char(end_line) + len;
         // Create the sippet
         Snippet::new(start..end, highlight, anno)
+    }
+
+    /// Check if the next token matches the token type. This does not advance the parser
+    fn check_match(&self, tt: &[TokenType]) -> bool {
+        for ty in tt {
+            if let Some(pt) = self.tokens.get(self.index + 1) {
+                if pt.tt == *ty {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Check if the next token matches the token type and also
@@ -833,16 +833,35 @@ impl<'a> Parser<'a> {
         Err(err)
     }
 
-    /// Pushes an error unless the parser is in panic mode, in which case it discards it.
-    fn push_error(&mut self, e: PuffinError<'a>) {
-        if !self.panic {
-            self.errors.push(e);
+    /// Attempts to parse recursively parse an expression and stops when it reaches one of the limit tokens.
+    /// Will return None if there was no valid expressions.
+    fn try_expression(&mut self) -> Option<Expr> {
+        let expr = self.expression();
+        match self.handle_error(&Self::expression, expr) {
+            Err(e) => {
+                self.push_error(e);
+                None
+            }
+            Ok(expr) => Some(expr),
         }
     }
 
-    /// Updated the limit list and provides a guard resents the limit to its previous state once done
+    #[inline]
+    /// Records an error for the parser
+    fn push_error(&mut self, e: PuffinError<'a>) {
+        self.errors.push(e);
+    }
+
+    /// Updated the limit list and provides a guard to reset the limit to its previous state once done
     fn update_limit_list(&mut self, appended: &[TokenType]) -> LimitTokenGuard {
         LimitTokenGuard::new(self, appended.to_vec())
+    }
+
+    /// Skips a possible newline character at current
+    fn skip_newline(&mut self) {
+        if self.current().tt == TokenType::NL {
+            self.advance();
+        }
     }
 }
 
