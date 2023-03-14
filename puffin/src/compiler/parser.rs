@@ -1,5 +1,3 @@
-use std::{f32::consts::E, ops::Index};
-
 use crate::{
     common::{
         ast::{expr, expr::binary, lit, pat, stmt, Expr, Ident, Pat, Path, Root, Stmt},
@@ -130,6 +128,7 @@ impl<'a> Parser<'a> {
     /// Parse the tokens
     pub fn parse(&mut self) -> Option<Root> {
         let mut root = Root::default();
+        // Add statements until we're at the end of file
         while !self.end_of_file() {
             match self.statement() {
                 Ok(stmt) => root.push(stmt),
@@ -137,6 +136,7 @@ impl<'a> Parser<'a> {
             }
             self.advance();
         }
+        // If we have errors return None
         if self.errors.is_empty() {
             Some(root)
         } else {
@@ -280,7 +280,7 @@ impl<'a> Parser<'a> {
         {
             let start = self.current().range.start;
             self.advance();
-            let args = self.comma_separated_list_pattern(TokenType::RightParen, start)?;
+            let args = self.comma_separated_list_pattern(TokenType::RightParen)?;
             expr = expr::CallExpr::ast_node(start..self.current().range.end, expr, args);
         }
         Ok(expr)
@@ -311,6 +311,7 @@ impl<'a> Parser<'a> {
         if self.current().tt == TokenType::Identifier {
             let rng = self.current().range.clone();
             path.push(Ident::new(rng, self.file.get_string(&self.current().range)));
+            let guard = self.update_limit_list(&[TokenType::DoubleColon]);
             while self.check_match(&[TokenType::DoubleColon]) {
                 // Make sure the next token is an ident
                 self.check_consume(TokenType::Identifier)?;
@@ -331,6 +332,7 @@ impl<'a> Parser<'a> {
                     .expect("Path should have at least one ident. Unreachable")
                     .range
                     .end;
+            guard.reset(self);
             Ok(Path::new(rng, path))
         } else {
             let err = ErrorMsg::new(
@@ -354,14 +356,14 @@ impl<'a> Parser<'a> {
             // Array pattern
             TokenType::LeftBracket => {
                 let start = self.current().range.start;
-                let array = self.comma_separated_list_pattern(TokenType::RightBracket, start)?;
+                let array = self.comma_separated_list_pattern(TokenType::RightBracket)?;
                 let rng = start..self.current().range.end;
                 Ok(Expr::Pat(pat::ListPat::ast_node(rng, array)))
             }
             // Tuple pattern or grouping
             TokenType::LeftParen => {
                 let start = self.current().range.start;
-                let mut pat = self.comma_separated_list_pattern(TokenType::RightParen, start)?;
+                let mut pat = self.comma_separated_list_pattern(TokenType::RightParen)?;
                 let rng = start..self.current().range.end;
                 // If a tuple has a length of one its a grouping operator
                 if pat.len() == 1 {
@@ -397,7 +399,7 @@ impl<'a> Parser<'a> {
                 let start = self.current().range.start;
                 self.advance();
                 self.check_consume(TokenType::LeftBrace)?;
-                let fields = self.field_pattern(start)?;
+                let fields = self.field_pattern()?;
 
                 Ok(Expr::Pat(pat::ObjectPat::ast_node(
                     start..self.current().range.end,
@@ -435,7 +437,7 @@ impl<'a> Parser<'a> {
             TokenType::Null => Ok(Expr::Pat(Pat::Literal(lit::NullLiteral::ast_node(
                 self.current().range.clone(),
             )))),
-            t => {
+            _ => {
                 let snip = self.create_line_snippet_with_token(self.current(), "Unexpected token");
                 Err(PuffinError::Error(self.create_error(
                     &format!("Expected valid expression, found `{}`", self.current().tt),
@@ -450,7 +452,6 @@ impl<'a> Parser<'a> {
     fn comma_separated_list_pattern(
         &mut self,
         delimiter: TokenType,
-        start: usize,
     ) -> Result<Vec<Expr>, PuffinError<'a>> {
         let mut expr = vec![];
         let guard = self.update_limit_list(&[delimiter, TokenType::Comma]);
@@ -523,7 +524,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parses the fields of structs and objects. Should enter with current being the opening delimiter
-    fn field_pattern(&mut self, start: usize) -> Result<AHashMap<Ident, Expr>, PuffinError<'a>> {
+    fn field_pattern(&mut self) -> Result<AHashMap<Ident, Expr>, PuffinError<'a>> {
         let mut map: AHashMap<Ident, Expr> = AHashMap::new();
         let guard = self.update_limit_list(&[TokenType::Comma, TokenType::RightBrace]);
         // Parse the struct fields
@@ -675,7 +676,7 @@ impl<'a> Parser<'a> {
                 let path = self.path()?;
                 // Advance onto opening brace
                 self.advance();
-                let fields = self.field_pattern(start)?;
+                let fields = self.field_pattern()?;
                 Ok(pat::StructPat::ast_node(
                     start..self.current().range.end,
                     path,
@@ -890,6 +891,7 @@ mod parser_test {
     }
 
     #[test]
+    /// Tests basic arithmatic expressions
     fn binary_ops() {
         let src = Source::new("./scripts/tests/binary_ops.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
@@ -924,6 +926,7 @@ mod parser_test {
     }
 
     #[test]
+    /// Tests general pattern parsing
     fn pattern() {
         let src = Source::new("./scripts/tests/pattern.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
@@ -989,6 +992,7 @@ mod parser_test {
 
     #[test]
     #[should_panic(expected = "Syntax error detected")]
+    /// Tests that complicated syntax errors don't crash the parser
     fn syntax_error() {
         let src = Source::new("./scripts/tests/syntax_error.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
