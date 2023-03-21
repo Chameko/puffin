@@ -41,6 +41,8 @@ pub enum Expr {
     Match(MatchStmt),
     /// A block statement that returns a value
     Block(BlockStmt),
+    /// For empty lines
+    Empty
 }
 
 impl CallExpr {

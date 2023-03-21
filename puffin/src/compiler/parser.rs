@@ -131,7 +131,12 @@ impl<'a> Parser<'a> {
         // Add statements until we're at the end of file
         while !self.end_of_file() {
             match self.statement() {
-                Ok(stmt) => root.push(stmt),
+                Ok(stmt) => {
+                    // Don't push empty lines, they're just used so we can return a valid statement
+                    if !matches!(stmt, Stmt::ExprStmt(Expr::Empty(_))) {
+                        root.push(stmt)
+                    }
+                },
                 Err(e) => self.errors.push(e),
             }
             self.advance();
@@ -149,6 +154,10 @@ impl<'a> Parser<'a> {
         self.limit_tokens = vec![TokenType::NL, TokenType::EOF];
         match self.current().tt {
             // TODO: Other statement types
+            // Skip blank lines
+            TokenType::NL => {
+                Ok(Stmt::ExprStmt(expr::EmptyExpr::ast_node(self.current().range.clone())))
+            }
             _ => self.expression_stmt(),
         }
     }
@@ -158,7 +167,11 @@ impl<'a> Parser<'a> {
         let stmt = self.assignment_stmt()?;
         // Only check for the newline if we aren't at the end of file
         if self.peek().tt != TokenType::EOF {
-            self.check_consume(TokenType::NL)?;
+            // Allow for a blank line
+            if self.current().tt != TokenType::NL {
+                // Consume the NL at the end of an expression
+                self.check_consume(TokenType::NL)?;
+            }
         }
         Ok(stmt)
     }
@@ -166,6 +179,7 @@ impl<'a> Parser<'a> {
     /// Parse assignments
     fn assignment_stmt(&mut self) -> Result<Stmt, PuffinError<'a>> {
         let expr = self.expression()?;
+        // Check for equals
         if self.peek().tt == TokenType::Equal {
             self.advance();
             let rng = self.peek().range.clone();
@@ -437,6 +451,7 @@ impl<'a> Parser<'a> {
             TokenType::Null => Ok(Expr::Pat(Pat::Literal(lit::NullLiteral::ast_node(
                 self.current().range.clone(),
             )))),
+            TokenType::NL => Ok(expr::EmptyExpr::ast_node(self.current().range.clone())),
             _ => {
                 let snip = self.create_line_snippet_with_token(self.current(), "Unexpected token");
                 Err(PuffinError::Error(self.create_error(
@@ -683,10 +698,12 @@ impl<'a> Parser<'a> {
                     fields,
                 ))
             }
-            _ => Ok(Pat::Ident(Ident::new(
+            _ => {
+                Ok(Pat::Ident(Ident::new(
                 self.current().range.clone(),
                 self.current_string(),
-            ))),
+                )))
+            },
         }
     }
 
@@ -878,7 +895,7 @@ mod parser_test {
     use crate::scanner::Scanner;
     use ahash::AHashMap;
 
-    /// Trait used to extend [AHashMap] and allow chaining insert statements for adding multiple fields
+    /// Trait used to extend [AHashMap] and allow chaining insert statements for adding multiple fields to structs
     trait ChainExt<K, V> {
         fn chain_insert(self, key: K, value: V) -> Self;
     }
@@ -891,7 +908,7 @@ mod parser_test {
     }
 
     #[test]
-    /// Tests basic arithmatic expressions
+    /// Tests basic arithmetic expressions
     fn binary_ops() {
         let src = Source::new("./scripts/tests/binary_ops.pf").unwrap();
         let mut scanner = Scanner::new(&src.files[0]);
@@ -919,7 +936,9 @@ mod parser_test {
             }
             None => {
                 for e in parse.errors {
-                    println!("{e}")
+                    println!("{e}");
+                    panic!("There were unexpected errors");
+
                 }
             }
         }
@@ -980,11 +999,12 @@ mod parser_test {
 
         match root {
             Some(r) => {
-                assert!(r.test_ast_cmp(&test), "Generated AST did not match expected value: \n\nGenerated >>\n {r:?}\n\nExpected >>\n {test:?}")
+                assert!(r.test_ast_cmp(&test), "Generated AST did not match expected value: \n\nGenerated >>\n {r:?}\n\nExpected >>\n {test:?}");
             }
             None => {
                 for e in parse.errors {
-                    println!("{e}")
+                    println!("{e}");
+                    panic!("There were unexpected errors")
                 }
             }
         }
