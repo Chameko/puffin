@@ -444,6 +444,24 @@ mod scanner_test {
         let mut scanner = Scanner::new(&src.files[0]);
         let tks = scanner.scan().expect("Scanning failed");
         use super::TokenType as TT;
+        #[cfg(target_os="windows")]
+        let correct = vec![
+            (TT::String, "A quick brown fox jumped over the lazy dog"),
+            (TT::NL, "\n"),
+            (TT::Integer, "134"),
+            (TT::NL, "\n"),
+            (TT::Float, "12.3242"),
+            (TT::NL, "\n"),
+            (TT::Float, "12.5"),
+            (TT::Dot, "."),
+            (TT::Integer, "1"),
+            (TT::NL, "\n"),
+            (TT::String, "escape \\\""),
+            (TT::NL, "\n"),
+            (TT::String, "new line O_o\r\nwow\r\n"),
+            (TT::EOF, ""),
+        ];
+        #[cfg(target_os="linux")]
         let correct = vec![
             (TT::String, "A quick brown fox jumped over the lazy dog"),
             (TT::NL, "\n"),
