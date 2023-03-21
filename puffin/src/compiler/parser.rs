@@ -452,8 +452,9 @@ impl<'a> Parser<'a> {
                 self.current().range.clone(),
             )))),
             TokenType::NL => Ok(expr::EmptyExpr::ast_node(self.current().range.clone())),
-            _ => {
-                let snip = self.create_line_snippet_with_token(self.current(), "Unexpected token");
+            t => {
+                let variant = t.token_variant();
+                let snip = self.create_line_snippet_with_token(self.current(), &format!("Unexpected {variant}"));
                 Err(PuffinError::Error(self.create_error(
                     &format!("Expected valid expression, found `{}`", self.current().tt),
                     vec![snip],

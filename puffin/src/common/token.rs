@@ -77,8 +77,39 @@ pub enum TokenType {
 }
 
 impl TokenType {
+    /// Determines if the token is a literal
     pub const fn is_value(&self) -> bool {
         matches!(self, Self::String | Self::Integer | Self::Float)
+    }
+
+    /// Describes if the token type is either a end of file, new line, identifier, literal, keyword or symbol
+    pub fn token_variant(&self) -> String {
+        match self {
+            TokenType::EOF => String::from("end of file"),
+            TokenType::NL => String::from("new Line"),
+            TokenType::Integer | TokenType::Float | TokenType::String => String::from("literal"),
+            TokenType::Identifier => String::from("identifier"),
+            TokenType::While
+            | TokenType::Var
+            | TokenType::Use
+            | TokenType::True
+            | TokenType::Trait
+            | TokenType::Super
+            | TokenType::Struct 
+            | TokenType::Or
+            | TokenType::Null
+            | TokenType::In
+            | TokenType::Impl
+            | TokenType::If
+            | TokenType::Fun
+            | TokenType::From
+            | TokenType::For
+            | TokenType::False
+            | TokenType::Else
+            | TokenType::Const
+            | TokenType::And => String::from("keyword"),
+            _ => String::from("symbol")
+        }
     }
 }
 
