@@ -64,6 +64,10 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    // ---------------------------------
+    // Parser movement
+    // ---------------------------------
+
     /// Advance the token
     #[inline]
     fn advance(&mut self) {
@@ -108,12 +112,6 @@ impl<'a> Parser<'a> {
         self.tokens.get(index).expect("Get token should be valid")
     }
 
-    /// Check whether we are at the end of the token stream
-    #[inline]
-    fn end_of_file(&self) -> bool {
-        self.current().tt == TokenType::EOF
-    }
-
     /// Creates a new parser
     pub fn new(file: &'a File, tks: Vec<Token>) -> Self {
         Self {
@@ -124,6 +122,10 @@ impl<'a> Parser<'a> {
             limit_tokens: vec![TokenType::NL, TokenType::EOF],
         }
     }
+
+    // ---------------------------------
+    // Parsing functionality
+    // ---------------------------------
 
     /// Parse the tokens
     pub fn parse(&mut self) -> Option<Root> {
@@ -148,6 +150,10 @@ impl<'a> Parser<'a> {
             None
         }
     }
+
+    // ---------------------------------
+    // Statement parsing
+    // ---------------------------------
 
     /// Parse a statement
     fn statement(&mut self) -> Result<Stmt, PuffinError<'a>> {
@@ -189,6 +195,10 @@ impl<'a> Parser<'a> {
         }
         Ok(Stmt::ExprStmt(expr))
     }
+
+    // ---------------------------------
+    // Expression parsing
+    // ---------------------------------
 
     /// Parse expressions
     #[inline]
@@ -708,6 +718,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // ---------------------------------
+    // Error and snippet generation
+    // ---------------------------------
+
     /// Constructs a snippet with the whole line as context, the underline underneath
     /// the provided token and the annotation next to it.
     fn create_line_snippet_with_token(&self, token: &Token, anno: &str) -> Snippet {
@@ -750,6 +764,15 @@ impl<'a> Parser<'a> {
         // Create the sippet
         Snippet::new(start..end, highlight, anno)
     }
+
+    /// Creates an error message
+    fn create_error(&self, message: &str, snippet: Vec<Snippet>) -> ErrorMsg<'a> {
+        ErrorMsg::new(self.file, message, snippet)
+    }
+
+    // ---------------------------------
+    // Token checking
+    // ---------------------------------
 
     /// Check if the next token matches the token type. This does not advance the parser
     fn check_match(&self, tt: &[TokenType]) -> bool {
@@ -802,10 +825,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Creates an error message
-    fn create_error(&self, message: &str, snippet: Vec<Snippet>) -> ErrorMsg<'a> {
-        ErrorMsg::new(self.file, message, snippet)
-    }
+    // ---------------------------------
+    // Common checks and functionality
+    // ---------------------------------
 
     /// Gets the string the current token holds
     #[inline]
@@ -818,6 +840,23 @@ impl<'a> Parser<'a> {
     fn at_end(&self) -> bool {
         self.peek().tt == TokenType::EOF && self.peek().tt == TokenType::NL
     }
+
+    /// Skips a possible newline character at current
+    fn skip_newline(&mut self) {
+        if self.current().tt == TokenType::NL {
+            self.advance();
+        }
+    }
+
+    /// Check whether we are at the end of the token stream
+    #[inline]
+    fn end_of_file(&self) -> bool {
+        self.current().tt == TokenType::EOF
+    }
+
+    // ---------------------------------
+    // Error handling
+    // ---------------------------------
 
     /// Continuously retries to parse using provided function until it either hits a limit token or finds a valid
     /// expr to continue on with. If it hits the limit token it returns the original error and the limit token.
@@ -874,13 +913,6 @@ impl<'a> Parser<'a> {
     /// Updated the limit list and provides a guard to reset the limit to its previous state once done
     fn update_limit_list(&mut self, appended: &[TokenType]) -> LimitTokenGuard {
         LimitTokenGuard::new(self, appended.to_vec())
-    }
-
-    /// Skips a possible newline character at current
-    fn skip_newline(&mut self) {
-        if self.current().tt == TokenType::NL {
-            self.advance();
-        }
     }
 }
 
