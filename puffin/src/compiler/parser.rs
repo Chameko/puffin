@@ -232,7 +232,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    /// Parse a comparison
+    /// Parse a comparison operator
     fn comparison(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.term()?;
         parse_precedence!(
@@ -298,7 +298,7 @@ impl<'a> Parser<'a> {
 
     /// Parse a call to a function
     fn call(&mut self) -> Result<Expr, PuffinError<'a>> {
-        let mut expr = self.method()?;
+        let mut expr = self.access()?;
         while self.check_match(&[TokenType::LeftParen])
             && self.current().tt == TokenType::Identifier
         {
@@ -310,7 +310,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn method(&mut self) -> Result<Expr, PuffinError<'a>> {
+    fn access(&mut self) -> Result<Expr, PuffinError<'a>> {
         let mut expr = self.primary()?;
         // Ignore newlines between field accesses. This allows for neater syntax
         while self.check_match_ignore_newline(&[TokenType::Dot]) {
@@ -321,7 +321,7 @@ impl<'a> Parser<'a> {
             };
             self.advance();
             self.advance();
-            let rhs = self.method()?;
+            let rhs = self.call()?;
             expr = expr::AccessExpr::ast_node(rng, expr, rhs);
         }
         Ok(expr)
@@ -921,7 +921,6 @@ mod parser_test {
     use super::*;
     use crate::common::ast::expr::binary;
     use crate::common::ast::ident::ident_expr;
-    use crate::common::ast::ident::ident_pat;
     use crate::common::ast::lit::literal_expr;
     use crate::common::ast::*;
     use crate::common::Source;
@@ -1016,23 +1015,48 @@ mod parser_test {
             ident_expr(Ident::test_node("call")),
             expr::CallExpr::test_node(ident_expr(Ident::test_node("wack")), vec![]),
         ));
-        test.push(Stmt::ExprStmt(expr::CallExpr::test_node(
+        test.push(Stmt::ExprStmt(expr::AccessExpr::test_node(
+            ident_expr(Ident::test_node("number")),
             expr::AccessExpr::test_node(
-                Expr::Pat(ident_pat(Ident::test_node("number"))),
+                ident_expr(Ident::test_node("x")),
+                expr::CallExpr::test_node(
+                    ident_expr(Ident::test_node("wack")),
+                    vec![
+                        literal_expr(lit::IntLiteral::test_node(4)),
+                        literal_expr(lit::StringLiteral::test_node("42".to_string()))
+                    ]
+                )
+            )
+        )));
+        test.push(Stmt::ExprStmt(expr::AccessExpr::test_node(
+            expr::AccessExpr::test_node(
                 expr::AccessExpr::test_node(
-                    ident::ident_expr(Ident::test_node("x")),
-                    ident::ident_expr(Ident::test_node("wack")),
+                    ident_expr(Ident::test_node("very")),
+                    expr::AccessExpr::test_node(
+                        ident_expr(Ident::test_node("big")),
+                        expr::CallExpr::test_node(
+                            ident_expr(Ident::test_node("chain")),
+                            vec![]
+                        )
+                    )
                 ),
+                expr::AccessExpr::test_node(
+                    ident_expr(Ident::test_node("method")),
+                    expr::CallExpr::test_node(
+                        ident_expr(Ident::test_node("nice")),
+                        vec![]
+                    )
+                )
             ),
-            vec![
-                literal_expr(lit::IntLiteral::test_node(4)),
-                literal_expr(lit::StringLiteral::test_node("42".to_string())),
-            ],
+            expr::CallExpr::test_node(
+                ident_expr(Ident::test_node("cool")),
+                vec![]
+            )
         )));
 
         match root {
             Some(r) => {
-                assert!(r.test_ast_cmp(&test), "Generated AST did not match expected value: \n\nGenerated >>\n {r:?}\n\nExpected >>\n {test:?}");
+                assert!(r.test_ast_cmp(&test), "Generated AST did not match expected value: \n\nGenerated >>\n {r:#?}\n\nExpected >>\n {test:?}");
             }
             None => {
                 for e in parse.errors {
