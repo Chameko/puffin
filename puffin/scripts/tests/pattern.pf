@@ -3,3 +3,4 @@ cool = [1, 2, 4, "Bob", 4.2]
 
 call = wack()
 number.x.wack(4, "42")
+very.big.chain().method.nice().cool()
