@@ -292,13 +292,13 @@ impl<'a> Parser<'a> {
                     self.unary()?,
                 )))
             }
-            _ => self.call()?,
+            _ => self.access()?,
         })
     }
 
     /// Parse a call to a function
     fn call(&mut self) -> Result<Expr, PuffinError<'a>> {
-        let mut expr = self.access()?;
+        let mut expr = self.primary()?;
         while self.check_match(&[TokenType::LeftParen])
             && self.current().tt == TokenType::Identifier
         {
@@ -311,7 +311,7 @@ impl<'a> Parser<'a> {
     }
 
     fn access(&mut self) -> Result<Expr, PuffinError<'a>> {
-        let mut expr = self.primary()?;
+        let mut expr = self.call()?;
         // Ignore newlines between field accesses. This allows for neater syntax
         while self.check_match_ignore_newline(&[TokenType::Dot]) {
             let rng = if TokenType::NL == self.peek().tt {
@@ -1015,48 +1015,46 @@ mod parser_test {
             ident_expr(Ident::test_node("call")),
             expr::CallExpr::test_node(ident_expr(Ident::test_node("wack")), vec![]),
         ));
-        test.push(Stmt::ExprStmt(expr::AccessExpr::test_node(
-            ident_expr(Ident::test_node("number")),
-            expr::AccessExpr::test_node(
-                ident_expr(Ident::test_node("x")),
-                expr::CallExpr::test_node(
-                    ident_expr(Ident::test_node("wack")),
-                    vec![
-                        literal_expr(lit::IntLiteral::test_node(4)),
-                        literal_expr(lit::StringLiteral::test_node("42".to_string()))
-                    ]
-                )
-            )
-        )));
-        test.push(Stmt::ExprStmt(expr::AccessExpr::test_node(
+        test.push(Stmt::ExprStmt(
             expr::AccessExpr::test_node(
                 expr::AccessExpr::test_node(
-                    ident_expr(Ident::test_node("very")),
+                ident_expr(Ident::test_node("number")),
+                ident_expr(Ident::test_node("x"))
+            ),
+            expr::CallExpr::test_node(ident_expr(Ident::test_node("wack")),
+            vec![
+                literal_expr(lit::IntLiteral::test_node(4)),
+                literal_expr(lit::StringLiteral::test_node(String::from("42"))),
+            ]))
+        )); 
+        test.push(Stmt::ExprStmt(
+            expr::AccessExpr::test_node(
+                expr::AccessExpr::test_node(
                     expr::AccessExpr::test_node(
-                        ident_expr(Ident::test_node("big")),
-                        expr::CallExpr::test_node(
-                            ident_expr(Ident::test_node("chain")),
-                            vec![]
-                        )
-                    )
-                ),
-                expr::AccessExpr::test_node(
-                    ident_expr(Ident::test_node("method")),
+                        expr::AccessExpr::test_node(
+                            expr::AccessExpr::test_node(
+                                ident_expr(Ident::test_node("very")),
+                                ident_expr(Ident::test_node("big"))
+                            ),
+                            expr::CallExpr::test_node(ident_expr(Ident::test_node("chain")), vec![])
+                        ),
+                        ident_expr(Ident::test_node("method"))
+                    ),
                     expr::CallExpr::test_node(
                         ident_expr(Ident::test_node("nice")),
                         vec![]
                     )
+                ),
+                expr::CallExpr::test_node(
+                    ident_expr(Ident::test_node("cool")),
+                    vec![]
                 )
-            ),
-            expr::CallExpr::test_node(
-                ident_expr(Ident::test_node("cool")),
-                vec![]
             )
-        )));
+        ));
 
         match root {
             Some(r) => {
-                assert!(r.test_ast_cmp(&test), "Generated AST did not match expected value: \n\nGenerated >>\n {r:#?}\n\nExpected >>\n {test:?}");
+                assert!(r.test_ast_cmp(&test), "Generated AST did not match expected value: \n\nGenerated >>\n {r:?}\n\nExpected >>\n {test:?}");
             }
             None => {
                 for e in parse.errors {
