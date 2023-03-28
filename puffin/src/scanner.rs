@@ -212,34 +212,76 @@ impl<'a> Scanner<'a> {
                 'n' => self.check_word("null", 1, Null),
 
                 // Ambiguous keywords
-                's' => match self.next() {
-                    Some('u') => self.check_word("super", 2, Super),
-                    Some('e') => self.check_word("struct", 2, Struct),
-                    _ => self.identifier("s"),
-                },
-                'f' => match self.next() {
-                    Some('a') => self.check_word("false", 2, False),
-                    Some('o') => self.check_word("for", 2, For),
-                    Some('r') => self.check_word("from", 2, From),
-                    Some('u') => self.check_word("fun", 2, Fun),
-                    _ => self.identifier("f"),
-                },
-                'i' => match self.next() {
-                    Some('f') => self.check_word("if", 2, If),
-                    Some('n') => self.check_word("in", 2, In),
-                    Some('m') => self.check_word("impl", 2, Impl),
-                    _ => self.identifier("i"),
-                },
-                't' => match self.next() {
-                    Some('h') => self.check_word("this", 2, This),
-                    Some('r') => match self.next() {
-                        Some('u') => self.check_word("true", 3, True),
-                        Some('a') => self.check_word("trait", 3, Trait),
-                        _ => self.identifier("tr"),
+                's' => match self.peek() {
+                    Some('u') => {
+                        self.next();
+                        self.check_word("super", 2, Super)},
+                    Some('t') => {
+                        self.next();
+                        self.check_word("struct", 2, Struct)},
+                    _ => {
+                        // Move back so the current character is correct
+                        self.identifier("s")
                     },
-                    _ => self.identifier("t"),
                 },
-                _ => self.identifier(&c.to_string()),
+                'f' => match self.peek() {
+                    Some('a') => {
+                        self.next();
+                        self.check_word("false", 2, False)},
+                    Some('o') => {
+                        self.next();
+                        self.check_word("for", 2, For)},
+                    Some('r') => {
+                        self.next();
+                        self.check_word("from", 2, From)},
+                    Some('u') => {
+                        self.next();
+                        self.check_word("fun", 2, Fun)},
+                    _ => {
+                        // Move back so the current character is correct
+                        self.identifier("f")
+                    },
+                },
+                'i' => match self.peek() {
+                    Some('f') => {
+                        self.next();
+                        self.check_word("if", 2, If)},
+                    Some('n') => {
+                        self.next();
+                        self.check_word("in", 2, In)},
+                    Some('m') => {
+                        self.next();
+                        self.check_word("impl", 2, Impl)},
+                    _ => {
+                        // Move back so the current character is correct
+                        self.identifier("i")
+                    },
+                },
+                't' => match self.peek() {
+                    Some('h') => {
+                        self.next();
+                        self.check_word("this", 2, This)},
+                    Some('r') => match self.peek() {
+                        Some('u') => {
+                            self.next();
+                            self.check_word("true", 3, True)},
+                        Some('a') => {
+                            self.next();
+                            self.check_word("trait", 3, Trait)},
+                        _ => {
+                            // Move back so the current character is correct
+                            self.identifier("tr")
+                        },
+                    },
+                    _ => {
+                        // Move back so the current character is correct
+                        self.identifier("t")
+                    },
+                },
+                _ => {
+                    // Move back so the current character is correct
+                    self.identifier(&c.to_string())
+                },
             }
         } else {
             self.make_token(TokenType::EOF, 0)
@@ -477,6 +519,30 @@ mod scanner_test {
             (TT::NL, "\n"),
             (TT::String, "new line O_o\nwow\n"),
             (TT::EOF, ""),
+        ];
+        type TokenTest = Vec<(TokenType, String)>;
+        let correct = correct.iter().map(|e| (e.0, e.1.to_string()));
+        let tks: TokenTest = tks
+            .into_iter()
+            .map(|t| (t.tt, t.contained_string(&src.files[0]).to_string()))
+            .collect();
+        for test_case in correct.into_iter().zip(tks) {
+            assert_eq!(test_case.0, test_case.1);
+        }
+    }
+
+    #[test]
+    fn test_missing_s() {
+        let src = Source::new("./scripts/tests/snake.pf").unwrap();
+        let mut scanner = Scanner::new(&src.files[0]);
+        let tks = scanner.scan().expect("Scanning failed");
+        use super::TokenType as TT;
+        let correct = vec![
+            (TT::Identifier, "snake"),
+            (TT::NL, "\n"),
+            (TT::Identifier, "snack"),
+            (TT::NL, "\n"),
+            (TT::Identifier, "slide"),
         ];
         type TokenTest = Vec<(TokenType, String)>;
         let correct = correct.iter().map(|e| (e.0, e.1.to_string()));
