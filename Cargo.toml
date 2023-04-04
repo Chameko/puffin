@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "puffin",
-    "puffin_macro",
+    "crates/puffin_ast",
+    "crates/puffin",
+    "crates/puffin_macro",
+    "crates/tools",
 ]

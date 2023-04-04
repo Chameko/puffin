@@ -1,0 +1,46 @@
+Grammer(
+    single_char_tokens: [
+        ["&", "AMP"],
+        ["|", "PIPE"],
+        ["+", "PLUS"],
+        ["-", "MINUS"],
+        ["*", "STAR"],
+        ["/", "SLASH"],
+        [">", "GT"],
+        ["<", "LT"],
+        ["=", "EQ"],
+        ["(", "L_PAREN"],
+        [")", "R_PAREN"],
+        ["!", "EXCLAMATION"],
+    ],
+    multi_char_tokens: [
+        ["==", "EQEQ"],
+        [">=", "GTEQ"],
+        ["<=", "LTEQ"],
+        ["&&", "AMPAMP"],
+        ["||", "PIPEPIPE"]
+    ],
+    keywords: [
+        "or",
+        "and",
+    ],
+    literals: [
+        "INT",
+        "FLOAT",
+        "STRING",
+    ],
+    tokens: [
+        "ERROR",
+        "IDENT",
+        "WHITESPACE",
+        "COMMENT",
+    ],
+    nodes: [
+        "SOURCE_FILE",
+
+        "LITERAL",
+
+        "EXPR_STMT",
+        "BIN_EXPR",
+    ]
+)
