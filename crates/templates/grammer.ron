@@ -12,6 +12,8 @@ Grammer(
         ["(", "L_PAREN"],
         [")", "R_PAREN"],
         ["!", "EXCLAMATION"],
+        [".", "DOT"],
+        ["\n", "NL"]
     ],
     multi_char_tokens: [
         ["==", "EQEQ"],

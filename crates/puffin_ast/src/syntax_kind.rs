@@ -3,7 +3,7 @@
 
 use SyntaxKind::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(u16)]
 #[allow(non_camel_case_types)]
 pub enum SyntaxKind {
@@ -22,13 +22,15 @@ pub enum SyntaxKind {
     L_PAREN,
     R_PAREN,
     EXCLAMATION,
+    DOT,
+    NL,
     EQEQ,
     GTEQ,
     LTEQ,
     AMPAMP,
     PIPEPIPE,
-    OR_KW,
-    AND_KW,
+    KW_OR,
+    KW_AND,
     INT,
     FLOAT,
     STRING,
@@ -80,6 +82,13 @@ macro_rules! T {
     (!) => {
         $crate::SyntaxKind::EXCLAMATION
     };
+    (.) => {
+        $crate::SyntaxKind::DOT
+    };
+    (
+) => {
+        $crate::SyntaxKind::NL
+    };
     (==) => {
         $crate::SyntaxKind::EQEQ
     };
@@ -96,10 +105,10 @@ macro_rules! T {
         $crate::SyntaxKind::PIPEPIPE
     };
     (or) => {
-        $crate::SyntaxKind::OR_KW
+        $crate::SyntaxKind::KW_OR
     };
     (and) => {
-        $crate::SyntaxKind::AND_KW
+        $crate::SyntaxKind::KW_AND
     };
 }
 
@@ -107,8 +116,8 @@ impl SyntaxKind {
     #[rustfmt::skip]
     pub fn is_keyword(self) -> bool {
         matches!(self,
-        OR_KW
-        | AND_KW
+        KW_OR
+        | KW_AND
         )
     }
 
@@ -127,6 +136,8 @@ impl SyntaxKind {
         | L_PAREN
         | R_PAREN
         | EXCLAMATION
+        | DOT
+        | NL
         | EQEQ
         | GTEQ
         | LTEQ
