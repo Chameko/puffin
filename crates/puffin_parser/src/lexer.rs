@@ -54,21 +54,24 @@ impl<'a> Lexer<'a> {
     }
 
     // Scans the working string and creates an identifier or a number
-    fn scan_working(&self) -> Option<Token> {
-        match self.working.as_str() {
+    fn scan_working(&mut self) -> Option<Token> {
+        let ret = match self.working.as_str() {
             "and" => Some(token(SyntaxKind::KW_AND, "and")),
             "or" => Some(token(SyntaxKind::KW_OR, "or")),
             s => {
-                for char in s.chars() {
+                if let Some(char) = s.chars().next() {
                     if char.is_numeric() {
-                        return Some(Self::parse_number(s))
+                         Some(Self::parse_number(s))
                     } else {
-                        return Some(token(SyntaxKind::IDENT, s))
+                        Some(token(SyntaxKind::IDENT, s))
                     }
+                } else {
+                    None
                 }
-                None
             }
-        }
+        };
+        self.working = String::from("");
+        ret
     }
 
     /// Starts the scan of the file
@@ -80,7 +83,7 @@ impl<'a> Lexer<'a> {
 
     /// Scans the string into a flat array of [`SyntaxKind`] and [`String`]
     fn scan(&mut self, tokens: &mut Vec<Token>) {
-        let mut symbol = |this: &Lexer, ty: SyntaxKind, st: &str| {
+        let mut symbol = |this: &mut Lexer, ty: SyntaxKind, st: &str| {
             if let Some(tk) = this.scan_working() {
                 tokens.push(tk);
             }
@@ -92,41 +95,41 @@ impl<'a> Lexer<'a> {
                 '&' => {
                     if let Some('&') = self.peek() {
                         self.next();
-                        symbol(&self, SyntaxKind::AMP, "&&");
+                        symbol(self, SyntaxKind::AMP, "&&");
                     } else {
-                        symbol(&self, SyntaxKind::AMP, "&");
+                        symbol(self, SyntaxKind::AMP, "&");
                     }
                 },
                 '|' => {
                     if let Some('|') = self.peek() {
                         self.next();
-                        symbol(&self, SyntaxKind::PIPEPIPE, "||");
+                        symbol(self, SyntaxKind::PIPEPIPE, "||");
                     } else {
-                        symbol(&self, SyntaxKind::PIPE, "|");
+                        symbol(self, SyntaxKind::PIPE, "|");
                     }
                 },
                 '=' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(&self, SyntaxKind::EQEQ, "==");
+                        symbol(self, SyntaxKind::EQEQ, "==");
                     } else {
-                        symbol(&self, SyntaxKind::EQ, "=")
+                        symbol(self, SyntaxKind::EQ, "=")
                     }
                 }
                 '>' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(&self, SyntaxKind::GTEQ, ">=");
+                        symbol(self, SyntaxKind::GTEQ, ">=");
                     } else {
-                        symbol(&self, SyntaxKind::GT, ">");
+                        symbol(self, SyntaxKind::GT, ">");
                     }
                 }
                 '<' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(&self, SyntaxKind::LTEQ, "<=");
+                        symbol(self, SyntaxKind::LTEQ, "<=");
                     } else {
-                        symbol(&self, SyntaxKind::LT, "<");
+                        symbol(self, SyntaxKind::LT, "<");
                     }
                 }
                 '.' => {
@@ -135,10 +138,10 @@ impl<'a> Lexer<'a> {
                         if c.is_numeric() {
                             self.working.push('.')
                         } else {
-                            symbol(&self, SyntaxKind::DOT, ".");
+                            symbol(self, SyntaxKind::DOT, ".");
                         }
                     } else {
-                        symbol(&self, SyntaxKind::DOT, ".")
+                        symbol(self, SyntaxKind::DOT, ".")
                     }
                 }
                 '/' => {
@@ -150,9 +153,9 @@ impl<'a> Lexer<'a> {
                             comment.push(self.next().unwrap());
                             peek = self.peek();
                         }
-                        symbol(&self, SyntaxKind::COMMENT, &comment);
+                        symbol(self, SyntaxKind::COMMENT, &comment);
                     } else {
-                        symbol(&self, SyntaxKind::SLASH, "/");
+                        symbol(self, SyntaxKind::SLASH, "/");
                     }
                 }
                 ' ' => {
@@ -162,20 +165,20 @@ impl<'a> Lexer<'a> {
                         self.next();
                         space.push(' ');
                     }
-                    symbol(&self, SyntaxKind::WHITESPACE, &space);
+                    symbol(self, SyntaxKind::WHITESPACE, &space);
                 }
-                '+' => symbol(&self, SyntaxKind::PLUS, "+"),
-                '-' => symbol(&self, SyntaxKind::MINUS, "-"),
-                '*' => symbol(&self, SyntaxKind::STAR, "*"),
-                '(' => symbol(&self, SyntaxKind::L_PAREN, "("),
-                ')' => symbol(&self, SyntaxKind::R_PAREN, ")"),
-                '!' => symbol(&self, SyntaxKind::EXCLAMATION, "!"),
-                '\n' => symbol(&self, SyntaxKind::NL, "\n"),
+                '+' => symbol(self, SyntaxKind::PLUS, "+"),
+                '-' => symbol(self, SyntaxKind::MINUS, "-"),
+                '*' => symbol(self, SyntaxKind::STAR, "*"),
+                '(' => symbol(self, SyntaxKind::L_PAREN, "("),
+                ')' => symbol(self, SyntaxKind::R_PAREN, ")"),
+                '!' => symbol(self, SyntaxKind::EXCLAMATION, "!"),
+                '\n' => symbol(self, SyntaxKind::NL, "\n"),
                 c => {
-                    if c.is_alphabetic() {
+                    if c.is_alphanumeric() {
                         self.working.push(c)
                     } else {
-                        symbol(&self, SyntaxKind::ERROR, c.to_string().as_str())
+                        symbol(self, SyntaxKind::ERROR, c.to_string().as_str())
                     }
                 }
             }
@@ -190,13 +193,46 @@ impl<'a> Lexer<'a> {
 
 #[cfg(test)]
 mod lexer_test {
+    fn test_base(input: &str) -> String {
+        let mut lexer = super::Lexer::new(input, "test.pf");
+        let tokens = lexer.stat_scan();
+        tokens.into_iter().map(|p| p.1).collect::<String>()
+    }
+
     #[test]
     fn symbol_kinds() {
-        let test = "& | + - * / > < = ( ) ! . \n == >= <= && ||";
-        let mut lexer = super::Lexer::new(test, "test.pf");
-        let tokens = lexer.stat_scan();
-        let output = tokens.into_iter().map(|p| p.1).collect::<String>();
+        let output = test_base("& | + - * / > < = ( ) ! . \n == >= <= && ||");
+        insta::assert_yaml_snapshot!(output);
+    }
 
+    #[test]
+    fn keywords_and_ident() {
+        let mut lexer = super::Lexer::new("and sometoiurng or skngeing", "test.pf");
+        let tokens = lexer.stat_scan();
+        let output = tokens.into_iter().map(|p| {
+            match p.0 {
+                super::SyntaxKind::KW_AND => format!("|and:{}|", p.1),
+                super::SyntaxKind::KW_OR => format!("|or:{}|", p.1),
+                super::SyntaxKind::WHITESPACE => format!("|whitespace:{}|", p.1),
+                super::SyntaxKind::IDENT => format!("|ident:{}|", p.1),
+                _ => format!("error:{}", p.1)
+            }
+        }).collect::<String>();
+        insta::assert_yaml_snapshot!(output);
+    }
+
+    #[test]
+    fn numbers() {
+        let mut lexer = super::Lexer::new("1.23 42", "test.pf");
+        let tokens = lexer.stat_scan();
+        let output = tokens.into_iter().map(|p| {
+            match p.0 {
+                super::SyntaxKind::FLOAT => format!("|float:{}|", p.1),
+                super::SyntaxKind::INT => format!("|int:{}|", p.1),
+                super::SyntaxKind::WHITESPACE => format!("|whitespace:{}|", p.1),
+                _ => format!("error:{}", p.1)
+            }
+        }).collect::<String>();
         insta::assert_yaml_snapshot!(output);
     }
 }

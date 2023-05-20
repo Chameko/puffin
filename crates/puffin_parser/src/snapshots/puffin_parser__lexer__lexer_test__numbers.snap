@@ -1,0 +1,6 @@
+---
+source: crates/puffin_parser/src/lexer.rs
+expression: output
+---
+"error:test.pf|float:1.23||whitespace: ||int:42|"
+
