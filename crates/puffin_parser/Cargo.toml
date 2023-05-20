@@ -1,0 +1,19 @@
+[package]
+name = "puffin_parser"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+puffin_ast = { path = "../puffin_ast" }
+puffin_vfs = { path = "../puffin_vfs"}
+
+[dev-dependencies]
+insta = { version = "1.29", features = ["yaml"] }
+
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3

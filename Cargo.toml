@@ -4,5 +4,7 @@ members = [
     "crates/puffin_ast",
     "crates/puffin",
     "crates/puffin_macro",
+    "crates/puffin_parser",
+    "crates/puffin_vfs",
     "crates/tools",
 ]
