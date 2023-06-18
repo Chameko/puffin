@@ -2,5 +2,5 @@
 source: crates/puffin_parser/src/lexer.rs
 expression: output
 ---
-"error:test.pf|and:and||whitespace: ||ident:sometoiurng||whitespace: ||or:or||whitespace: ||ident:skngeing|"
+"|src:test.pf||and:and||whitespace: ||ident:sometoiurng||whitespace: ||or:or||whitespace: ||ident:skngeing|"
 

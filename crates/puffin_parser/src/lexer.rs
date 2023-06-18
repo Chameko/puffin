@@ -1,18 +1,12 @@
 use puffin_ast::SyntaxKind;
 use std::{iter::Peekable, str::Chars};
 
+pub type Token = (SyntaxKind, String);
+
 /// The lexer responsible for taking a raw file as a string and converting it to a flat array of [`Token`]
 pub struct Lexer<'a> {
     src: Peekable<Chars<'a>>,
     working: String,
-    filename: String,
-}
-
-pub type Token = (SyntaxKind, String);
-
-/// Creates a token
-fn token(ty: SyntaxKind, st: &str) -> Token {
-    (ty, st.to_string())
 }
 
 impl<'a> Lexer<'a> {
@@ -27,18 +21,17 @@ impl<'a> Lexer<'a> {
     fn peek(&mut self) -> Option<char> {
         self.src.peek().map(|c| *c)
     }
-    
-    // Creates a new lexer
-    pub fn new(src: &'a str, name: &str) -> Self {
+
+    ///  Creates a new lexer
+    pub fn new(src: &'a str) -> Self {
         Self {
             src: src.chars().peekable(),
             working: String::new(),
-            filename: name.to_string(),
         }
     }
 
     /// Parses a number
-    fn parse_number(s: &str) -> Token {
+    fn parse_number(s: &str) -> SyntaxKind {
         let mut ty = SyntaxKind::INT;
         for char in s.chars() {
             if !char.is_numeric() {
@@ -46,48 +39,52 @@ impl<'a> Lexer<'a> {
                     ty = SyntaxKind::FLOAT;
                 } else {
                     // Cannot have letters in a number
-                    return token(ty, s);
+                    return ty;
                 }
             }
         }
-        token(ty, s)
+        ty
     }
 
     // Scans the working string and creates an identifier or a number
     fn scan_working(&mut self) -> Option<Token> {
         let ret = match self.working.as_str() {
-            "and" => Some(token(SyntaxKind::KW_AND, "and")),
-            "or" => Some(token(SyntaxKind::KW_OR, "or")),
+            "and" => Some(SyntaxKind::KW_AND),
+            "or" => Some(SyntaxKind::KW_OR),
             s => {
                 if let Some(char) = s.chars().next() {
                     if char.is_numeric() {
-                         Some(Self::parse_number(s))
+                        Some(Self::parse_number(s))
                     } else {
-                        Some(token(SyntaxKind::IDENT, s))
+                        Some(SyntaxKind::IDENT)
                     }
                 } else {
                     None
                 }
             }
         };
-        self.working = String::from("");
-        ret
+        let working_clone = std::mem::take(&mut self.working) ;
+        if let Some(ty) = ret {
+            Some((ty, working_clone))
+        } else {
+            None
+        }
     }
 
     /// Starts the scan of the file
-    pub fn stat_scan(&mut self) -> Vec<Token> {
-        let mut tokens = vec![(SyntaxKind::SOURCE_FILE, self.filename.clone())];
+    pub fn start_scan(mut self, filename: &str) -> Vec<Token> {
+        let mut tokens = vec![(SyntaxKind::SOURCE_FILE, filename.to_string())];
         self.scan(&mut tokens);
         tokens
     }
 
     /// Scans the string into a flat array of [`SyntaxKind`] and [`String`]
     fn scan(&mut self, tokens: &mut Vec<Token>) {
-        let mut symbol = |this: &mut Lexer, ty: SyntaxKind, st: &str| {
+        let mut symbol = |this: &mut Lexer, ty: SyntaxKind, string: &str| {
             if let Some(tk) = this.scan_working() {
                 tokens.push(tk);
             }
-            tokens.push(token(ty, st));
+            tokens.push((ty, string.to_string()));
         };
 
         if let Some(char) = self.next() {
@@ -95,11 +92,11 @@ impl<'a> Lexer<'a> {
                 '&' => {
                     if let Some('&') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::AMP, "&&");
+                        symbol(self, SyntaxKind::AMPAMP, "&&");
                     } else {
                         symbol(self, SyntaxKind::AMP, "&");
                     }
-                },
+                }
                 '|' => {
                     if let Some('|') = self.peek() {
                         self.next();
@@ -107,7 +104,7 @@ impl<'a> Lexer<'a> {
                     } else {
                         symbol(self, SyntaxKind::PIPE, "|");
                     }
-                },
+                }
                 '=' => {
                     if let Some('=') = self.peek() {
                         self.next();
@@ -133,7 +130,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '.' => {
-                    if let Some(c)= self.peek() {
+                    if let Some(c) = self.peek() {
                         // If the . is part of a number we push it
                         if c.is_numeric() {
                             self.working.push('.')
@@ -153,19 +150,18 @@ impl<'a> Lexer<'a> {
                             comment.push(self.next().unwrap());
                             peek = self.peek();
                         }
-                        symbol(self, SyntaxKind::COMMENT, &comment);
+                        symbol(self, SyntaxKind::COMMENT, "//");
                     } else {
                         symbol(self, SyntaxKind::SLASH, "/");
                     }
                 }
                 ' ' => {
-                    let mut space = String::from(" ");
-                    // Scan all the whitespace
+                    let mut length = 1;
                     while let Some(' ') = self.peek() {
-                        self.next();
-                        space.push(' ');
+                         length += 1;
+                         self.next();
                     }
-                    symbol(self, SyntaxKind::WHITESPACE, &space);
+                    symbol(self, SyntaxKind::WHITESPACE, &" ".repeat(length) );
                 }
                 '+' => symbol(self, SyntaxKind::PLUS, "+"),
                 '-' => symbol(self, SyntaxKind::MINUS, "-"),
@@ -178,7 +174,7 @@ impl<'a> Lexer<'a> {
                     if c.is_alphanumeric() {
                         self.working.push(c)
                     } else {
-                        symbol(self, SyntaxKind::ERROR, c.to_string().as_str())
+                        symbol(self, SyntaxKind::ERROR, &c.to_string())
                     }
                 }
             }
@@ -194,9 +190,9 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod lexer_test {
     fn test_base(input: &str) -> String {
-        let mut lexer = super::Lexer::new(input, "test.pf");
-        let tokens = lexer.stat_scan();
-        tokens.into_iter().map(|p| p.1).collect::<String>()
+        let lexer = super::Lexer::new(input);
+        let tokens = lexer.start_scan("test.pf");
+        tokens.into_iter().map(|t| t.1).collect::<String>()
     }
 
     #[test]
@@ -207,32 +203,36 @@ mod lexer_test {
 
     #[test]
     fn keywords_and_ident() {
-        let mut lexer = super::Lexer::new("and sometoiurng or skngeing", "test.pf");
-        let tokens = lexer.stat_scan();
-        let output = tokens.into_iter().map(|p| {
-            match p.0 {
-                super::SyntaxKind::KW_AND => format!("|and:{}|", p.1),
-                super::SyntaxKind::KW_OR => format!("|or:{}|", p.1),
-                super::SyntaxKind::WHITESPACE => format!("|whitespace:{}|", p.1),
-                super::SyntaxKind::IDENT => format!("|ident:{}|", p.1),
-                _ => format!("error:{}", p.1)
-            }
-        }).collect::<String>();
+        let lexer = super::Lexer::new("and sometoiurng or skngeing");
+        let tokens = lexer.start_scan("test.pf");
+        let output = tokens
+            .into_iter()
+            .map(|p| match p {
+                (super::SyntaxKind::KW_AND, _)=> format!("|and:{}|", p.1),
+                (super::SyntaxKind::KW_OR, _)=> format!("|or:{}|", p.1),
+                (super::SyntaxKind::WHITESPACE, _)=> format!("|whitespace:{}|", p.1),
+                (super::SyntaxKind::IDENT, _)=> format!("|ident:{}|", p.1),
+                (super::SyntaxKind::SOURCE_FILE, _) => format!("|src:{}|", p.1),
+                _ => format!("error:{}", p.1),
+            })
+            .collect::<String>();
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn numbers() {
-        let mut lexer = super::Lexer::new("1.23 42", "test.pf");
-        let tokens = lexer.stat_scan();
-        let output = tokens.into_iter().map(|p| {
-            match p.0 {
-                super::SyntaxKind::FLOAT => format!("|float:{}|", p.1),
-                super::SyntaxKind::INT => format!("|int:{}|", p.1),
-                super::SyntaxKind::WHITESPACE => format!("|whitespace:{}|", p.1),
-                _ => format!("error:{}", p.1)
-            }
-        }).collect::<String>();
+        let lexer = super::Lexer::new("1.23 42");
+        let tokens = lexer.start_scan("test.pf");
+        let output = tokens
+            .into_iter()
+            .map(|p| match p {
+                (super::SyntaxKind::FLOAT, _)=> format!("|float:{}|", p.1),
+                (super::SyntaxKind::INT, _)=> format!("|int:{}|", p.1),
+                (super::SyntaxKind::WHITESPACE, _)=> format!("|whitespace:{}|", p.1),
+                (super::SyntaxKind::SOURCE_FILE, _) => format!("|src:{}|", p.1),
+                _ => format!("error:{}", p.1),
+            })
+            .collect::<String>();
         insta::assert_yaml_snapshot!(output);
     }
 }

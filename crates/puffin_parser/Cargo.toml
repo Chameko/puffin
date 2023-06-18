@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 puffin_ast = { path = "../puffin_ast" }
 puffin_vfs = { path = "../puffin_vfs"}
+rowan = "0.15"
 
 [dev-dependencies]
 insta = { version = "1.29", features = ["yaml"] }
