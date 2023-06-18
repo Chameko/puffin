@@ -39,9 +39,10 @@ pub enum SyntaxKind {
     WHITESPACE,
     COMMENT,
     SOURCE_FILE,
-    LITERAL,
     EXPR_STMT,
-    BIN_EXPR,// Allows for casting from u16 safely
+    BIN_EXPR,
+    PREFIX_EXPR,
+    PAREN_EXPR,// Allows for casting from u16 safely
     __LAST,
 }
 
@@ -167,5 +168,48 @@ impl From<u16> for SyntaxKind {
 impl From<SyntaxKind> for u16 {
     fn from(k: SyntaxKind) -> u16 {
         k as u16
+    }
+}
+
+impl std::fmt::Display for SyntaxKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result  {
+        match self {
+            SyntaxKind::AMP => write!(f, "&"),
+            SyntaxKind::PIPE => write!(f, "|"),
+            SyntaxKind::PLUS => write!(f, "+"),
+            SyntaxKind::MINUS => write!(f, "-"),
+            SyntaxKind::STAR => write!(f, "*"),
+            SyntaxKind::SLASH => write!(f, "/"),
+            SyntaxKind::GT => write!(f, ">"),
+            SyntaxKind::LT => write!(f, "<"),
+            SyntaxKind::EQ => write!(f, "="),
+            SyntaxKind::L_PAREN => write!(f, "("),
+            SyntaxKind::R_PAREN => write!(f, ")"),
+            SyntaxKind::EXCLAMATION => write!(f, "!"),
+            SyntaxKind::DOT => write!(f, "."),
+            SyntaxKind::NL => write!(f, "
+"),
+            SyntaxKind::EQEQ => write!(f, "=="),
+            SyntaxKind::GTEQ => write!(f, ">="),
+            SyntaxKind::LTEQ => write!(f, "<="),
+            SyntaxKind::AMPAMP => write!(f, "&&"),
+            SyntaxKind::PIPEPIPE => write!(f, "||"),
+            SyntaxKind::KW_OR => write!(f, "or"),
+            SyntaxKind::KW_AND => write!(f, "and"),
+            SyntaxKind::INT => write!(f, "INT"),
+            SyntaxKind::FLOAT => write!(f, "FLOAT"),
+            SyntaxKind::STRING => write!(f, "STRING"),
+            SyntaxKind::ERROR => write!(f, "ERROR"),
+            SyntaxKind::IDENT => write!(f, "IDENT"),
+            SyntaxKind::WHITESPACE => write!(f, " "),
+            SyntaxKind::COMMENT => write!(f, "COMMENT"),
+            SyntaxKind::SOURCE_FILE => write!(f, "SOURCE_FILE"),
+            SyntaxKind::EXPR_STMT => write!(f, "EXPR_STMT"),
+            SyntaxKind::BIN_EXPR => write!(f, "BIN_EXPR"),
+            SyntaxKind::PREFIX_EXPR => write!(f, "PREFIX_EXPR"),
+            SyntaxKind::PAREN_EXPR => write!(f, "PAREN_EXPR"),
+            SyntaxKind::EOF => write!(f, "EOF"),
+            SyntaxKind::__LAST => write!(f, "__LAST")
+        }
     }
 }

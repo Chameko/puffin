@@ -40,9 +40,9 @@ Grammer(
     nodes: [
         "SOURCE_FILE",
 
-        "LITERAL",
-
         "EXPR_STMT",
         "BIN_EXPR",
+        "PREFIX_EXPR",
+        "PAREN_EXPR",
     ]
 )
