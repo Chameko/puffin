@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 rowan = "0.15"
+puffin_macro = { path = "../puffin_macro/"}
+ahash = "0.8"

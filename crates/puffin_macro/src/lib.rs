@@ -77,8 +77,8 @@ impl Parse for ASTEnumException {
 
 /// Takes a enum with struct-based variants and creates a struct from said variants, implementing some common functionality into them.
 /// ## Arguments
-/// This macro can take a list of ignored variants using ignore = Var1, Var2 and can also box the struct
-/// in the variants if the struct is recursive using boxed = Var1, Var2. These arguments lists are seperated
+/// This macro can take a list of ignored variants using <ignore = Var1, Var2> and can also box the struct
+/// in the variants if the struct is recursive using <boxed = Var1, Var2>. These arguments lists are seperated
 /// by the pipe symbol
 /// ### Example
 /// \#\[puffin_macro::ast_enum(ignore = ExprStmt | boxed = If)\]
@@ -167,7 +167,7 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            impl crate::common::ast::TestCmp for #struct_name {
+            impl crate::ast::TestCmp for #struct_name {
                 fn test_ast_cmp(&self, b: &Self) -> bool {
                     (true #(&& self.#field_idents.test_ast_cmp(&b.#field_idents))*)
                 }
@@ -196,7 +196,7 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
         .collect::<Vec<Ident>>();
 
     let enum_impl = quote!(
-        impl crate::common::ast::TestCmp for #enum_name {
+        impl crate::ast::TestCmp for #enum_name {
             fn test_ast_cmp(&self, b: &Self) -> bool {
                 match self {
                     #(#enum_name::#variants( node1 ) => {

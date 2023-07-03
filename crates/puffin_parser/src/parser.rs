@@ -20,6 +20,7 @@ pub struct Parser {
 }
 
 impl Parser {
+    /// Create a new parser
     pub fn new(tokens: Vec<Token>) -> Self {
         Self {
             tokens: tokens.into_iter().peekable(),
@@ -137,6 +138,23 @@ impl Parser {
     }
 }
 
+/// Helper function to output the CST in a readable manner
+pub fn output_cst(cst: &rowan::GreenNodeData, mut output: String, offset: &mut u32, indent: usize) -> String {
+    let len = cst.text_len();
+    output.push_str( &format!("{}{}@{}..{}\n", " ".repeat(indent * 4), SyntaxKind::from(cst.kind().0), offset, *offset + u32::from(len)));
+    for child in cst.children() {
+        match child {
+            rowan::NodeOrToken::Node(n) => { output = output_cst(n, output, offset, indent + 1); },
+            rowan::NodeOrToken::Token(t) => {
+                let len = t.text_len();
+                output.push_str( &format!("{}{} |{:?}@{}..{}\n", " ".repeat((indent + 1) * 4), t.text(),SyntaxKind::from(t.kind().0), offset, *offset + u32::from(len)));
+                *offset += u32::from(len);
+            },
+        }
+    }
+    output
+}
+
 #[cfg(test)]
 mod parser_tests {
     use rowan::GreenNodeData;
@@ -146,106 +164,102 @@ mod parser_tests {
     use puffin_ast::SyntaxKind;
 
     use super::Parser;
+    use super::output_cst;
 
     fn scan_tokens(src: &str) -> Vec<Token> {
         let lexer = Lexer::new(src);
         lexer.start_scan("test.pf")
     }
 
-    fn output_cst(cst: &GreenNodeData, mut output: String, offset: &mut u32, indent: usize) -> String {
-        let len = cst.text_len();
-        output.push_str( &format!("{}{}@{}..{}\n", " ".repeat(indent * 4), SyntaxKind::from(cst.kind().0), offset, *offset + u32::from(len)));
-        for child in cst.children() {
-            match child {
-                NodeOrToken::Node(n) => { output = output_cst(n, output, offset, indent + 1); },
-                NodeOrToken::Token(t) => {
-                    let len = t.text_len();
-                    output.push_str( &format!("{}{} |{:?}@{}..{}\n", " ".repeat((indent + 1) * 4), t.text(),SyntaxKind::from(t.kind().0), offset, *offset + u32::from(len)));
-                    *offset += u32::from(len);
-                },
-            }
-        }
-        output
-    }
+    
 
     #[test]
     fn just_number() {
         let parser = Parser::new(scan_tokens("1"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn simple_expr() {
         let parser = Parser::new(scan_tokens("1 + 2"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn multiple_simple() {
         let parser = Parser::new(scan_tokens("1 + 2 + 3 + 4"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn prefix_operation() {
         let parser = Parser::new(scan_tokens("-1 + 2"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn multiple_prefix_operation() {
         let parser = Parser::new(scan_tokens("--1 + -2"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn order_of_operations() {
         let parser = Parser::new(scan_tokens("1 + 2 * 5 - 3"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn paren() {
         let parser = Parser::new(scan_tokens("1 + 2 * (3 - 2) + (1 * 2)"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn paren_2() {
         let parser = Parser::new(scan_tokens("(1 + 2 + 3)"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn paren_3() {
         let parser = Parser::new(scan_tokens("(1 + (1)) - (2 + 1 + 2)"));
-        assert_eq!(parser.errors.len(), 0);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
-        let output = output_cst(&parser.parse().green_node, String::new(), &mut offset, 0);
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
     }
 }
