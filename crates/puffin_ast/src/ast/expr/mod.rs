@@ -7,20 +7,17 @@ use super::stmt::{BlockStmt, IfStmt, MatchStmt};
 
 /// The building blocks of expressions
 #[puffin_macro::ast_enum(
-    ignore = Binary, Pat, If, Match, Block
+    ignore = Binary, Pat, If, Match, Block, Lit
     | boxed = Call, Access
 )]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
     /// A binary expression
     Binary(Box<BinaryExpr>),
-    /// A pattern expression (this can also be used to represent literals and identifiers)
-    ///
-    /// The reason for this is because its near impossible to tell whether
-    /// a pattern is a pattern or a literal without the proper context. Hence
-    /// we determine this later by analyzing the AST with context and just parse
-    /// everything as a pattern as a valid literal is also a valid pattern
+    /// A pattern expression
     Pat(Pat),
+    /// A literal expression
+    Lit(Literal),
     /// A call to a function
     Call {
         /// The name of the function being called

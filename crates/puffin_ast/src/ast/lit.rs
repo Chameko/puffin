@@ -36,7 +36,7 @@ impl TestCmp for String {
 }
 
 pub fn literal_expr(lit: Literal) -> Expr {
-    Expr::Pat(Pat::Literal(lit))
+    Expr::Lit(lit)
 }
 
 pub fn literal_pat(lit: Literal) -> Pat {

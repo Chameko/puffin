@@ -2,6 +2,7 @@ use super::prelude::*;
 
 #[puffin_macro::ast_enum]
 #[derive(Debug, PartialEq, Clone)]
+/// A binary expression
 pub enum BinaryExpr {
     /// Multiply operation
     Multiply { a: Expr, b: Expr },
@@ -35,10 +36,12 @@ pub enum BinaryExpr {
     Group { a: Expr },
 }
 
+/// Helper function for wrapping a [`BinaryExpr`] as a [`Expr`]
 pub fn binary_expr(bin: BinaryExpr) -> Expr {
     Expr::Binary(Box::new(bin))
 }
 
+/// Helper function for wrapping a [`BinaryExpr`] as a [`Stmt`]
 pub fn binary_expr_stmt(bin: BinaryExpr) -> Stmt {
     Stmt::ExprStmt(binary_expr(bin))
 }

@@ -1,3 +1,5 @@
+//! Contains the various enums and structs that create Puffins abstract syntax tree
+
 /// Expressions
 pub mod expr;
 /// Identifier
