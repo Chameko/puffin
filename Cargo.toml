@@ -7,4 +7,5 @@ members = [
     "crates/puffin_parser",
     "crates/puffin_vfs",
     "crates/tools",
+    "crates/puffin_vm/"
 ]
