@@ -1,13 +1,25 @@
 #[repr(u8)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[allow(non_camel_case_types)]
+/// The opcodes for the puffin VM
 pub enum Opcode {
+    /// Halts the VM
     HLT,
+    /// Short for illegal, used when an opcode can't be successfully decoded
     IGL,
+    /// Loads a constant
     LOAD,
+    /// Loads a constant using a 24-bit integer
+    LOAD_LONG,
+    /// Performs addition
     ADD,
+    /// Performs subtraction
     SUB,
+    /// Performs multiplication
     MUL,
+    /// Performs division
     DIV,
+    /// Used for casting from u8 to Opcode
     __LAST,
 }
 
