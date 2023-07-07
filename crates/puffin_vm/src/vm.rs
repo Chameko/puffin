@@ -72,6 +72,45 @@ impl VM {
                     } else {
                         panic!("Only supports numbers")
                     }
+                },
+                Opcode::SUB => {
+                    let a = self.stack.pop().expect("Popped on empty stack");
+                    let b = self.stack.pop().expect("Popped on empty stack");
+                    if let Value::Number(a) = a {
+                        if let Value::Number(b) = b {
+                            self.stack.push(Value::Number(a - b));
+                        } else {
+                            panic!("Only supports numbers")
+                        }
+                    } else {
+                        panic!("Only supports numbers")
+                    }
+                },
+                Opcode::DIV => {
+                    let a = self.stack.pop().expect("Popped on empty stack");
+                    let b = self.stack.pop().expect("Popped on empty stack");
+                    if let Value::Number(a) = a {
+                        if let Value::Number(b) = b {
+                            self.stack.push(Value::Number(a / b));
+                        } else {
+                            panic!("Only supports numbers")
+                        }
+                    } else {
+                        panic!("Only supports numbers")
+                    }
+                },
+                Opcode::MUL => {
+                    let a = self.stack.pop().expect("Popped on empty stack");
+                    let b = self.stack.pop().expect("Popped on empty stack");
+                    if let Value::Number(a) = a {
+                        if let Value::Number(b) = b {
+                            self.stack.push(Value::Number(a * b));
+                        } else {
+                            panic!("Only supports numbers")
+                        }
+                    } else {
+                        panic!("Only supports numbers")
+                    }
                 }
                 _ => {
                     println!("Illegal opcode: Aborting");
@@ -101,6 +140,18 @@ impl VM {
 mod vm_test {
     use super::*;
 
+    /// Setup a vm with provided constants and operations. Constants are preloaded into the VM in the provided order.
+    fn setup(constants: Vec<Value>, operations: Vec<Opcode>) -> VM {
+        let mut vm = VM::new();
+        for constant in constants.into_iter().enumerate() {
+            vm.constants.push(constant.1);
+            vm.instructions.push(Opcode::LOAD as u8);
+            vm.instructions.push(constant.0 as u8);
+        }
+        vm.instructions.append(&mut operations.into_iter().map(|op| op as u8).collect());
+        vm
+    }
+
     #[test]
     fn basic_halt() {
         let mut vm = VM::new();
@@ -124,6 +175,36 @@ mod vm_test {
         vm.constants.push(Value::Number(1));
         vm.constants.push(Value::Number(2));
         vm.instructions = [Opcode::LOAD as u8, 0, Opcode::LOAD as u8, 1, Opcode::ADD as u8, Opcode::HLT as u8].into();
+        vm.run_with_stack_trace();
+        assert_eq!(vm.stack[0], Value::Number(3));
+    }
+
+    #[test]
+    fn multiply() {
+        let mut vm = setup(vec![Value::Number(2), Value::Number(3)], vec![
+            Opcode::MUL,
+            Opcode::HLT,
+            ]);
+        vm.run_with_stack_trace();
+        assert_eq!(vm.stack[0], Value::Number(6));
+    }
+
+    #[test]
+    fn subrtact() {
+        let mut vm = setup(vec![Value::Number(3), Value::Number(2)], vec![
+            Opcode::SUB,
+            Opcode::HLT,
+            ]);
+        vm.run_with_stack_trace();
+        assert_eq!(vm.stack[0], Value::Number(-1));
+    }
+
+    #[test]
+    fn divide() {
+        let mut vm = setup(vec![Value::Number(2), Value::Number(6)], vec![
+            Opcode::DIV,
+            Opcode::HLT,
+            ]);
         vm.run_with_stack_trace();
         assert_eq!(vm.stack[0], Value::Number(3));
     }
