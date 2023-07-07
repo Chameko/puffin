@@ -63,53 +63,117 @@ impl VM {
                 Opcode::ADD => {
                     let a = self.stack.pop().expect("Popped on empty stack");
                     let b = self.stack.pop().expect("Popped on empty stack");
-                    if let Value::Number(a) = a {
-                        if let Value::Number(b) = b {
-                            self.stack.push(Value::Number(a + b));
-                        } else {
-                            panic!("Only supports numbers")
+                    match a {
+                        Value::Number(a) => {
+                            match b {
+                                Value::Number(b) => {
+                                    self.stack.push(Value::Number(a + b));
+                                },
+                                Value::Decimal(b) => {
+                                    self.stack.push(Value::Decimal(a as f32 + b));
+                                },
+                                _ => panic!("Only supports numbers"),
+                            }
+                        },
+                        Value::Decimal(a) => {
+                            match b {
+                                Value::Number(b) => {
+                                    self.stack.push(Value::Decimal(a + b as f32));
+                                },
+                                Value::Decimal(b) => {
+                                    self.stack.push(Value::Decimal(a + b));
+                                },
+                                _ => panic!("Only supports numbers"),
+                            }
                         }
-                    } else {
-                        panic!("Only supports numbers")
+                        _ => panic!("Only supports numbers"),
                     }
                 },
                 Opcode::SUB => {
                     let a = self.stack.pop().expect("Popped on empty stack");
                     let b = self.stack.pop().expect("Popped on empty stack");
-                    if let Value::Number(a) = a {
-                        if let Value::Number(b) = b {
-                            self.stack.push(Value::Number(a - b));
-                        } else {
-                            panic!("Only supports numbers")
+                    match a {
+                        Value::Number(a) => {
+                            match b {
+                                Value::Number(b) => {
+                                    self.stack.push(Value::Number(a - b));
+                                },
+                                Value::Decimal(b) => {
+                                    self.stack.push(Value::Decimal(a as f32 - b));
+                                },
+                                _ => panic!("Only supports numbers"),
+                            }
+                        },
+                        Value::Decimal(a) => {
+                            match b {
+                                Value::Number(b) => {
+                                    self.stack.push(Value::Decimal(a - b as f32));
+                                },
+                                Value::Decimal(b) => {
+                                    self.stack.push(Value::Decimal(a - b));
+                                },
+                                _ => panic!("Only supports numbers"),
+                            }
                         }
-                    } else {
-                        panic!("Only supports numbers")
+                        _ => panic!("Only supports numbers"),
                     }
                 },
                 Opcode::DIV => {
                     let a = self.stack.pop().expect("Popped on empty stack");
                     let b = self.stack.pop().expect("Popped on empty stack");
-                    if let Value::Number(a) = a {
-                        if let Value::Number(b) = b {
-                            self.stack.push(Value::Number(a / b));
-                        } else {
-                            panic!("Only supports numbers")
+                    match a {
+                        Value::Number(a) => {
+                            match b {
+                                Value::Number(b) => {
+                                    self.stack.push(Value::Number(a / b));
+                                },
+                                Value::Decimal(b) => {
+                                    self.stack.push(Value::Decimal(a as f32 / b));
+                                },
+                                _ => panic!("Only supports numbers"),
+                            }
+                        },
+                        Value::Decimal(a) => {
+                            match b {
+                                Value::Number(b) => {
+                                    self.stack.push(Value::Decimal(a / b as f32));
+                                },
+                                Value::Decimal(b) => {
+                                    self.stack.push(Value::Decimal(a / b));
+                                },
+                                _ => panic!("Only supports numbers"),
+                            }
                         }
-                    } else {
-                        panic!("Only supports numbers")
+                        _ => panic!("Only supports numbers"),
                     }
                 },
                 Opcode::MUL => {
                     let a = self.stack.pop().expect("Popped on empty stack");
                     let b = self.stack.pop().expect("Popped on empty stack");
-                    if let Value::Number(a) = a {
-                        if let Value::Number(b) = b {
-                            self.stack.push(Value::Number(a * b));
-                        } else {
-                            panic!("Only supports numbers")
+                    match a {
+                        Value::Number(a) => {
+                            match b {
+                                Value::Number(b) => {
+                                    self.stack.push(Value::Number(a * b));
+                                },
+                                Value::Decimal(b) => {
+                                    self.stack.push(Value::Decimal(a as f32 * b));
+                                },
+                                _ => panic!("Only supports numbers"),
+                            }
+                        },
+                        Value::Decimal(a) => {
+                            match b {
+                                Value::Number(b) => {
+                                    self.stack.push(Value::Decimal(a * b as f32));
+                                },
+                                Value::Decimal(b) => {
+                                    self.stack.push(Value::Decimal(a * b));
+                                },
+                                _ => panic!("Only supports numbers"),
+                            }
                         }
-                    } else {
-                        panic!("Only supports numbers")
+                        _ => panic!("Only supports numbers"),
                     }
                 }
                 _ => {
@@ -207,5 +271,15 @@ mod vm_test {
             ]);
         vm.run_with_stack_trace();
         assert_eq!(vm.stack[0], Value::Number(3));
+    }
+
+    #[test]
+    fn decimal_test() {
+        let mut vm = setup(
+            vec![Value::Number(1), Value::Number(2), Value::Number(2), Value::Number(2), Value::Decimal(1.0)],
+            vec![Opcode::ADD, Opcode::MUL, Opcode::DIV, Opcode::SUB, Opcode::HLT],
+        );
+        vm.run_with_stack_trace();
+        assert_eq!(vm.stack[0], Value::Decimal(2.0));
     }
 }
