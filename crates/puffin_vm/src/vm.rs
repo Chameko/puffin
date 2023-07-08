@@ -23,6 +23,16 @@ impl VM {
         }
     }
 
+    /// Creates a new virtual machine with the supplied data
+    pub fn with_data(vm_data: (Vec<u8>, Vec<Value>)) -> Self {
+        Self {
+            instructions: vm_data.0,
+            stack: vec![],
+            constants: vm_data.1,
+            ip: 0
+        }
+    }
+
     /// Run the virtual machine
     pub fn run(&mut self) {
         let mut cont = true;
@@ -32,7 +42,7 @@ impl VM {
     }
 
     /// Runs the VM while printing out the stack. Used primarily for debugging the VM itself.
-    pub(crate) fn run_with_stack_trace(&mut self) {
+    pub fn run_with_stack_trace(&mut self) {
         let mut cont = true;
         while cont {
             println!("Instruction: {:?}", Opcode::from(*self.instructions.get(self.ip).expect("Unexpected end of instructions")));
