@@ -4,20 +4,20 @@ use super::prelude::*;
 #[puffin_macro::ast_enum]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
-    Float { float: f64 },
-    Int { int: i64 },
-    Bool { boolean: bool },
-    String { string: String },
+    Float { pub float: f32 },
+    Int { pub int: i32 },
+    Bool { pub boolean: bool },
+    String { pub string: String },
     Null {},
 }
 
-impl TestCmp for f64 {
+impl TestCmp for f32 {
     fn test_ast_cmp(&self, b: &Self) -> bool {
         self == b
     }
 }
 
-impl TestCmp for i64 {
+impl TestCmp for i32 {
     fn test_ast_cmp(&self, b: &Self) -> bool {
         self == b
     }

@@ -5,35 +5,35 @@ use super::prelude::*;
 /// A binary expression
 pub enum BinaryExpr {
     /// Multiply operation
-    Multiply { a: Expr, b: Expr },
+    Multiply { pub a: Expr, pub b: Expr },
     /// Divide operation
-    Divide { a: Expr, b: Expr },
+    Divide { pub a: Expr, pub b: Expr },
     /// Add operation
-    Add { a: Expr, b: Expr },
+    Add { pub a: Expr, pub b: Expr },
     /// Subtract operation
-    Subtract { a: Expr, b: Expr },
+    Subtract { pub a: Expr, pub b: Expr },
     /// Equality operation
-    Equal { a: Expr, b: Expr },
+    Equal { pub a: Expr, pub b: Expr },
     /// Inequality operation
-    NotEqual { a: Expr, b: Expr },
+    NotEqual { pub a: Expr, pub b: Expr },
     /// Greater than operation
-    Greater { a: Expr, b: Expr },
+    Greater { pub a: Expr, pub b: Expr },
     /// Less than operation
-    Less { a: Expr, b: Expr },
+    Less { pub a: Expr, pub b: Expr },
     /// Greater than or equal to operation
-    GreaterOrEqual { a: Expr, b: Expr },
+    GreaterOrEqual { pub a: Expr, pub b: Expr },
     /// Less than or equal to operation
-    LessOrEqual { a: Expr, b: Expr },
+    LessOrEqual { pub a: Expr, pub b: Expr },
     /// Logical or
-    Or { a: Expr, b: Expr },
+    Or { pub a: Expr, pub b: Expr },
     /// Logical and
-    And { a: Expr, b: Expr },
+    And { pub a: Expr, pub b: Expr },
     /// Negate operation
-    Negate { a: Expr },
+    Negate { pub a: Expr },
     /// Logical not
-    Not { a: Expr },
+    Not { pub a: Expr },
     /// Parentheses and grouping operation
-    Group { a: Expr },
+    Group { pub a: Expr },
 }
 
 /// Helper function for wrapping a [`BinaryExpr`] as a [`Expr`]
