@@ -1,19 +1,57 @@
 use puffin_ast::SyntaxKind;
-use std::{iter::Peekable, str::Chars};
+use std::{iter::Peekable, str::Chars, ops::{RangeInclusive}};
 
-pub type Token = (SyntaxKind, String);
+/// A token used in the lexer and parser
+pub struct Token {
+    /// The type of the token
+    pub ty: SyntaxKind,
+    /// The column on the line the token is on
+    pub col: RangeInclusive<usize>,
+    /// The line the token is on
+    pub line: usize,
+}
+
+impl Token {
+    /// Creates a new token
+    pub fn new(ty: SyntaxKind, col: RangeInclusive<usize>, line: usize) -> Self {
+        Self {
+            ty,
+            col,
+            line,
+        }
+    }
+
+    /// Extracts the tokens text from the provided source, split by lines.
+    pub fn get_text<'a>(&self, src: &Vec<&'a str>) -> &'a str {
+        src[self.line - 1].get(self.col.clone()).expect("Token out of range")
+    }
+}
 
 /// The lexer responsible for taking a raw file as a string and converting it to a flat array of [`Token`]
 pub struct Lexer<'a> {
     src: Peekable<Chars<'a>>,
     working: String,
+    line: usize,
+    col: usize,
+    next_line: bool,
 }
 
 impl<'a> Lexer<'a> {
     /// Next character
     #[inline]
     fn next(&mut self) -> Option<char> {
-        self.src.next()
+        let nxt = self.src.next();
+        // Add a line if neccessary
+        if self.next_line {
+            self.line += 1;
+            self.col = 0;
+            self.next_line = false;
+        }
+        // Prepare for next line
+        if let Some('\n') = nxt {
+            self.next_line = true;
+        }
+        nxt
     }
 
     /// Peek one character ahead
@@ -27,6 +65,9 @@ impl<'a> Lexer<'a> {
         Self {
             src: src.chars().peekable(),
             working: String::new(),
+            next_line: false,
+            line: 1,
+            col: 0,
         }
     }
 
@@ -65,68 +106,70 @@ impl<'a> Lexer<'a> {
         };
         let working_clone = std::mem::take(&mut self.working) ;
         if let Some(ty) = ret {
-            Some((ty, working_clone))
+            let ret = Some(Token::new(ty, self.col..=(self.col + working_clone.len() - 1), self.line));
+            self.col += working_clone.len();
+            ret
         } else {
             None
         }
     }
 
     /// Starts the scan of the file
-    pub fn start_scan(mut self, filename: &str) -> Vec<Token> {
-        let mut tokens = vec![(SyntaxKind::SOURCE_FILE, filename.to_string())];
+    pub fn start_scan(mut self) -> Vec<Token> {
+        let mut tokens = vec![];
         self.scan(&mut tokens);
         tokens
     }
 
     /// Scans the string into a flat array of [`SyntaxKind`] and [`String`]
     fn scan(&mut self, tokens: &mut Vec<Token>) {
-        let mut symbol = |this: &mut Lexer, ty: SyntaxKind, string: &str| {
+        fn symbol(this: &mut Lexer, ty: SyntaxKind, string: &str, tokens: &mut Vec<Token>) {
             if let Some(tk) = this.scan_working() {
                 tokens.push(tk);
             }
-            tokens.push((ty, string.to_string()));
-        };
-
+            tokens.push(Token::new(ty, this.col..=(this.col + string.len() - 1), this.line));
+            this.col += string.len();
+        }
         if let Some(char) = self.next() {
             match char {
                 '&' => {
                     if let Some('&') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::AMPAMP, "&&");
+                        symbol(self, SyntaxKind::AMPAMP, "&&", tokens);
                     } else {
-                        symbol(self, SyntaxKind::AMP, "&");
+                        symbol(self, SyntaxKind::AMP, "&", tokens);
                     }
                 }
                 '|' => {
                     if let Some('|') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::PIPEPIPE, "||");
+                        symbol(self, SyntaxKind::PIPEPIPE, "||", tokens);
                     } else {
-                        symbol(self, SyntaxKind::PIPE, "|");
+                        symbol(self, SyntaxKind::PIPE, "|", tokens);
                     }
                 }
                 '=' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::EQEQ, "==");
+                        symbol(self, SyntaxKind::EQEQ, "==", tokens);
                     } else {
-                        symbol(self, SyntaxKind::EQ, "=")
+                        symbol(self, SyntaxKind::EQ, "=", tokens)
                     }
                 }
                 '>' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::GTEQ, ">=");
+                        symbol(self, SyntaxKind::GTEQ, ">=", tokens);
                     } else {
-                        symbol(self, SyntaxKind::GT, ">");
+                        symbol(self, SyntaxKind::GT, ">", tokens);
                     }
                 }
                 '<' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::LTEQ, "<=");
+                        symbol(self, SyntaxKind::LTEQ, "<=", tokens);
                     } else {
-                        symbol(self, SyntaxKind::LT, "<");
+                        symbol(self, SyntaxKind::LT, "<", tokens);
                     }
                 }
                 '.' => {
@@ -135,10 +178,10 @@ impl<'a> Lexer<'a> {
                         if c.is_numeric() {
                             self.working.push('.')
                         } else {
-                            symbol(self, SyntaxKind::DOT, ".");
+                            symbol(self, SyntaxKind::DOT, ".", tokens);
                         }
                     } else {
-                        symbol(self, SyntaxKind::DOT, ".")
+                        symbol(self, SyntaxKind::DOT, ".", tokens)
                     }
                 }
                 '/' => {
@@ -150,31 +193,38 @@ impl<'a> Lexer<'a> {
                             comment.push(self.next().unwrap());
                             peek = self.peek();
                         }
-                        symbol(self, SyntaxKind::COMMENT, "//");
+                        symbol(self, SyntaxKind::COMMENT, "//", tokens);
                     } else {
-                        symbol(self, SyntaxKind::SLASH, "/");
+                        symbol(self, SyntaxKind::SLASH, "/", tokens);
                     }
                 }
                 ' ' => {
                     let mut length = 1;
+                    let mut col = self.col;
                     while let Some(' ') = self.peek() {
                          length += 1;
                          self.next();
                     }
-                    symbol(self, SyntaxKind::WHITESPACE, &" ".repeat(length) );
+                    if let Some(tk) = self.scan_working() {
+                        // Update the column as we may have scanned a new token
+                        col = *tk.col.end() + 1;
+                        tokens.push(tk);
+                    }
+                    tokens.push(Token::new(SyntaxKind::WHITESPACE, col..=(col + length - 1), self.line));
+                    self.col += length;
                 }
-                '+' => symbol(self, SyntaxKind::PLUS, "+"),
-                '-' => symbol(self, SyntaxKind::MINUS, "-"),
-                '*' => symbol(self, SyntaxKind::STAR, "*"),
-                '(' => symbol(self, SyntaxKind::L_PAREN, "("),
-                ')' => symbol(self, SyntaxKind::R_PAREN, ")"),
-                '!' => symbol(self, SyntaxKind::EXCLAMATION, "!"),
-                '\n' => symbol(self, SyntaxKind::NL, "\n"),
+                '+' => symbol(self, SyntaxKind::PLUS, "+", tokens),
+                '-' => symbol(self, SyntaxKind::MINUS, "-", tokens),
+                '*' => symbol(self, SyntaxKind::STAR, "*", tokens),
+                '(' => symbol(self, SyntaxKind::L_PAREN, "(", tokens),
+                ')' => symbol(self, SyntaxKind::R_PAREN, ")", tokens),
+                '!' => symbol(self, SyntaxKind::EXCLAMATION, "!", tokens),
+                '\n' => symbol(self, SyntaxKind::NL, "\n", tokens),
                 c => {
                     if c.is_alphanumeric() {
                         self.working.push(c)
                     } else {
-                        symbol(self, SyntaxKind::ERROR, &c.to_string())
+                        symbol(self, SyntaxKind::ERROR, &c.to_string(), tokens)
                     }
                 }
             }
@@ -189,10 +239,15 @@ impl<'a> Lexer<'a> {
 
 #[cfg(test)]
 mod lexer_test {
+    use super::Token;
+
     fn test_base(input: &str) -> String {
         let lexer = super::Lexer::new(input);
-        let tokens = lexer.start_scan("test.pf");
-        tokens.into_iter().map(|t| t.1).collect::<String>()
+        let tokens = lexer.start_scan();
+        let input = input.split_inclusive('\n').collect::<Vec<&str>>();
+        tokens.into_iter().map(|t| {
+            input[t.line - 1].get(t.col).unwrap()
+        }).collect::<String>()
     }
 
     #[test]
@@ -203,34 +258,39 @@ mod lexer_test {
 
     #[test]
     fn keywords_and_ident() {
-        let lexer = super::Lexer::new("and sometoiurng or skngeing");
-        let tokens = lexer.start_scan("test.pf");
+        let input = "and sometoiurng or skngeing";
+        let lexer = super::Lexer::new(input);
+        let tokens = lexer.start_scan();
+        let input = input.split('\n').collect::<Vec<&str>>();
         let output = tokens
             .into_iter()
-            .map(|p| match p {
-                (super::SyntaxKind::KW_AND, _)=> format!("|and:{}|", p.1),
-                (super::SyntaxKind::KW_OR, _)=> format!("|or:{}|", p.1),
-                (super::SyntaxKind::WHITESPACE, _)=> format!("|whitespace:{}|", p.1),
-                (super::SyntaxKind::IDENT, _)=> format!("|ident:{}|", p.1),
-                (super::SyntaxKind::SOURCE_FILE, _) => format!("|src:{}|", p.1),
-                _ => format!("error:{}", p.1),
-            })
+            .map(|p| {
+                match p {
+                Token {ty: super::SyntaxKind::KW_AND, ..} => format!("|and:{}|", input[p.line - 1].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::KW_OR, ..} => format!("|or:{}|", input[p.line - 1].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::WHITESPACE, ..} => format!("|whitespace:{}|", input[p.line - 1].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::IDENT, ..} => format!("|ident:{}|", input[p.line - 1].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::SOURCE_FILE, ..}  => format!("|src:{}|", input[p.line - 1].get(p.col).unwrap()),
+                _ => format!("error:{}", input[p.line].get(p.col).unwrap()),
+            }})
             .collect::<String>();
         insta::assert_yaml_snapshot!(output);
     }
 
     #[test]
     fn numbers() {
-        let lexer = super::Lexer::new("1.23 42");
-        let tokens = lexer.start_scan("test.pf");
+        let input = "1.23 42";
+        let lexer = super::Lexer::new(input);
+        let input = input.split('\n').collect::<Vec<&str>>();
+        let tokens = lexer.start_scan();
         let output = tokens
             .into_iter()
             .map(|p| match p {
-                (super::SyntaxKind::FLOAT, _)=> format!("|float:{}|", p.1),
-                (super::SyntaxKind::INT, _)=> format!("|int:{}|", p.1),
-                (super::SyntaxKind::WHITESPACE, _)=> format!("|whitespace:{}|", p.1),
-                (super::SyntaxKind::SOURCE_FILE, _) => format!("|src:{}|", p.1),
-                _ => format!("error:{}", p.1),
+                Token {ty: super::SyntaxKind::FLOAT, .. } => format!("|float:{}|", input[p.line - 1].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::INT, .. } => format!("|int:{}|", input[p.line - 1].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::WHITESPACE, .. } => format!("|whitespace:{}|", input[p.line - 1].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::SOURCE_FILE, .. }  => format!("|src:{}|", input[p.line - 1].get(p.col).unwrap()),
+                _ => format!("error:{}", input[p.line].get(p.col).unwrap()),
             })
             .collect::<String>();
         insta::assert_yaml_snapshot!(output);

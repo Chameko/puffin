@@ -8,5 +8,6 @@ members = [
     "crates/puffin_vfs",
     "crates/tools",
     "crates/puffin_vm/",
-    "crates/puffin_codegen/"
+    "crates/puffin_codegen/",
+    "crates/puffin_error/",
 ]

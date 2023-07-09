@@ -8,10 +8,12 @@ edition = "2021"
 [dependencies]
 puffin_ast = { path = "../puffin_ast" }
 puffin_vfs = { path = "../puffin_vfs"}
+puffin_error = { path = "../puffin_error/" }
 rowan = "0.15"
 
 [dev-dependencies]
 insta = { version = "1.29", features = ["yaml"] }
+puffin_error = { path = "../puffin_error/" }
 
 [profile.dev.package.insta]
 opt-level = 3

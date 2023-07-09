@@ -175,12 +175,13 @@ mod ast_parser_tests {
 
     fn scan_tokens(src: &str) -> Vec<Token> {
         let lexer = Lexer::new(src);
-        lexer.start_scan("test.pf")
+        lexer.start_scan()
     }
 
     #[test]
     fn just_number() {
-        let parser = Parser::new(scan_tokens("1"));
+        let src = vec!["1"];
+        let parser = Parser::new(scan_tokens("1"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
@@ -191,7 +192,8 @@ mod ast_parser_tests {
 
     #[test]
     fn simple_expr() {
-        let parser = Parser::new(scan_tokens("1 + 2"));
+        let src = vec!["1 + 2"];
+        let parser = Parser::new(scan_tokens("1 + 2"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
@@ -205,7 +207,8 @@ mod ast_parser_tests {
 
     #[test]
     fn multiple_simple() {
-        let parser = Parser::new(scan_tokens("1 + 2 + 3 + 4"));
+        let src = vec!["1 + 2 + 3 + 4"];
+        let parser = Parser::new(scan_tokens("1 + 2 + 3 + 4"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
@@ -214,7 +217,8 @@ mod ast_parser_tests {
 
     #[test]
     fn prefix_operation() {
-        let parser = Parser::new(scan_tokens("-1 + 2"));
+        let src = vec!["-1 + 2"];
+        let parser = Parser::new(scan_tokens("-1 + 2"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
@@ -223,7 +227,8 @@ mod ast_parser_tests {
 
     #[test]
     fn multiple_prefix_operation() {
-        let parser = Parser::new(scan_tokens("--1 + -2"));
+        let src = vec!["--1 + -2"];
+        let parser = Parser::new(scan_tokens("--1 + -2"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
@@ -232,7 +237,8 @@ mod ast_parser_tests {
 
     #[test]
     fn order_of_operations() {
-        let parser = Parser::new(scan_tokens("1 + 2 * 5 - 3"));
+        let src = vec!["1 + 2 * 5 - 3"];
+        let parser = Parser::new(scan_tokens("1 + 2 * 5 - 3"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
@@ -241,7 +247,8 @@ mod ast_parser_tests {
 
     #[test]
     fn paren() {
-        let parser = Parser::new(scan_tokens("1 + 2 * (3 - 2) + (1 * 2)"));
+        let src = vec!["1 + 2 * (3 - 2) + (1 * 2)"];
+        let parser = Parser::new(scan_tokens("1 + 2 * (3 - 2) + (1 * 2)"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
@@ -250,7 +257,8 @@ mod ast_parser_tests {
 
     #[test]
     fn paren_2() {
-        let parser = Parser::new(scan_tokens("(1 + 2 + 3)"));
+        let src = vec!["(1 + 2 + 3)"];
+        let parser = Parser::new(scan_tokens("(1 + 2 + 3)"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
@@ -259,7 +267,8 @@ mod ast_parser_tests {
 
     #[test]
     fn paren_3() {
-        let parser = Parser::new(scan_tokens("(1 + (1)) - (2 + 1 + 2)"));
+        let src = vec!["(1 + (1)) - (2 + 1 + 2)"];
+        let parser = Parser::new(scan_tokens("(1 + (1)) - (2 + 1 + 2)"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = parse_ast(&parse.green_node);
