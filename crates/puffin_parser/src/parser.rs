@@ -67,13 +67,16 @@ impl<'a> Parser<'a> {
                     self.tokens.next();
                 } else {
                     // Report error if missing `)`
-                    self.errors.push(generic_error(
-                        &tk,
-                        &self,
-                        CompilerErrorType::ExpectedSymbol,
-                        "expected )",
-                        &format!("expected ) found {}", tk.get_text(self.src.1))
-                    ));
+                    let (tk_line, tk_col) = if let Some(tk) = self.tokens.peek() {
+                        (tk.line,tk.col.clone())
+                    } else {
+                        (tk.line, (tk.col.start() + 1)..=(tk.col.end() + 1))
+                    };
+                    let hl = Highlight::new(tk_line, tk_col.clone(), "expected ) here", Level::Error);
+                    let output = vec![
+                        Output::Code{ highlight: vec![hl], lines: vec![(tk.line, &self.src.1[tk_line- 1])], src: self.src.0.clone() }
+                    ];
+                    self.errors.push(CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, output));
                 }
                 self.builder.finish_node();
             }
@@ -90,7 +93,6 @@ impl<'a> Parser<'a> {
                         &self,
                         CompilerErrorType::UnexpectedSymbol,
                         "unexpected symbol",
-                        &format!("unexpected symbol {}", tk.get_text(self.src.1))
                     ));
                     self.builder.token(SyntaxKind::ERROR.into(), &tk.get_text(self.src.1))
                 }
@@ -126,7 +128,6 @@ impl<'a> Parser<'a> {
                 let text = op.get_text(self.src.1);
                 let hl = Highlight::new(op.line, op.col.clone(), "unexpected symbol", Level::Error);
                 let output = vec![
-                    Output::Msg(format!("unexpected symbol {}", text)),
                     Output::Code{ highlight: vec![hl], lines: vec![(op.line, self.src.1[op.line - 1])], src: self.src.0.clone() }
                 ];
                 let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, output);
@@ -166,10 +167,9 @@ impl<'a> Parser<'a> {
 }
 
 /// Creates a compiler error where the line the supplied [`Token`] is on is outputed with that same [`Token`] highlighted
-fn generic_error<'a>(tk: &Token, parser: &Parser<'a>, ty: CompilerErrorType, hl_msg: &str, output_msg: &str) -> CompilerError<'a> {
+fn generic_error<'a>(tk: &Token, parser: &Parser<'a>, ty: CompilerErrorType, hl_msg: &str) -> CompilerError<'a> {
     let hl = Highlight::new(tk.line, tk.col.clone(), hl_msg, Level::Error);
     let output = vec![
-        Output::Msg(output_msg.to_string()),
         Output::Code{ highlight: vec![hl], lines: vec![(tk.line, &parser.src.1[tk.line - 1])], src: parser.src.0.clone() }
     ];
     CompilerError::new(ty, Level::Error, output)
@@ -301,5 +301,16 @@ mod parser_tests {
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_yaml_snapshot!(output);
+    }
+
+    #[test]
+    fn error() {
+        let src = vec!["(1  (1)) - (2 + 1 + 2)"];
+        let parser = Parser::new(scan_tokens("(1  (1)) - (2 + 1 + 2)"), "test.pf", &src);
+        let parse = parser.parse();
+        for e in parse.errors {
+            println!("{}", e);
+        }
+        assert!(false)
     }
 }

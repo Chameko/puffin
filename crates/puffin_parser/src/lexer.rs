@@ -23,6 +23,7 @@ impl Token {
 
     /// Extracts the tokens text from the provided source, split by lines.
     pub fn get_text<'a>(&self, src: &Vec<&'a str>) -> &'a str {
+        println!("col: {:?}", self.col);
         src[self.line - 1].get(self.col.clone()).expect("Token out of range")
     }
 }
