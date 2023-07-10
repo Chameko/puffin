@@ -304,6 +304,17 @@ mod parser_tests {
     }
 
     #[test]
+    fn paren_4() {
+        let src = vec!["1 + 2 ) 3"];
+        let parser = Parser::new(scan_tokens("1 + 2 ) 3"), "test.pf", &src);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
+        let mut offset = 0;
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
+        insta::assert_yaml_snapshot!(output);
+    }
+
+    #[test]
     fn error() {
         let src = vec!["(1  (1)) - (2 + 1 + 2)"];
         let parser = Parser::new(scan_tokens("(1  (1)) - (2 + 1 + 2)"), "test.pf", &src);

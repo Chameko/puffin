@@ -1,0 +1,7 @@
+---
+source: crates/puffin_parser/src/parser.rs
+assertion_line: 314
+expression: output
+---
+"SOURCE_FILE@0..6\n    BIN_EXPR@0..6\n        1 |INT@0..1\n          |WHITESPACE@1..2\n        + |PLUS@2..3\n          |WHITESPACE@3..4\n        2 |INT@4..5\n          |WHITESPACE@5..6\n"
+
