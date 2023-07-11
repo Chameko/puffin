@@ -59,6 +59,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parse the token stream into a [`Parse`]
     pub fn parse(mut self) -> Parse<'a> {
         self.builder.start_node(SyntaxKind::SOURCE_FILE.into());
 
@@ -77,7 +78,7 @@ impl<'a> Parser<'a> {
                 "unexpected symbol"
                 ));
             }
-            // COntinue parsing
+            // Continue parsing
             self.expr(0);
         }
         self.builder.finish_node();
@@ -88,6 +89,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parse an expression
     fn expr(&mut self, bp: u8) {
         self.skip_whitespace();
         // Checkpoint for wrapping
@@ -99,7 +101,6 @@ impl<'a> Parser<'a> {
             if let Some(prefix) = rule.prefix {
                 prefix(self, tk, rule.binding_power, cp);
             } else {
-                // ERROR
                 self.report_error(self.generic_error(
                     &tk,
                     CompilerErrorType::UnexpectedSymbol,
@@ -135,21 +136,27 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parse binary operations
     pub(crate) fn binary(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+        self.panic_mode = false;
         self.builder.start_node_at(cp, SyntaxKind::BIN_EXPR.into());
         self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
         self.expr(bp);
         self.builder.finish_node();
     }
 
+    /// Parse prefix operations
     pub(crate) fn prefix(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+        self.panic_mode = false;
         self.builder.start_node_at(cp, SyntaxKind::PREFIX_EXPR.into());
         self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
         self.expr(bp);
         self.builder.finish_node();
     }
 
+    /// Parse grouping `(` and `)` operations
     pub(crate) fn grouping(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+        self.panic_mode = false;
         self.builder.start_node_at(cp, SyntaxKind::PAREN_EXPR.into());
         self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
         self.expr(bp);
@@ -157,15 +164,33 @@ impl<'a> Parser<'a> {
             let tk = self.tokens.next().expect("peeked at before. Should not fail.");
             self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
         } else {
-            todo!()
+            // This is needed to not borrow the parser as mutable twice at once
+            let mut potential_tk: Option<Token>  = None;
+            if let Some(tk) = self.tokens.peek() {
+                potential_tk = Some(tk.clone());
+            }
+            if let Some(tk) = potential_tk {
+                self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "expected )"));
+            } else {
+                // This reports the last character on the last line if we reach the EOF without a )
+                let last_line = self.src.1.last().expect("should not be an empty source");
+                let hl = Highlight::new(self.src.1.len(), last_line.len()..=last_line.len(), "expected )", Level::Error);
+                self.report_error(CompilerError::new(
+                    CompilerErrorType::UnexpectedSymbol,
+                    Level::Error,
+                    vec![Output::Code { lines: vec![(self.src.1.len(), last_line)], src: self.src.0.clone(), highlight: vec![hl] } ]
+                )) ;
+            }
         }
         self.builder.finish_node();
     }
 
+    /// Parse number literals
     pub(crate) fn number(&mut self, tk: Token, _: u8, _: Checkpoint) {
         self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
     }
 
+    /// Record the error and enter panic mode to prevent cascading errors
     fn report_error(&mut self, error: CompilerError<'a>) {
         if !self.panic_mode {
             self.errors.push(error);

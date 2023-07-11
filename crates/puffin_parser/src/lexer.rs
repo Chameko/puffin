@@ -2,6 +2,7 @@ use puffin_ast::SyntaxKind;
 use std::{iter::Peekable, str::Chars, ops::{RangeInclusive}};
 
 /// A token used in the lexer and parser
+#[derive(Debug, Clone)]
 pub struct Token {
     /// The type of the token
     pub ty: SyntaxKind,
