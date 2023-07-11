@@ -2,11 +2,36 @@ use std::{iter::Peekable, vec::IntoIter};
 use puffin_error::{Level, compiler::{CompilerError, Output, Highlight, CompilerErrorType} };
 use puffin_ast::SyntaxKind;
 use crate::lexer::Token;
-use rowan::{GreenNode, GreenNodeBuilder};
+use rowan::{GreenNode, GreenNodeBuilder, Checkpoint};
 
+/// The results of a parsed token stream. Contains the CST
 pub struct Parse<'a> {
+    /// The Concrete Syntax Tree
     pub green_node: GreenNode,
+    /// The errors generated when parsing
     pub errors: Vec<CompilerError<'a>>,
+}
+
+/// A rule that tells the parser whether a [`SyntaxKind`] has a prefix or infix function and its binding power
+struct ParseRule<'a, 'b> {
+    // Function to call if the token is in the prefix position
+    pub prefix: Option<fn(&'a mut Parser<'b>, Token, u8, Checkpoint)>,
+    // Function to call if the token is in the postfix position
+    pub infix: Option<fn(&'a mut Parser<'b>, Token, u8, Checkpoint)>,
+    // The binding power of the token
+    pub binding_power: u8,
+}
+
+/// Gets the [`ParseRule`] for a [`Token`] based on its [`SyntaxKind`]
+fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
+    match tk.ty {
+        SyntaxKind::MINUS => ParseRule { prefix: Some(Parser::prefix), infix: Some(Parser::binary), binding_power: 2 },
+        SyntaxKind::PLUS => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: 2 },
+        SyntaxKind::STAR | SyntaxKind::SLASH => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: 3},
+        SyntaxKind::L_PAREN => ParseRule { prefix: Some(Parser::grouping), infix: None, binding_power: 0},
+        SyntaxKind::FLOAT | SyntaxKind::INT => ParseRule { prefix: Some(Parser::number), infix: None, binding_power: 0 },
+        _ => ParseRule { prefix: None, infix: None, binding_power: 0 },
+    }
 }
 
 /// Parses a token stream (Vec<Token>) into a [Parse] result
@@ -19,6 +44,7 @@ pub struct Parser<'a> {
     errors: Vec<CompilerError<'a>>,
     /// The source of the parser with the file name and the lines
     src: (String, &'a Vec<&'a str>),
+    panic_mode: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -29,12 +55,31 @@ impl<'a> Parser<'a> {
             builder: GreenNodeBuilder::new(),
             errors: vec![],
             src: (file.to_string(), lines),
+            panic_mode: false,
         }
     }
 
     pub fn parse(mut self) -> Parse<'a> {
         self.builder.start_node(SyntaxKind::SOURCE_FILE.into());
+
         self.expr(0);
+
+        // If we haven't parsed the entire line then there is an unexpected token.
+        while let Some(_) = self.tokens.peek() {
+            // Skip the unexpected token
+            let tk = self.tokens.next().expect("peeked. Should not fail");
+
+            // If we aren't panicking then report the error
+            if !self.panic_mode {
+                self.report_error(self.generic_error(
+                    &tk,
+                    CompilerErrorType::UnexpectedSymbol,
+                "unexpected symbol"
+                ));
+            }
+            // COntinue parsing
+            self.expr(0);
+        }
         self.builder.finish_node();
         let green_node = self.builder.finish();
         Parse {
@@ -43,98 +88,88 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parses an expression
-    fn expr(&mut self, min_bp: u8) {
+    fn expr(&mut self, bp: u8) {
         self.skip_whitespace();
-        let checkpoint = self.builder.checkpoint();
+        // Checkpoint for wrapping
+        let cp = self.builder.checkpoint();
 
-        match self.tokens.next() {
-            // Literals
-            Some( lhs@Token { ty: SyntaxKind::INT | SyntaxKind::FLOAT | SyntaxKind::IDENT, ..}) => {
-                self.builder.token(lhs.ty.into(), &lhs.get_text(self.src.1));
-            },
-            // Grouping
-            Some( Token { ty: SyntaxKind::R_PAREN, ..}) => {}
-            Some(tk@Token{ ty: SyntaxKind::L_PAREN, .. }) => {
-                self.builder.start_node(SyntaxKind::PAREN_EXPR.into());
-                // Consume the left paren `(`
-                self.builder.token(tk.ty.into(), &tk.get_text(self.src.1));
-                // Parse the internal expression
-                self.expr(0);
-                // End with `)` in peek
-                if let Some(tk@Token {ty: SyntaxKind::R_PAREN, ..}) = self.tokens.peek() {
-                    self.builder.token(SyntaxKind::R_PAREN.into(), tk.get_text(self.src.1));
-                    self.tokens.next();
-                } else {
-                    // Report error if missing `)`
-                    let (tk_line, tk_col) = if let Some(tk) = self.tokens.peek() {
-                        (tk.line,tk.col.clone())
+        // Parse items in the prefix position
+        if let Some(tk) = self.tokens.next() {
+            let rule = get_parse_rule(&tk);
+            if let Some(prefix) = rule.prefix {
+                prefix(self, tk, rule.binding_power, cp);
+            } else {
+                // ERROR
+                self.report_error(self.generic_error(
+                    &tk,
+                    CompilerErrorType::UnexpectedSymbol,
+                    "unexpected symbol",
+                ));
+                return
+            }
+
+            // Reccursivly parse items in the infix position
+            loop {
+                self.skip_whitespace();
+                if let Some(tk) = self.tokens.peek() {
+                    let rule = get_parse_rule(&tk);
+                    if let Some(infix) = rule.infix {
+                        if rule.binding_power > bp {
+                            let tk = self.tokens.next().expect("peeked. Should not fail.");
+                            infix(self, tk, rule.binding_power, cp);
+                        } else {
+                            return
+                        }
                     } else {
-                        (tk.line, (tk.col.start() + 1)..=(tk.col.end() + 1))
-                    };
-                    let hl = Highlight::new(tk_line, tk_col.clone(), "expected ) here", Level::Error);
-                    let output = vec![
-                        Output::Code{ highlight: vec![hl], lines: vec![(tk.line, &self.src.1[tk_line- 1])], src: self.src.0.clone() }
-                    ];
-                    self.errors.push(CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, output));
-                }
-                self.builder.finish_node();
-            }
-            // Prefix
-            Some(tk) => {
-                if let Some(((), rbp)) = Self::prefix_binding_power(&tk.ty) {
-                    self.builder.start_node(SyntaxKind::PREFIX_EXPR.into());
-                    self.builder.token(tk.ty.into(), &tk.get_text(self.src.1));
-                    self.expr(rbp);
-                    self.builder.finish_node();
+                        // We don't report an error here as it may be something like )
+                        return
+                    }
                 } else {
-                    self.errors.push(generic_error(
-                        &tk,
-                        &self,
-                        CompilerErrorType::UnexpectedSymbol,
-                        "unexpected symbol",
-                    ));
-                    self.builder.token(SyntaxKind::ERROR.into(), &tk.get_text(self.src.1))
+                    // We're at the EOF, exit
+                    return
                 }
             }
-            // EOF
-            None => return,
-        };
+        } else {
+            // We're at EOF, exit
+            return;
+        }
+    }
 
+    pub(crate) fn binary(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+        self.builder.start_node_at(cp, SyntaxKind::BIN_EXPR.into());
+        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        self.expr(bp);
+        self.builder.finish_node();
+    }
 
-        loop {
-            self.skip_whitespace();
+    pub(crate) fn prefix(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+        self.builder.start_node_at(cp, SyntaxKind::PREFIX_EXPR.into());
+        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        self.expr(bp);
+        self.builder.finish_node();
+    }
 
-            let op = if let Some(tk) = self.tokens.peek() {
-                tk
-            } else {
-                return;
-            };
+    pub(crate) fn grouping(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+        self.builder.start_node_at(cp, SyntaxKind::PAREN_EXPR.into());
+        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        self.expr(bp);
+        if let Some(Token {ty: SyntaxKind::R_PAREN, .. }) = self.tokens.peek() {
+            let tk = self.tokens.next().expect("peeked at before. Should not fail.");
+            self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        } else {
+            todo!()
+        }
+        self.builder.finish_node();
+    }
 
-            if let Some((lbp, rbp)) = Self::infix_binding_power(&op.ty) {
-                if lbp < min_bp {
-                    return;
-                }
+    pub(crate) fn number(&mut self, tk: Token, _: u8, _: Checkpoint) {
+        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+    }
 
-                self.builder.start_node_at(checkpoint, SyntaxKind::BIN_EXPR.into());
-                self.builder.token(op.ty.into(), &op.get_text(self.src.1));
-                self.tokens.next();
-                self.expr(rbp);
-                self.builder.finish_node();
-            } else {
-                if op.ty == SyntaxKind::R_PAREN {
-                    return;
-                }
-                let text = op.get_text(self.src.1);
-                let hl = Highlight::new(op.line, op.col.clone(), "unexpected symbol", Level::Error);
-                let output = vec![
-                    Output::Code{ highlight: vec![hl], lines: vec![(op.line, self.src.1[op.line - 1])], src: self.src.0.clone() }
-                ];
-                let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, output);
-                self.errors.push(error);
-                self.builder.token(SyntaxKind::ERROR.into(), text);
-                return;
-            }
+    fn report_error(&mut self, error: CompilerError<'a>) {
+        if !self.panic_mode {
+            self.errors.push(error);
+            self.panic_mode = true;
         }
     }
 
@@ -146,34 +181,16 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Provides the binding power of the symbol in an infix position (the strength of its hold on its surrounding compenents)
-    const fn infix_binding_power(op: &SyntaxKind) -> Option<(u8, u8)> {
-        use SyntaxKind::*;
-        match op {
-            PLUS | MINUS => Some((1, 2)),
-            STAR | SLASH => Some((3, 4)),
-            _ => None,
-        }
-    }
-
-    /// Provides the binding power of the symbol in a prefix position
-    const fn prefix_binding_power(op: &SyntaxKind) -> Option<((), u8)> {
-        use SyntaxKind::*;
-        match op {
-           MINUS => Some(((), 5)),
-            _ => None,
-        }
+    /// Creates a compiler error where the line the supplied [`Token`] is on is outputed with that same [`Token`] highlighted
+    fn generic_error(&self, tk: &Token, ty: CompilerErrorType, hl_msg: &str) -> CompilerError<'a> {
+        let hl = Highlight::new(tk.line, tk.col.clone(), hl_msg, Level::Error);
+        let output = vec![
+            Output::Code{ highlight: vec![hl], lines: vec![(tk.line, &self.src.1[tk.line - 1])], src: self.src.0.clone() }
+        ];
+        CompilerError::new(ty, Level::Error, output)
     }
 }
 
-/// Creates a compiler error where the line the supplied [`Token`] is on is outputed with that same [`Token`] highlighted
-fn generic_error<'a>(tk: &Token, parser: &Parser<'a>, ty: CompilerErrorType, hl_msg: &str) -> CompilerError<'a> {
-    let hl = Highlight::new(tk.line, tk.col.clone(), hl_msg, Level::Error);
-    let output = vec![
-        Output::Code{ highlight: vec![hl], lines: vec![(tk.line, &parser.src.1[tk.line - 1])], src: parser.src.0.clone() }
-    ];
-    CompilerError::new(ty, Level::Error, output)
-}
 
 /// Helper function to output the CST in a readable manner
 pub fn output_cst(cst: &rowan::GreenNodeData, mut output: String, offset: &mut u32, indent: usize) -> String {
