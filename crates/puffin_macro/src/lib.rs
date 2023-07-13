@@ -138,21 +138,21 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
         let enum_struct = quote!(
             #[derive(Debug, PartialEq, Clone)]
             pub struct #struct_name {
-                pub range: std::ops::Range<usize>,
+                pub line: usize,
                 #(#struct_fields),*
             }
 
             impl #struct_name {
-                pub fn new(range: std::ops::Range<usize>, #(#field_idents: #field_types),*) -> Self {
+                pub fn new(line: usize,  #(#field_idents: #field_types),*) -> Self {
                     Self {
-                        range,
+                        line,
                         #(#field_idents),*
                     }
                 }
 
-                pub fn ast_node(range: std::ops::Range<usize>, #(#field_idents: #field_types),*) -> #enum_name {
+                pub fn ast_node(line: usize, #(#field_idents: #field_types),*) -> #enum_name {
                     let value = Self {
-                        range,
+                        line,
                         #(#field_idents),*
                     };
                     #enum_name::#variant_name(#potential_box)
@@ -160,7 +160,7 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 pub fn test_node(#(#field_idents: #field_types),*) -> #enum_name {
                     let value = Self {
-                        range: 0..0,
+                        line: 0,
                         #(#field_idents),*
                     };
                     #enum_name::#variant_name(#potential_box)
@@ -221,7 +221,7 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
     output
 }
 
-/// Adds necessary range field to the token as well as some helper functions for constructing the nodes themselves
+/// Adds necessary line field to the token as well as some helper functions for constructing the nodes themselves
 /// Note: It assumes that each variant is the node with the enums name (for example Expr or Stmt) as a suffix
 /// Could I have done this using traits and generics. Yes. But I would have to do it by hand and this is
 /// way cooler :)
@@ -243,7 +243,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         fields.named.push(
             syn::Field::parse_named
-                .parse2(quote! { pub range: std::ops::Range<usize> })
+                .parse2(quote! { pub line: usize })
                 .unwrap(),
         );
     }
@@ -251,9 +251,9 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
     let rtrn = quote! {
         #input
         impl #name {
-            pub fn new(range: std::ops::Range<usize>, #(#idents: #types),*) -> Self {
+            pub fn new(line: usize, #(#idents: #types),*) -> Self {
                 Self {
-                    range,
+                    line,
                     #(#idents),*
                 }
             }
@@ -266,9 +266,9 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
             let value = quote!(std::boxed::Box::new(value));
             quote!(
                 impl #name {
-                    pub fn ast_node(range: std::ops::Range<usize>, #(#idents: #types),*) -> #var {
+                    pub fn ast_node(line: usize, #(#idents: #types),*) -> #var {
                         let value = Self {
-                            range,
+                            line,
                             #(#idents),*
                         };
                         #var::#variant(#value)
@@ -276,7 +276,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     pub fn test_node(#(#idents: #types),*) -> #var {
                         let value = Self {
-                            range: 0..0,
+                            line: 0,
                             #(#idents),*
                         };
                         #var::#variant(#value)
@@ -289,9 +289,9 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
             let value = quote!(value);
             quote!(
                 impl #name {
-                    pub fn ast_node(range: std::ops::Range<usize>, #(#idents: #types),*) -> #var {
+                    pub fn ast_node(line: usize, #(#idents: #types),*) -> #var {
                         let value = Self {
-                            range,
+                            line,
                             #(#idents),*
                         };
                         #var::#variant(#value)
@@ -299,7 +299,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     pub fn test_node(#(#idents: #types),*) -> #var {
                         let value = Self {
-                            range: 0..0,
+                            line: 0,
                             #(#idents),*
                         };
                         #var::#variant(#value)

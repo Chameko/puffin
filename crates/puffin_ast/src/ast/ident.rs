@@ -18,7 +18,7 @@ impl Ident {
     pub fn test_node(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            range: 0..1,
+            line: 0,
         }
     }
 }

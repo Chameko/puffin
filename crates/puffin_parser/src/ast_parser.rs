@@ -4,173 +4,197 @@ use puffin_ast::{ast::{
 use std::iter::Peekable;
 use rowan::{GreenNode, NodeOrToken, Children};
 
-type Context<'a> = (Peekable<Children<'a>>, &'a mut usize);
+type Nodes<'a> = Peekable<Children<'a>>;
 
-/// Parses the concrete syntax tree into the Root. This should never fail.
-pub fn parse_ast(cst: &GreenNode) -> Root {
-    let mut root = Root::new();
-    let mut counter = 0;
+pub struct ASTParser {
+    line: usize
+}
 
-    // Temporary wrapping of Stmt
-    for child in cst.children().peekable() {
-        match child {
+impl ASTParser {
+    pub fn new() -> Self {
+        Self {
+            line: 1,
+        }
+    }
+    /// Parses the concrete syntax tree into the Root. This should never fail.
+    pub fn parse_ast(mut self, cst: &GreenNode) -> Root {
+        let mut root = Root::new();
+
+        for child in cst.children().peekable() {
+            match child {
+                NodeOrToken::Node(n) => {
+                    match SyntaxKind::from(n.kind().0) {
+                        SyntaxKind::EXPR_STMT => {
+                            root.push(Stmt::ExprStmt(self.expr_stmt_ast(&mut n.children().peekable())));
+                        },
+                        SyntaxKind::PRINT_STMT => {
+                            root.push(self.print_stmt_ast(n.children().peekable()));
+                        },
+                        _ => {
+                            panic!("invalid root level statement")
+                        }
+                    }
+                    self.line += 1;
+                },
+                NodeOrToken::Token(t) if SyntaxKind::from(t.kind().0) == SyntaxKind::WHITESPACE => continue,
+                _ => panic!("illegal token at root level"),
+            }
+        }
+        root
+    }
+
+    fn print_stmt_ast(&mut self, mut child: Nodes) -> Stmt {
+        self.skip_whitespace(&mut child);
+        // Skip over print keyword
+        child.next();
+        self.skip_whitespace(&mut child);
+        stmt::PrintStmt::ast_node(self.line, self.expr_stmt_ast(&mut child))
+    }
+
+    /// Parses an expression statement into its AST node
+    fn expr_stmt_ast(&mut self, child: &mut Nodes) -> Expr {
+        self.skip_whitespace(child);
+        match child.next().expect("node should have some form of expression") {
             NodeOrToken::Node(n) => {
                 match SyntaxKind::from(n.kind().0) {
                     SyntaxKind::BIN_EXPR => {
-                        // TODO
-                        let expr = binary_ast(&mut (n.children().peekable(), &mut counter));
+                        let expr = self.binary_ast(&mut n.children().peekable());
                         // Tempary wrapping
-                        root.push(stmt::Stmt::ExprStmt(expr));
+                        expr
                     }
                     SyntaxKind::PAREN_EXPR => {
-                        // TODO
-                        let expr = paren_ast(&mut (n.children().peekable(), &mut counter));
+                        let expr = self.paren_ast(&mut n.children().peekable());
                         // Tempary wrapping
-                        root.push(stmt::Stmt::ExprStmt(expr));
+                        expr
                     },
                     SyntaxKind::PREFIX_EXPR => {
-                        let expr = prefix_ast(&mut (n.children().peekable(), &mut counter));
+                        let expr = self.prefix_ast(&mut n.children().peekable());
                         // Tempoary wrapping
-                        root.push(stmt::Stmt::ExprStmt(expr));
+                        expr
                     }
                     _ => {
-                        panic!("Currently only BIN_EXPR or PAREN_EXPR work");
+                        panic!("invalid node");
                     }
                 }
             },
             NodeOrToken::Token(t) => {
-                let stmt = match SyntaxKind::from(t.kind().0) {
-                    SyntaxKind::INT => Stmt::ExprStmt(lit::literal_expr(IntLiteral::ast_node(counter..usize::from(t.text_len()), t.text().parse().unwrap()))),
-                    SyntaxKind::FLOAT => Stmt::ExprStmt(lit::literal_expr(FloatLiteral::ast_node(counter..usize::from(t.text_len()), t.text().parse().unwrap()))),
-                    SyntaxKind::WHITESPACE => continue,
-                    _ => panic!("Invalid token at root level")
+                let expr = match SyntaxKind::from(t.kind().0) {
+                    SyntaxKind::INT => lit::literal_expr(IntLiteral::ast_node(self.line, t.text().parse().unwrap())),
+                    SyntaxKind::FLOAT => lit::literal_expr(FloatLiteral::ast_node(self.line, t.text().parse().unwrap())),
+                    _ => panic!("Invalid token at node level")
                 };
 
-                counter += usize::from(t.text_len());
-                root.push(stmt);
+                expr
             },
         }
     }
 
-    root
-}
-
-/// Skip the whitespace tokens
-fn skip_whitespace(context: &mut Context) {
-    while let Some(NodeOrToken::Token(t)) = context.0.peek() {
-        if t.kind() != SyntaxKind::WHITESPACE.into() {
-            break;
-        }
-        *context.1 += 1;
-        context.0.next().expect("Should not fail");
-    }
-}
-
-/// Parses a prefix expresssion from the CST
-fn prefix_ast(mut context: &mut Context) -> Expr {
-    skip_whitespace(&mut context);
-    if let Some(NodeOrToken::Token(t)) = context.0.next() {
-        match t.kind().0.into() {
-            SyntaxKind::MINUS => {
-                let initial_context = *context.1;
-                *context.1 += 1;
-                let a = binary_operand_ast(&mut context);
-                expr::binary_expr(binary::NegateBinaryExpr::ast_node(initial_context..*context.1, a))
+    /// Skip the whitespace tokens
+    fn skip_whitespace(&self, nodes: &mut Nodes) {
+        while let Some(NodeOrToken::Token(t)) = nodes.peek() {
+            if t.kind() != SyntaxKind::WHITESPACE.into() {
+                break;
             }
-            _ => panic!("Prefix operation not supported")
+            nodes.next().expect("should not fail");
         }
-    } else {
-        panic!("Expected prefix operation")
     }
-}
 
-/// Parses a paren expression from the CST
-fn paren_ast(mut context: &mut Context) -> Expr {
-    skip_whitespace(&mut context);
-    // Skip over paren
-    if context.0.next().expect("Expected (").kind() != SyntaxKind::L_PAREN.into() {
-        panic!("Expected (");
+    /// Parses a prefix expresssion from the CST
+    fn prefix_ast(&self, nodes: &mut Nodes) -> Expr {
+        self.skip_whitespace(nodes);
+        if let Some(NodeOrToken::Token(t)) = nodes.next() {
+            match t.kind().0.into() {
+                SyntaxKind::MINUS => {
+                    let a = self.binary_operand_ast(nodes);
+                    expr::binary_expr(binary::NegateBinaryExpr::ast_node(self.line, a))
+                }
+                _ => panic!("Prefix operation not supported")
+            }
+        } else {
+            panic!("Expected prefix operation")
+        }
     }
-    let init_context = *context.1;
-    *context.1 += 1;
-    let op = binary_operand_ast(&mut context);
-    let op = binary::binary_expr(binary::GroupBinaryExpr::ast_node(
-        init_context..*context.1,
+
+    /// Parses a paren expression from the CST
+    fn paren_ast(&self, nodes: &mut Nodes) -> Expr {
+        self.skip_whitespace(nodes);
+        // Skip over paren
+        if nodes.next().expect("Expected (").kind() != SyntaxKind::L_PAREN.into() {
+            panic!("Expected (");
+        }
+        let op = self.binary_operand_ast(nodes);
+        let op = binary::binary_expr(binary::GroupBinaryExpr::ast_node(
+            self.line,
+            op
+        ));
+        self.skip_whitespace(nodes);
+        // Skip over paren
+        if nodes.next().expect("Expected )").kind() != SyntaxKind::R_PAREN.into() {
+            panic!("Expected )");
+        }
         op
-    ));
-    skip_whitespace(&mut context);
-    // Skip over paren
-    if context.0.next().expect("Expected )").kind() != SyntaxKind::R_PAREN.into() {
-        panic!("Expected )");
     }
-    *context.1 += 1;
-    op
-}
 
-/// Parses the binary expression from the CST
-fn binary_ast(mut context: &mut Context) -> Expr {
-    let init_context = *context.1;
-    let a = binary_operand_ast(&mut context);
-    skip_whitespace(&mut context);
-    if let Some(NodeOrToken::Token(t)) = context.0.next() {
-        match t.kind().0.into() {
-            SyntaxKind::PLUS => {
-                *context.1 += usize::from(t.text_len());
-                let b = binary_operand_ast(&mut context);
-                expr::binary_expr(binary::AddBinaryExpr::ast_node(init_context..*context.1, a, b))
+    /// Parses the binary expression from the CST
+    fn binary_ast(&self, nodes: &mut Nodes) -> Expr {
+        let a = self.binary_operand_ast(nodes);
+        self.skip_whitespace(nodes);
+        if let Some(NodeOrToken::Token(t)) = nodes.next() {
+            match t.kind().0.into() {
+                SyntaxKind::PLUS => {
+                    let b = self.binary_operand_ast(nodes);
+                    expr::binary_expr(binary::AddBinaryExpr::ast_node(self.line, a, b))
+                }
+                SyntaxKind::MINUS => {
+                    let b = self.binary_operand_ast(nodes);
+                    expr::binary_expr(binary::SubtractBinaryExpr::ast_node(self.line, a, b))
+                }
+                SyntaxKind::STAR => {
+                    let b = self.binary_operand_ast(nodes);
+                    expr::binary_expr(binary::MultiplyBinaryExpr::ast_node(self.line, a, b))
+                }
+                SyntaxKind::SLASH => {
+                    let b = self.binary_operand_ast(nodes);
+                    expr::binary_expr(binary::DivideBinaryExpr::ast_node(self.line, a, b))
+                }
+                k => panic!("Binary operation not found: {}", k)
             }
-            SyntaxKind::MINUS => {
-                *context.1 += usize::from(t.text_len());
-                let b = binary_operand_ast(&mut context);
-                expr::binary_expr(binary::SubtractBinaryExpr::ast_node(init_context..*context.1, a, b))
-            }
-            SyntaxKind::STAR => {
-                *context.1 += usize::from(t.text_len());
-                let b = binary_operand_ast(&mut context);
-                expr::binary_expr(binary::MultiplyBinaryExpr::ast_node(init_context..*context.1, a, b))
-            }
-            SyntaxKind::SLASH => {
-                *context.1 += usize::from(t.text_len());
-                let b = binary_operand_ast(&mut context);
-                expr::binary_expr(binary::DivideBinaryExpr::ast_node(init_context..*context.1, a, b))
-            }
-            k => panic!("Binary operation not found: {}", k)
+        } else {
+            panic!("Expected binary operation")
         }
-    } else {
-        panic!("Expected binary operation")
+    }
+
+    /// Parses the binary expression operands from the CST
+    fn binary_operand_ast(&self, nodes: &mut Nodes) -> Expr {
+        self.skip_whitespace(nodes);
+        match nodes.next() {
+            Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::BIN_EXPR.into() =>  self.binary_ast(&mut n.children().peekable()),
+            Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::PAREN_EXPR.into() => self.paren_ast(&mut n.children().peekable()),
+            Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::PREFIX_EXPR.into() => self.prefix_ast(&mut n.children().peekable()),
+            Some(NodeOrToken::Token(t)) if t.kind() == SyntaxKind::INT.into() => {
+                let expr = lit::literal_expr(
+                    lit::IntLiteral::ast_node(self.line, t.text().parse().unwrap())
+                );
+                expr
+            },
+            Some(NodeOrToken::Token(t)) if t.kind() == SyntaxKind::FLOAT.into() => {
+                let expr = lit::literal_expr(
+                    lit::FloatLiteral::ast_node(self.line, t.text().parse().unwrap())
+                );
+                expr
+            },
+            _ => panic!("Unexpected Syntax Kind")
+        }
     }
 }
 
-/// Parses the binary expression operands from the CST
-fn binary_operand_ast(mut context: &mut Context) -> Expr {
-    skip_whitespace(&mut context);
-    match context.0.next() {
-        Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::BIN_EXPR.into() =>  binary_ast(&mut (n.children().peekable(), context.1)),
-        Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::PAREN_EXPR.into() => paren_ast(&mut (n.children().peekable(), context.1)),
-        Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::PREFIX_EXPR.into() => prefix_ast(&mut (n.children().peekable(), context.1)),
-        Some(NodeOrToken::Token(t)) if t.kind() == SyntaxKind::INT.into() => {
-            let expr = lit::literal_expr(
-                lit::IntLiteral::ast_node(*context.1..*context.1 + usize::from(t.text_len()), t.text().parse().unwrap())
-            );
-            *context.1 += usize::from(t.text_len());
-            expr
-        },
-        Some(NodeOrToken::Token(t)) if t.kind() == SyntaxKind::FLOAT.into() => {
-            let expr = lit::literal_expr(
-                lit::FloatLiteral::ast_node(*context.1..*context.1 + usize::from(t.text_len()), t.text().parse().unwrap())
-            );
-            *context.1 += usize::from(t.text_len());
-            expr
-        },
-        _ => panic!("Unexpected Syntax Kind")
-    }
-}
+
 
 #[cfg(test)]
 mod ast_parser_tests {
     use puffin_ast::ast::TestCmp;
 
-    use crate::{parser::Parser, lexer::{Lexer, Token}, ast_parser::parse_ast};
+    use crate::{parser::Parser, lexer::{Lexer, Token}};
     use super::*;
 
     fn scan_tokens(src: &str) -> Vec<Token> {
@@ -184,7 +208,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("1"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         let mut test_root = Root::new();
         test_root.push(Stmt::ExprStmt(lit::literal_expr(lit::IntLiteral::test_node(1))));
         assert!(root.test_ast_cmp(&test_root), "Generated did not match expected value: \n\nGenerated >> {root:?}\n\nExpected >> {test_root:?}");
@@ -196,7 +220,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("1 + 2"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         let mut test_root = Root::new();
         test_root.push(binary::binary_expr_stmt(binary::AddBinaryExpr::test_node(
             lit::literal_expr(lit::IntLiteral::test_node(1)),
@@ -211,7 +235,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("1 + 2 + 3 + 4"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         insta::assert_yaml_snapshot!(format!("{:#?}", root));
     }
 
@@ -221,7 +245,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("-1 + 2"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         insta::assert_yaml_snapshot!(format!("{:#?}", root));
     }
 
@@ -231,7 +255,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("--1 + -2"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         insta::assert_yaml_snapshot!(format!("{:#?}", root));
     }
 
@@ -241,7 +265,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("1 + 2 * 5 - 3"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         insta::assert_yaml_snapshot!(format!("{:#?}", root));
     }
 
@@ -251,7 +275,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("1 + 2 * (3 - 2) + (1 * 2)"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         insta::assert_yaml_snapshot!(format!("{:#?}", root));
     }
 
@@ -261,7 +285,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("(1 + 2 + 3)"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         insta::assert_yaml_snapshot!(format!("{:#?}", root));
     }
 
@@ -271,7 +295,7 @@ mod ast_parser_tests {
         let parser = Parser::new(scan_tokens("(1 + (1)) - (2 + 1 + 2)"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
-        let root = parse_ast(&parse.green_node);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
         insta::assert_yaml_snapshot!(format!("{:#?}", root));
     }
 }

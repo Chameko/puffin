@@ -17,7 +17,7 @@ impl TestCmp for Path {
 
 impl Path {
     pub fn test_node(path: Vec<Ident>) -> Self {
-        Self { path, range: 0..1 }
+        Self { path, line: 0 }
     }
 }
 

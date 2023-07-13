@@ -1,14 +1,14 @@
 use puffin_ast::SyntaxKind;
-use std::{iter::Peekable, str::Chars, ops::{RangeInclusive}};
+use std::{iter::Peekable, str::Chars, ops::RangeInclusive};
 
 /// A token used in the lexer and parser
 #[derive(Debug, Clone)]
 pub struct Token {
     /// The type of the token
     pub ty: SyntaxKind,
-    /// The column on the line the token is on
+    /// The column on the line the token is on. The indexing starts from 0
     pub col: RangeInclusive<usize>,
-    /// The line the token is on
+    /// The line the token is on. The indexing starts from 1
     pub line: usize,
 }
 
@@ -24,17 +24,21 @@ impl Token {
 
     /// Extracts the tokens text from the provided source, split by lines.
     pub fn get_text<'a>(&self, src: &Vec<&'a str>) -> &'a str {
-        println!("col: {:?}", self.col);
         src[self.line - 1].get(self.col.clone()).expect("Token out of range")
     }
 }
 
 /// The lexer responsible for taking a raw file as a string and converting it to a flat array of [`Token`]
 pub struct Lexer<'a> {
+    /// The source the lexer is parsing
     src: Peekable<Chars<'a>>,
+    /// Charaters that may form a keyword or identifier are stored here
     working: String,
+    /// The current line
     line: usize,
+    /// The current column
     col: usize,
+    /// If the next character is on a newline
     next_line: bool,
 }
 
@@ -94,6 +98,7 @@ impl<'a> Lexer<'a> {
         let ret = match self.working.as_str() {
             "and" => Some(SyntaxKind::KW_AND),
             "or" => Some(SyntaxKind::KW_OR),
+            "print" => Some(SyntaxKind::KW_PRINT),
             s => {
                 if let Some(char) = s.chars().next() {
                     if char.is_numeric() {

@@ -50,12 +50,15 @@ impl<'a> Display for CompilerError<'a> {
 pub enum CompilerErrorType {
     /// When a symbol other than the expected one is produced
     UnexpectedSymbol,
+    /// When the user forgets to insert a newline before the next expression
+    ForgotNewline,
 }
 
 impl Display for CompilerErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CompilerErrorType::UnexpectedSymbol => write!(f, "unexpected symbol"),
+            CompilerErrorType::ForgotNewline => write!(f, "forgot newline"),
         }
     }
 }
@@ -130,7 +133,7 @@ impl<'a> Output<'a> {
                     highlight.iter().map(|h| h.line.to_string()).nth(0).get_or_insert(
                         lines.iter().map(|l| l.0.to_string()).nth(0).get_or_insert(String::new()).to_string()
                     ),
-                    highlight.iter().map(|h| h.area.start().to_string()).nth(0).get_or_insert(String::new())
+                    highlight.iter().map(|h| (h.area.start() + 1).to_string()).nth(0).get_or_insert(String::new())
                 )
             ).bright_blue().bold()
         ));

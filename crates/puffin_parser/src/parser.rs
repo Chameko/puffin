@@ -12,7 +12,7 @@ pub struct Parse<'a> {
     pub errors: Vec<CompilerError<'a>>,
 }
 
-/// A rule that tells the parser whether a [`SyntaxKind`] has a prefix or infix function and its binding power
+/// A rule that tells the parser whether a [`SyntaxKind`] has a prefix or infix function for the parser to use and its binding power
 struct ParseRule<'a, 'b> {
     // Function to call if the token is in the prefix position
     pub prefix: Option<fn(&'a mut Parser<'b>, Token, u8, Checkpoint)>,
@@ -29,7 +29,8 @@ fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
         SyntaxKind::PLUS => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: 2 },
         SyntaxKind::STAR | SyntaxKind::SLASH => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: 3},
         SyntaxKind::L_PAREN => ParseRule { prefix: Some(Parser::grouping), infix: None, binding_power: 0},
-        SyntaxKind::FLOAT | SyntaxKind::INT => ParseRule { prefix: Some(Parser::number), infix: None, binding_power: 0 },
+        SyntaxKind::FLOAT | SyntaxKind::INT | SyntaxKind::IDENT => ParseRule { prefix: Some(Parser::literal), infix: None, binding_power: 0 },
+        SyntaxKind::EQ => ParseRule {prefix: None, infix: Some(Parser::binary), binding_power: 1 },
         _ => ParseRule { prefix: None, infix: None, binding_power: 0 },
     }
 }
@@ -44,6 +45,7 @@ pub struct Parser<'a> {
     errors: Vec<CompilerError<'a>>,
     /// The source of the parser with the file name and the lines
     src: (String, &'a Vec<&'a str>),
+    /// Whether the parser is in panic mode or not. If in panic mode errors are discarded. This prevents too many cascading errors.
     panic_mode: bool,
 }
 
@@ -63,23 +65,10 @@ impl<'a> Parser<'a> {
     pub fn parse(mut self) -> Parse<'a> {
         self.builder.start_node(SyntaxKind::SOURCE_FILE.into());
 
-        self.expr(0);
 
-        // If we haven't parsed the entire line then there is an unexpected token.
-        while let Some(_) = self.tokens.peek() {
-            // Skip the unexpected token
-            let tk = self.tokens.next().expect("peeked. Should not fail");
-
-            // If we aren't panicking then report the error
-            if !self.panic_mode {
-                self.report_error(self.generic_error(
-                    &tk,
-                    CompilerErrorType::UnexpectedSymbol,
-                "unexpected symbol"
-                ));
-            }
-            // Continue parsing
-            self.expr(0);
+        // Parse until end of fule
+        while self.tokens.peek().is_some() {
+            self.stmt();
         }
         self.builder.finish_node();
         let green_node = self.builder.finish();
@@ -87,6 +76,39 @@ impl<'a> Parser<'a> {
             green_node,
             errors: self.errors
         }
+    }
+
+    /// Parse a statement
+    fn stmt(&mut self) {
+        self.skip_whitespace();
+        match self.tokens.peek() {
+            Some(Token { ty: SyntaxKind::KW_PRINT, ..}) => self.print_stmt(),
+            Some(_) => {
+                self.builder.start_node(SyntaxKind::EXPR_STMT.into());
+                self.expr(0);
+                self.builder.finish_node();
+            },
+            _ => return
+        }
+
+        self.skip_whitespace();
+        match self.tokens.peek() {
+            Some(Token{ ty: SyntaxKind::NL, ..}) => { self.tokens.next(); self.panic_mode = false; },
+            Some(tk) => {
+                let tk = tk.clone();
+                self.report_error(self.generic_error(&tk, CompilerErrorType::ForgotNewline, "expected `\\n` here"))
+            }
+            None => ()
+        }
+    }
+
+    /// Parse a print statement
+    fn print_stmt(&mut self) {
+        // Move past print keyword
+        self.tokens.next();
+        self.builder.start_node(SyntaxKind::PRINT_STMT.into());
+        self.expr(0);
+        self.builder.finish_node();
     }
 
     /// Parse an expression
@@ -113,6 +135,10 @@ impl<'a> Parser<'a> {
             loop {
                 self.skip_whitespace();
                 if let Some(tk) = self.tokens.peek() {
+                    // Break if its a NL
+                    if tk.ty == SyntaxKind::NL {
+                        return
+                    }
                     let rule = get_parse_rule(&tk);
                     if let Some(infix) = rule.infix {
                         if rule.binding_power > bp {
@@ -122,7 +148,12 @@ impl<'a> Parser<'a> {
                             return
                         }
                     } else {
-                        // We don't report an error here as it may be something like )
+                        let tk = tk.clone();
+                        self.report_error(self.generic_error(
+                            &tk,
+                            CompilerErrorType::UnexpectedSymbol,
+                            "unexpected symbol",
+                        ));
                         return
                     }
                 } else {
@@ -162,6 +193,8 @@ impl<'a> Parser<'a> {
         self.expr(bp);
         if let Some(Token {ty: SyntaxKind::R_PAREN, .. }) = self.tokens.peek() {
             let tk = self.tokens.next().expect("peeked at before. Should not fail.");
+            // As `)` doesn't have an infix function it gets recorded as an error so we remove that error here
+            self.errors.pop();
             self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
         } else {
             // This is needed to not borrow the parser as mutable twice at once
@@ -186,7 +219,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse number literals
-    pub(crate) fn number(&mut self, tk: Token, _: u8, _: Checkpoint) {
+    pub(crate) fn literal(&mut self, tk: Token, _: u8, _: Checkpoint) {
         self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
     }
 
@@ -346,9 +379,9 @@ mod parser_tests {
     }
 
     #[test]
-    fn paren_4() {
-        let src = vec!["1 + 2 ) 3"];
-        let parser = Parser::new(scan_tokens("1 + 2 ) 3"), "test.pf", &src);
+    fn print_stmt() {
+        let src = vec!["print 2 * (4 - 2)"];
+        let parser = Parser::new(scan_tokens("print 2 * (4 - 2)"), "test.pf", &src);
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
@@ -357,13 +390,28 @@ mod parser_tests {
     }
 
     #[test]
-    fn error() {
-        let src = vec!["(1  (1)) - (2 + 1 + 2)"];
-        let parser = Parser::new(scan_tokens("(1  (1)) - (2 + 1 + 2)"), "test.pf", &src);
+    fn multiple_stmt() {
+        let src = "1 + 2\nprint 3\n2 * 4";
+        let binding = src.split_inclusive('\n').collect();
+        let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
         let parse = parser.parse();
-        for e in parse.errors {
+        for e in &parse.errors {
             println!("{}", e);
         }
-        assert!(false)
+        assert_eq!(parse.errors.len(), 0);
+        let mut offset = 0;
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
+        insta::assert_yaml_snapshot!(output);
+    }
+    /// ------------------------------------
+    /// Testing error handling and messaging
+    /// ------------------------------------
+
+    #[test]
+    fn paren_4() {
+        let src = vec!["1 + 2 ) 3"];
+        let parser = Parser::new(scan_tokens("1 + 2 ) 3"), "test.pf", &src);
+        let parse = parser.parse();
+        insta::assert_yaml_snapshot!(parse.errors.iter().map(|e| format!("{}\n", e)).collect::<String>());
     }
 }

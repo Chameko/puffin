@@ -36,6 +36,9 @@ impl TestCmp for Restrict {
 pub enum Stmt {
     /// Expression statement
     ExprStmt(Expr),
+    Print {
+        output: Expr,
+    },
     /// Variable statement
     Var {
         /// Pattern used to declare the variable

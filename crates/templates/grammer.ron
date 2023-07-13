@@ -25,6 +25,7 @@ Grammer(
     keywords: [
         "or",
         "and",
+        "print",
     ],
     literals: [
         "INT",
@@ -41,6 +42,7 @@ Grammer(
         "SOURCE_FILE",
 
         "EXPR_STMT",
+        "PRINT_STMT",
         "BIN_EXPR",
         "PREFIX_EXPR",
         "PAREN_EXPR",
