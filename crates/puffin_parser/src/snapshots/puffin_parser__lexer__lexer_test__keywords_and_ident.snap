@@ -2,5 +2,4 @@
 source: crates/puffin_parser/src/lexer.rs
 expression: output
 ---
-"|and:and||whitespace: ||ident:sometoiurng||whitespace: ||or:or||whitespace: ||ident:skngeing|"
-
+|and:and||whitespace: ||ident:sometoiurng||whitespace: ||or:or||whitespace: ||ident:skngeing|

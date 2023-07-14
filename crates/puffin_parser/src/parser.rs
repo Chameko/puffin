@@ -287,7 +287,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -298,7 +298,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -309,7 +309,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -320,7 +320,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -331,7 +331,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -342,7 +342,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -353,7 +353,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -364,7 +364,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -375,7 +375,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -386,7 +386,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -401,7 +401,7 @@ mod parser_tests {
         assert_eq!(parse.errors.len(), 0);
         let mut offset = 0;
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
     /// ------------------------------------
     /// Testing error handling and messaging
@@ -412,6 +412,6 @@ mod parser_tests {
         let src = vec!["1 + 2 ) 3"];
         let parser = Parser::new(scan_tokens("1 + 2 ) 3"), "test.pf", &src);
         let parse = parser.parse();
-        insta::assert_yaml_snapshot!(parse.errors.iter().map(|e| format!("{}\n", e)).collect::<String>());
+        insta::assert_snapshot!(parse.errors.iter().map(|e| format!("{}\n", e)).collect::<String>());
     }
 }

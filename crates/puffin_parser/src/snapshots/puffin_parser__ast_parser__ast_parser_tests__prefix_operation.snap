@@ -2,5 +2,39 @@
 source: crates/puffin_parser/src/ast_parser.rs
 expression: "format!(\"{:#?}\", root)"
 ---
-"Root {\n    contents: [\n        ExprStmt(\n            Binary(\n                Add(\n                    AddBinaryExpr {\n                        line: 1,\n                        a: Binary(\n                            Negate(\n                                NegateBinaryExpr {\n                                    line: 1,\n                                    a: Lit(\n                                        Int(\n                                            IntLiteral {\n                                                line: 1,\n                                                int: 1,\n                                            },\n                                        ),\n                                    ),\n                                },\n                            ),\n                        ),\n                        b: Lit(\n                            Int(\n                                IntLiteral {\n                                    line: 1,\n                                    int: 2,\n                                },\n                            ),\n                        ),\n                    },\n                ),\n            ),\n        ),\n    ],\n}"
-
+Root {
+    contents: [
+        ExprStmt(
+            Binary(
+                Add(
+                    AddBinaryExpr {
+                        line: 1,
+                        a: Binary(
+                            Negate(
+                                NegateBinaryExpr {
+                                    line: 1,
+                                    a: Lit(
+                                        Int(
+                                            IntLiteral {
+                                                line: 1,
+                                                int: 1,
+                                            },
+                                        ),
+                                    ),
+                                },
+                            ),
+                        ),
+                        b: Lit(
+                            Int(
+                                IntLiteral {
+                                    line: 1,
+                                    int: 2,
+                                },
+                            ),
+                        ),
+                    },
+                ),
+            ),
+        ),
+    ],
+}

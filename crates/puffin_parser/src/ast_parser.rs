@@ -236,7 +236,7 @@ mod ast_parser_tests {
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = ASTParser::new().parse_ast(&parse.green_node);
-        insta::assert_yaml_snapshot!(format!("{:#?}", root));
+        insta::assert_snapshot!(format!("{:#?}", root));
     }
 
     #[test]
@@ -246,7 +246,7 @@ mod ast_parser_tests {
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = ASTParser::new().parse_ast(&parse.green_node);
-        insta::assert_yaml_snapshot!(format!("{:#?}", root));
+        insta::assert_snapshot!(format!("{:#?}", root));
     }
 
     #[test]
@@ -256,7 +256,7 @@ mod ast_parser_tests {
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = ASTParser::new().parse_ast(&parse.green_node);
-        insta::assert_yaml_snapshot!(format!("{:#?}", root));
+        insta::assert_snapshot!(format!("{:#?}", root));
     }
 
     #[test]
@@ -266,7 +266,7 @@ mod ast_parser_tests {
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = ASTParser::new().parse_ast(&parse.green_node);
-        insta::assert_yaml_snapshot!(format!("{:#?}", root));
+        insta::assert_snapshot!(format!("{:#?}", root));
     }
 
     #[test]
@@ -276,7 +276,7 @@ mod ast_parser_tests {
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = ASTParser::new().parse_ast(&parse.green_node);
-        insta::assert_yaml_snapshot!(format!("{:#?}", root));
+        insta::assert_snapshot!(format!("{:#?}", root));
     }
 
     #[test]
@@ -286,7 +286,7 @@ mod ast_parser_tests {
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = ASTParser::new().parse_ast(&parse.green_node);
-        insta::assert_yaml_snapshot!(format!("{:#?}", root));
+        insta::assert_snapshot!(format!("{:#?}", root));
     }
 
     #[test]
@@ -296,6 +296,6 @@ mod ast_parser_tests {
         let parse = parser.parse();
         assert_eq!(parse.errors.len(), 0);
         let root = ASTParser::new().parse_ast(&parse.green_node);
-        insta::assert_yaml_snapshot!(format!("{:#?}", root));
+        insta::assert_snapshot!(format!("{:#?}", root));
     }
 }

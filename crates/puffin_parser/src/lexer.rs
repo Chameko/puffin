@@ -260,7 +260,7 @@ mod lexer_test {
     #[test]
     fn symbol_kinds() {
         let output = test_base("& | + - * / > < = ( ) ! . \n == >= <= && ||");
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -281,7 +281,7 @@ mod lexer_test {
                 _ => format!("error:{}", input[p.line].get(p.col).unwrap()),
             }})
             .collect::<String>();
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 
     #[test]
@@ -300,6 +300,6 @@ mod lexer_test {
                 _ => format!("error:{}", input[p.line].get(p.col).unwrap()),
             })
             .collect::<String>();
-        insta::assert_yaml_snapshot!(output);
+        insta::assert_snapshot!(output);
     }
 }

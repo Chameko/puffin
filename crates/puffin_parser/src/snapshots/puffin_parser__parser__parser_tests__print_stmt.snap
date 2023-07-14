@@ -2,5 +2,21 @@
 source: crates/puffin_parser/src/parser.rs
 expression: output
 ---
-"SOURCE_FILE@0..12\n    PRINT_STMT@0..12\n          |WHITESPACE@0..1\n        BIN_EXPR@1..12\n            2 |INT@1..2\n              |WHITESPACE@2..3\n            * |STAR@3..4\n              |WHITESPACE@4..5\n            PAREN_EXPR@5..12\n                ( |L_PAREN@5..6\n                BIN_EXPR@6..11\n                    4 |INT@6..7\n                      |WHITESPACE@7..8\n                    - |MINUS@8..9\n                      |WHITESPACE@9..10\n                    2 |INT@10..11\n                ) |R_PAREN@11..12\n"
+SOURCE_FILE@0..12
+    PRINT_STMT@0..12
+          |WHITESPACE@0..1
+        BIN_EXPR@1..12
+            2 |INT@1..2
+              |WHITESPACE@2..3
+            * |STAR@3..4
+              |WHITESPACE@4..5
+            PAREN_EXPR@5..12
+                ( |L_PAREN@5..6
+                BIN_EXPR@6..11
+                    4 |INT@6..7
+                      |WHITESPACE@7..8
+                    - |MINUS@8..9
+                      |WHITESPACE@9..10
+                    2 |INT@10..11
+                ) |R_PAREN@11..12
 

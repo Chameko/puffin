@@ -2,5 +2,10 @@
 source: crates/puffin_parser/src/parser.rs
 expression: "parse.errors.iter().map(|e| format!(\"{}\\n\", e)).collect::<String>()"
 ---
-"\u001b[1;91mERROR\u001b[0m\u001b[1;91m[0000]: unexpected symbol\u001b[0m\n\u001b[1;94m--> test.pf:1:7\n\u001b[0m\u001b[1;94m1\u001b[0m \u001b[1;94m|\u001b[0m 1 + 2 ) 3\n  \u001b[1;94m|\u001b[0m       \u001b[1;91m^\u001b[0m \u001b[1;91munexpected symbol\u001b[0m\n\n\n"
+[1;91mERROR[0m[1;91m[0000]: unexpected symbol[0m
+[1;94m--> test.pf:1:7
+[0m[1;94m1[0m [1;94m|[0m 1 + 2 ) 3
+  [1;94m|[0m       [1;91m^[0m [1;91munexpected symbol[0m
+
+
 

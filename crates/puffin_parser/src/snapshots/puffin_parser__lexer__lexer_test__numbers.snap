@@ -2,5 +2,4 @@
 source: crates/puffin_parser/src/lexer.rs
 expression: output
 ---
-"|float:1.23||whitespace: ||int:42|"
-
+|float:1.23||whitespace: ||int:42|
