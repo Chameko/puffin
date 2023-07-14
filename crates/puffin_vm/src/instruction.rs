@@ -19,6 +19,8 @@ pub enum Opcode {
     MUL,
     /// Performs division
     DIV,
+    /// Prints to the standard output
+    PRINT,
     /// Used for casting from u8 to Opcode
     __LAST,
 }

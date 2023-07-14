@@ -70,6 +70,13 @@ impl VM {
                     let constant = self.next_8_bits() as usize;
                     self.stack.push(self.constants.get(constant).expect("Expected constant").clone())
                 },
+                Opcode::LOAD_LONG => {
+                    let constant = self.next_24_bits() as usize;
+                    self.stack.push(self.constants.get(constant).expect("Expected constant").clone())
+                }
+                Opcode::PRINT => {
+                    println!("{}", self.stack.pop().expect("Popped on empty stack"));
+                }
                 Opcode::ADD => {
                     let a = self.stack.pop().expect("Popped on empty stack");
                     let b = self.stack.pop().expect("Popped on empty stack");
@@ -186,7 +193,7 @@ impl VM {
                         _ => panic!("Only supports numbers"),
                     }
                 }
-                _ => {
+                Opcode::__LAST => {
                     println!("Illegal opcode: Aborting");
                     return false;
                 }
@@ -204,9 +211,22 @@ impl VM {
 
     /// Returns the next 8 bits in the VMs instruction
     fn next_8_bits(&mut self) -> u8 {
-        let result = (*self.instructions.get(self.ip).expect("Unexpected end of instructions")).into();
+        let result = *self.instructions.get(self.ip).expect("Unexpected end of instructions");
         self.ip += 1;
         result
+    }
+
+    /// Reads the next 24 bits in the VMs inswtruction
+    fn next_24_bits(&mut self) -> u32 {
+        let mut rtrn: u32 = 0;
+        rtrn = rtrn | ((*self.instructions.get(self.ip).expect("Unexpected end of instructions") as u32) << 8);
+        self.ip += 1;
+        rtrn = rtrn | ((*self.instructions.get(self.ip).expect("Unexpected end of instructions") as u32) << 4);
+        self.ip += 1;
+        rtrn = *self.instructions.get(self.ip).expect("Unexpected end of instructions") as u32;
+        self.ip += 1;
+        rtrn
+
     }
 }
 
@@ -284,7 +304,7 @@ mod vm_test {
     }
 
     #[test]
-    fn decimal_test() {
+    fn decimal() {
         let mut vm = setup(
             vec![Value::Number(1), Value::Number(2), Value::Number(2), Value::Number(2), Value::Decimal(1.0)],
             vec![Opcode::ADD, Opcode::MUL, Opcode::DIV, Opcode::SUB, Opcode::HLT],

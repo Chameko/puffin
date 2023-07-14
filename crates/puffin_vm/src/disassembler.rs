@@ -47,6 +47,9 @@ pub fn dissasemble(vm: VM) -> String {
             Opcode::MUL => {
                 output.push_str(&format!("{:b} MUL *", Opcode::MUL as u8));
             }
+            Opcode::PRINT => {
+                output.push_str(&format!("{:b} PRINT |>", Opcode::PRINT as u8));
+            }
             Opcode::__LAST => {
                 output.push_str(&format!("{:b} __LAST", Opcode::__LAST as u8));
             }
