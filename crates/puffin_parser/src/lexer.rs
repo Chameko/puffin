@@ -99,6 +99,7 @@ impl<'a> Lexer<'a> {
             "and" => Some(SyntaxKind::KW_AND),
             "or" => Some(SyntaxKind::KW_OR),
             "print" => Some(SyntaxKind::KW_PRINT),
+            "let" => Some(SyntaxKind::KW_LET),
             s => {
                 if let Some(char) = s.chars().next() {
                     if char.is_numeric() {
