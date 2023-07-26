@@ -8,15 +8,15 @@ Root {
             Binary(
                 Add(
                     AddBinaryExpr {
-                        line: 1,
+                        range: 0..=23,
                         a: Binary(
                             Add(
                                 AddBinaryExpr {
-                                    line: 1,
+                                    range: 0..=14,
                                     a: Lit(
                                         Int(
                                             IntLiteral {
-                                                line: 1,
+                                                range: 0..=0,
                                                 int: 1,
                                             },
                                         ),
@@ -24,11 +24,11 @@ Root {
                                     b: Binary(
                                         Multiply(
                                             MultiplyBinaryExpr {
-                                                line: 1,
+                                                range: 4..=14,
                                                 a: Lit(
                                                     Int(
                                                         IntLiteral {
-                                                            line: 1,
+                                                            range: 4..=4,
                                                             int: 2,
                                                         },
                                                     ),
@@ -36,15 +36,15 @@ Root {
                                                 b: Binary(
                                                     Group(
                                                         GroupBinaryExpr {
-                                                            line: 1,
+                                                            range: 9..=13,
                                                             a: Binary(
                                                                 Subtract(
                                                                     SubtractBinaryExpr {
-                                                                        line: 1,
+                                                                        range: 9..=13,
                                                                         a: Lit(
                                                                             Int(
                                                                                 IntLiteral {
-                                                                                    line: 1,
+                                                                                    range: 9..=9,
                                                                                     int: 3,
                                                                                 },
                                                                             ),
@@ -52,7 +52,7 @@ Root {
                                                                         b: Lit(
                                                                             Int(
                                                                                 IntLiteral {
-                                                                                    line: 1,
+                                                                                    range: 13..=13,
                                                                                     int: 2,
                                                                                 },
                                                                             ),
@@ -72,15 +72,15 @@ Root {
                         b: Binary(
                             Group(
                                 GroupBinaryExpr {
-                                    line: 1,
+                                    range: 18..=22,
                                     a: Binary(
                                         Multiply(
                                             MultiplyBinaryExpr {
-                                                line: 1,
+                                                range: 18..=22,
                                                 a: Lit(
                                                     Int(
                                                         IntLiteral {
-                                                            line: 1,
+                                                            range: 18..=18,
                                                             int: 1,
                                                         },
                                                     ),
@@ -88,7 +88,7 @@ Root {
                                                 b: Lit(
                                                     Int(
                                                         IntLiteral {
-                                                            line: 1,
+                                                            range: 22..=22,
                                                             int: 2,
                                                         },
                                                     ),

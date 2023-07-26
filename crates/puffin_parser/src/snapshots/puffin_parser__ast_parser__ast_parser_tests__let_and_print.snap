@@ -1,0 +1,42 @@
+---
+source: crates/puffin_parser/src/ast_parser.rs
+expression: "format!(\"{:#?}\", root)"
+---
+Root {
+    contents: [
+        Var(
+            VarStmt {
+                range: 0..=8,
+                declaration: Ident(
+                    Ident {
+                        name: "a",
+                        range: 4..=4,
+                    },
+                ),
+                init: Some(
+                    Lit(
+                        Int(
+                            IntLiteral {
+                                range: 8..=8,
+                                int: 3,
+                            },
+                        ),
+                    ),
+                ),
+            },
+        ),
+        Print(
+            PrintStmt {
+                range: 9..=14,
+                output: Pat(
+                    Ident(
+                        Ident {
+                            name: "a",
+                            range: 15..=15,
+                        },
+                    ),
+                ),
+            },
+        ),
+    ],
+}

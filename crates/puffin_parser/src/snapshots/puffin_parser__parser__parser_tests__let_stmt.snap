@@ -1,0 +1,15 @@
+---
+source: crates/puffin_parser/src/parser.rs
+expression: output
+---
+SOURCE_FILE@0..14
+    LET_STMT@0..14
+        let |KW_LET@0..3
+          |WHITESPACE@3..4
+        PAT_STMT@4..10
+            banana |IDENT@4..10
+          |WHITESPACE@10..11
+        = |EQ@11..12
+          |WHITESPACE@12..13
+        1 |INT@13..14
+

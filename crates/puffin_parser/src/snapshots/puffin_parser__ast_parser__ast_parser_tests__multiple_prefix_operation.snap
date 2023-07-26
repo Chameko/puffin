@@ -8,19 +8,19 @@ Root {
             Binary(
                 Add(
                     AddBinaryExpr {
-                        line: 1,
+                        range: 0..=6,
                         a: Binary(
                             Negate(
                                 NegateBinaryExpr {
-                                    line: 1,
+                                    range: 0..=2,
                                     a: Binary(
                                         Negate(
                                             NegateBinaryExpr {
-                                                line: 1,
+                                                range: 1..=2,
                                                 a: Lit(
                                                     Int(
                                                         IntLiteral {
-                                                            line: 1,
+                                                            range: 2..=2,
                                                             int: 1,
                                                         },
                                                     ),
@@ -34,11 +34,11 @@ Root {
                         b: Binary(
                             Negate(
                                 NegateBinaryExpr {
-                                    line: 1,
+                                    range: 5..=6,
                                     a: Lit(
                                         Int(
                                             IntLiteral {
-                                                line: 1,
+                                                range: 6..=6,
                                                 int: 2,
                                             },
                                         ),

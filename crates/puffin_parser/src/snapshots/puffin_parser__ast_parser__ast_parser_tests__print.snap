@@ -1,0 +1,71 @@
+---
+source: crates/puffin_parser/src/ast_parser.rs
+expression: "format!(\"{:#?}\", root)"
+---
+Root {
+    contents: [
+        ExprStmt(
+            Binary(
+                Add(
+                    AddBinaryExpr {
+                        range: 0..=4,
+                        a: Lit(
+                            Int(
+                                IntLiteral {
+                                    range: 0..=0,
+                                    int: 1,
+                                },
+                            ),
+                        ),
+                        b: Lit(
+                            Int(
+                                IntLiteral {
+                                    range: 4..=4,
+                                    int: 2,
+                                },
+                            ),
+                        ),
+                    },
+                ),
+            ),
+        ),
+        Print(
+            PrintStmt {
+                range: 5..=10,
+                output: Lit(
+                    Int(
+                        IntLiteral {
+                            range: 11..=11,
+                            int: 3,
+                        },
+                    ),
+                ),
+            },
+        ),
+        ExprStmt(
+            Binary(
+                Multiply(
+                    MultiplyBinaryExpr {
+                        range: 12..=16,
+                        a: Lit(
+                            Int(
+                                IntLiteral {
+                                    range: 12..=12,
+                                    int: 2,
+                                },
+                            ),
+                        ),
+                        b: Lit(
+                            Int(
+                                IntLiteral {
+                                    range: 16..=16,
+                                    int: 4,
+                                },
+                            ),
+                        ),
+                    },
+                ),
+            ),
+        ),
+    ],
+}

@@ -8,19 +8,19 @@ Root {
             Binary(
                 Group(
                     GroupBinaryExpr {
-                        line: 1,
+                        range: 1..=8,
                         a: Binary(
                             Add(
                                 AddBinaryExpr {
-                                    line: 1,
+                                    range: 1..=8,
                                     a: Binary(
                                         Add(
                                             AddBinaryExpr {
-                                                line: 1,
+                                                range: 1..=5,
                                                 a: Lit(
                                                     Int(
                                                         IntLiteral {
-                                                            line: 1,
+                                                            range: 1..=1,
                                                             int: 1,
                                                         },
                                                     ),
@@ -28,7 +28,7 @@ Root {
                                                 b: Lit(
                                                     Int(
                                                         IntLiteral {
-                                                            line: 1,
+                                                            range: 5..=5,
                                                             int: 2,
                                                         },
                                                     ),
@@ -39,7 +39,7 @@ Root {
                                     b: Lit(
                                         Int(
                                             IntLiteral {
-                                                line: 1,
+                                                range: 8..=8,
                                                 int: 3,
                                             },
                                         ),

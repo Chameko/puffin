@@ -8,15 +8,15 @@ Root {
             Binary(
                 Subtract(
                     SubtractBinaryExpr {
-                        line: 1,
+                        range: 0..=11,
                         a: Binary(
                             Add(
                                 AddBinaryExpr {
-                                    line: 1,
+                                    range: 0..=8,
                                     a: Lit(
                                         Int(
                                             IntLiteral {
-                                                line: 1,
+                                                range: 0..=0,
                                                 int: 1,
                                             },
                                         ),
@@ -24,11 +24,11 @@ Root {
                                     b: Binary(
                                         Multiply(
                                             MultiplyBinaryExpr {
-                                                line: 1,
+                                                range: 4..=8,
                                                 a: Lit(
                                                     Int(
                                                         IntLiteral {
-                                                            line: 1,
+                                                            range: 4..=4,
                                                             int: 2,
                                                         },
                                                     ),
@@ -36,7 +36,7 @@ Root {
                                                 b: Lit(
                                                     Int(
                                                         IntLiteral {
-                                                            line: 1,
+                                                            range: 8..=8,
                                                             int: 5,
                                                         },
                                                     ),
@@ -50,7 +50,7 @@ Root {
                         b: Lit(
                             Int(
                                 IntLiteral {
-                                    line: 1,
+                                    range: 11..=11,
                                     int: 3,
                                 },
                             ),
