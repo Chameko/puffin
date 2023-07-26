@@ -11,3 +11,13 @@ members = [
     "crates/puffin_codegen/",
     "crates/puffin_error/",
 ]
+default-members = [
+    "crates/puffin_ast",
+    "crates/puffin",
+    "crates/puffin_macro",
+    "crates/puffin_parser",
+    "crates/puffin_vfs",
+    "crates/puffin_vm/",
+    "crates/puffin_codegen/",
+    "crates/puffin_error/",
+]

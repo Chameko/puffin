@@ -6,8 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0"
-colored = "2.0"
-ahash = "0.8"
-ropey = "1.5"
-puffin_macro = { path = "../puffin_macro"}
+anyhow = "1.0.71"
+clap = { version = "4.3", features = ["derive"] }
+rustyline = "12.0"
+puffin_parser = { path = "../puffin_parser/" }
+puffin_codegen = { path = "../puffin_codegen/" }
+puffin_vm = { path = "../puffin_vm/" }
