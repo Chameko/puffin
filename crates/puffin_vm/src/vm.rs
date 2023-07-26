@@ -74,6 +74,10 @@ impl VM {
                     let constant = self.next_24_bits() as usize;
                     self.stack.push(self.constants.get(constant).expect("Expected constant").clone())
                 }
+                Opcode::LOCAL => {
+                    let local = self.next_8_bits() as usize;
+                    self.stack.push(self.stack[local]);
+                }
                 Opcode::PRINT => {
                     println!("{}", self.stack.pop().expect("Popped on empty stack"));
                 }
@@ -223,7 +227,7 @@ impl VM {
         self.ip += 1;
         rtrn = rtrn | ((*self.instructions.get(self.ip).expect("Unexpected end of instructions") as u32) << 4);
         self.ip += 1;
-        rtrn = *self.instructions.get(self.ip).expect("Unexpected end of instructions") as u32;
+        rtrn = rtrn | *self.instructions.get(self.ip).expect("Unexpected end of instructions") as u32;
         self.ip += 1;
         rtrn
 

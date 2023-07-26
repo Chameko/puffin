@@ -35,6 +35,19 @@ pub fn dissasemble(vm: VM) -> String {
                         .get(load as usize)
                         .map_or("Out Of Bounds".to_string(), |v| format!("{:?}", v)), load));
             }
+            Opcode::LOCAL => {
+                output.push_str(&format!("| {:b} LOCAL _", Opcode::LOCAL as u8));
+                byte += 1;
+                let load = vm.instructions[byte] as usize;
+                output.push_str(&format!(
+                    "| {} @ {}",
+                    vm.stack.get(load).map_or(
+                        "Out of bounds".to_string(),
+                        |v| format!("{:?}", v)
+                    ),
+                    load
+                ));
+            }
             Opcode::ADD => {
                 output.push_str(&format!("{:b} ADD +", Opcode::ADD as u8));
             },

@@ -11,6 +11,8 @@ pub enum Opcode {
     LOAD,
     /// Loads a constant using a 24-bit integer
     LOAD_LONG,
+    /// Loads a local variable
+    LOCAL,
     /// Performs addition
     ADD,
     /// Performs subtraction
