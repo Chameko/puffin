@@ -31,11 +31,11 @@ Root {
         ),
         Print(
             PrintStmt {
-                range: 5..=10,
+                range: 6..=11,
                 output: Lit(
                     Int(
                         IntLiteral {
-                            range: 11..=11,
+                            range: 12..=12,
                             int: 3,
                         },
                     ),
@@ -46,11 +46,11 @@ Root {
             Binary(
                 Multiply(
                     MultiplyBinaryExpr {
-                        range: 12..=16,
+                        range: 14..=18,
                         a: Lit(
                             Int(
                                 IntLiteral {
-                                    range: 12..=12,
+                                    range: 14..=14,
                                     int: 2,
                                 },
                             ),
@@ -58,7 +58,7 @@ Root {
                         b: Lit(
                             Int(
                                 IntLiteral {
-                                    range: 16..=16,
+                                    range: 18..=18,
                                     int: 4,
                                 },
                             ),

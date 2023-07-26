@@ -6,7 +6,7 @@ Root {
     contents: [
         Var(
             VarStmt {
-                range: 0..=8,
+                range: 0..=9,
                 declaration: Ident(
                     Ident {
                         name: "a",
@@ -27,12 +27,12 @@ Root {
         ),
         Print(
             PrintStmt {
-                range: 9..=14,
+                range: 10..=15,
                 output: Pat(
                     Ident(
                         Ident {
                             name: "a",
-                            range: 15..=15,
+                            range: 16..=16,
                         },
                     ),
                 ),
