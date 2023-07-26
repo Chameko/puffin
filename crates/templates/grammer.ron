@@ -26,6 +26,7 @@ Grammer(
         "or",
         "and",
         "print",
+        "let",
     ],
     literals: [
         "INT",
@@ -43,6 +44,9 @@ Grammer(
 
         "EXPR_STMT",
         "PRINT_STMT",
+        "LET_STMT",
+        "BLOCK_STMT",
+        "PAT_STMT",
         "BIN_EXPR",
         "PREFIX_EXPR",
         "PAREN_EXPR",

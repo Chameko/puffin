@@ -32,6 +32,7 @@ pub enum SyntaxKind {
     KW_OR,
     KW_AND,
     KW_PRINT,
+    KW_LET,
     INT,
     FLOAT,
     STRING,
@@ -42,6 +43,9 @@ pub enum SyntaxKind {
     SOURCE_FILE,
     EXPR_STMT,
     PRINT_STMT,
+    LET_STMT,
+    BLOCK_STMT,
+    PAT_STMT,
     BIN_EXPR,
     PREFIX_EXPR,
     PAREN_EXPR,// Allows for casting from u16 safely
@@ -116,6 +120,9 @@ macro_rules! T {
     (print) => {
         $crate::SyntaxKind::KW_PRINT
     };
+    (let) => {
+        $crate::SyntaxKind::KW_LET
+    };
 }
 
 impl SyntaxKind {
@@ -125,6 +132,7 @@ impl SyntaxKind {
         KW_OR
         | KW_AND
         | KW_PRINT
+        | KW_LET
         )
     }
 
@@ -203,6 +211,7 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::KW_OR => write!(f, "or"),
             SyntaxKind::KW_AND => write!(f, "and"),
             SyntaxKind::KW_PRINT => write!(f, "print"),
+            SyntaxKind::KW_LET => write!(f, "let"),
             SyntaxKind::INT => write!(f, "INT"),
             SyntaxKind::FLOAT => write!(f, "FLOAT"),
             SyntaxKind::STRING => write!(f, "STRING"),
@@ -213,6 +222,9 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::SOURCE_FILE => write!(f, "SOURCE_FILE"),
             SyntaxKind::EXPR_STMT => write!(f, "EXPR_STMT"),
             SyntaxKind::PRINT_STMT => write!(f, "PRINT_STMT"),
+            SyntaxKind::LET_STMT => write!(f, "LET_STMT"),
+            SyntaxKind::BLOCK_STMT => write!(f, "BLOCK_STMT"),
+            SyntaxKind::PAT_STMT => write!(f, "PAT_STMT"),
             SyntaxKind::BIN_EXPR => write!(f, "BIN_EXPR"),
             SyntaxKind::PREFIX_EXPR => write!(f, "PREFIX_EXPR"),
             SyntaxKind::PAREN_EXPR => write!(f, "PAREN_EXPR"),
