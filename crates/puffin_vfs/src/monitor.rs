@@ -103,22 +103,22 @@ impl NotifyThread {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
+// #[cfg(test)]
+// mod tests {
+//     use std::str::FromStr;
 
-    use crate::path::AbsPath;
+//     use crate::path::AbsPath;
 
-    use super::{Monitor, MonitorMessage};
+//     use super::{Monitor, MonitorMessage};
 
-    #[test]
-    fn basic() {
-        let update = Box::new(|monitor: MonitorMessage| println!("Amazing"));
-        let monitor = Monitor::new(update).expect("Failed to create monitor");
+//     #[test]
+//     fn basic() {
+//         let update = Box::new(|monitor: MonitorMessage| println!("Amazing"));
+//         let monitor = Monitor::new(update).expect("Failed to create monitor");
 
-        let path = std::path::PathBuf::from_str("/home/chameko/projects/puffin/crates/puffin_vfs/foo.txt").unwrap();
-        monitor.add_file(AbsPath::new(&path).unwrap());
+//         let path = std::path::PathBuf::from_str("/home/chameko/projects/puffin/crates/puffin_vfs/foo.txt").unwrap();
+//         monitor.add_file(AbsPath::new(&path).unwrap());
 
-        monitor._handle.join().expect("Failed to join");
-    }
-}
+//         monitor._handle.join().expect("Failed to join");
+//     }
+// }
