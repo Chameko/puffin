@@ -37,14 +37,14 @@ pub enum Stmt {
     /// Expression statement
     ExprStmt(Expr),
     Print {
-        output: Expr,
+        pub output: Expr,
     },
     /// Variable statement
     Var {
         /// Pattern used to declare the variable
-        declaration: Pat,
+        pub declaration: Pat,
         /// Optional initializer
-        init: Option<Pat>,
+        pub init: Option<Expr>,
     },
     /// Assignment statement
     Assign {
