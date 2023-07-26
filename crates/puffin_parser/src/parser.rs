@@ -29,8 +29,9 @@ fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
         SyntaxKind::PLUS => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: 2 },
         SyntaxKind::STAR | SyntaxKind::SLASH => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: 3},
         SyntaxKind::L_PAREN => ParseRule { prefix: Some(Parser::grouping), infix: None, binding_power: 0},
-        SyntaxKind::FLOAT | SyntaxKind::INT | SyntaxKind::IDENT => ParseRule { prefix: Some(Parser::literal), infix: None, binding_power: 0 },
+        SyntaxKind::FLOAT | SyntaxKind::INT => ParseRule { prefix: Some(Parser::literal), infix: None, binding_power: 0 },
         SyntaxKind::EQ => ParseRule {prefix: None, infix: Some(Parser::binary), binding_power: 1 },
+        SyntaxKind::IDENT => ParseRule { prefix: Some(Parser::ident), infix: None, binding_power: 0 },
         _ => ParseRule { prefix: None, infix: None, binding_power: 0 },
     }
 }
@@ -83,31 +84,83 @@ impl<'a> Parser<'a> {
         self.skip_whitespace();
         match self.tokens.peek() {
             Some(Token { ty: SyntaxKind::KW_PRINT, ..}) => self.print_stmt(),
+            Some(Token { ty: SyntaxKind::KW_LET, ..}) => self.let_stmt(),
             Some(_) => {
                 self.builder.start_node(SyntaxKind::EXPR_STMT.into());
                 self.expr(0);
-                self.builder.finish_node();
             },
             _ => return
         }
 
         self.skip_whitespace();
         match self.tokens.peek() {
-            Some(Token{ ty: SyntaxKind::NL, ..}) => { self.tokens.next(); self.panic_mode = false; },
+            Some(Token{ ty: SyntaxKind::NL, ..}) => {
+                let tk = self.tokens.next().expect("Peeked before. should not fail.");
+                self.panic_mode = false;
+                self.builder.token(SyntaxKind::NL.into(), tk.get_text(self.src.1));
+            },
             Some(tk) => {
                 let tk = tk.clone();
                 self.report_error(self.generic_error(&tk, CompilerErrorType::ForgotNewline, "expected `\\n` here"))
             }
             None => ()
         }
+        self.builder.finish_node();
     }
 
     /// Parse a print statement
     fn print_stmt(&mut self) {
         // Move past print keyword
-        self.tokens.next();
         self.builder.start_node(SyntaxKind::PRINT_STMT.into());
+        let tk = self.tokens.next().expect("peeked. Should not fail");
+        self.builder.token(SyntaxKind::KW_PRINT.into(), tk.get_text(self.src.1));
         self.expr(0);
+    }
+
+    /// Parse a let statement
+    fn let_stmt(&mut self) {
+        self.builder.start_node(SyntaxKind::LET_STMT.into());
+        // Move past the let keyword
+        let tk = self.tokens.next().expect("peeked. Should not fail");
+        self.builder.token(SyntaxKind::KW_LET.into(), tk.get_text(self.src.1));
+        // Get the ident
+        self.pattern();
+        self.skip_whitespace();
+        match self.tokens.peek() {
+            Some( Token { ty: SyntaxKind::EQ, ..}) => {
+                let tk = self.tokens.next().expect("peeked. Should not fail");
+                self.builder.token(SyntaxKind::EQ.into(), tk.get_text(self.src.1));
+            },
+            // Allow variable declarations without initialisation
+            Some( Token { ty: SyntaxKind::NL, ..}) => (),
+            Some(tk) => {
+                let tk = tk.clone();
+                self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "expected `=`"));
+            }
+            _ => {
+                self.report_error(self.eof_error(CompilerErrorType::UnexpectedSymbol, "expected `=`"));
+            },
+        }
+        self.expr(0);
+    }
+
+    /// Parse a pattern
+    fn pattern(&mut self) {
+        self.skip_whitespace();
+        self.builder.start_node(SyntaxKind::PAT_STMT.into());
+        match self.tokens.peek() {
+            Some(tk@Token { ty: SyntaxKind::IDENT, ..}) => {
+                self.builder.token(SyntaxKind::IDENT.into(), tk.get_text(self.src.1));
+                self.tokens.next();
+            }
+            Some(tk) => {
+                let tk = tk.clone();
+                self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "invalid pattern"));
+            }
+            None => {
+                self.report_error(self.eof_error(CompilerErrorType::UnexpectedSymbol, "expected pattern"));
+            }
+        }
         self.builder.finish_node();
     }
 
@@ -203,16 +256,10 @@ impl<'a> Parser<'a> {
                 potential_tk = Some(tk.clone());
             }
             if let Some(tk) = potential_tk {
-                self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "expected )"));
+                self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "expected `)`"));
             } else {
                 // This reports the last character on the last line if we reach the EOF without a )
-                let last_line = self.src.1.last().expect("should not be an empty source");
-                let hl = Highlight::new(self.src.1.len(), last_line.len()..=last_line.len(), "expected )", Level::Error);
-                self.report_error(CompilerError::new(
-                    CompilerErrorType::UnexpectedSymbol,
-                    Level::Error,
-                    vec![Output::Code { lines: vec![(self.src.1.len(), last_line)], src: self.src.0.clone(), highlight: vec![hl] } ]
-                )) ;
+                self.report_error(self.eof_error(CompilerErrorType::UnexpectedSymbol, "expected `)`"));
             }
         }
         self.builder.finish_node();
@@ -221,6 +268,21 @@ impl<'a> Parser<'a> {
     /// Parse number literals
     pub(crate) fn literal(&mut self, tk: Token, _: u8, _: Checkpoint) {
         self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+    }
+
+    /// Parse a pattern (this specific version is called when we run into an ident in an expression)
+    pub(crate) fn ident(&mut self, tk: Token, _: u8, _: Checkpoint) {
+        self.builder.start_node(SyntaxKind::PAT_STMT.into());
+        match tk {
+            tk@Token { ty: SyntaxKind::IDENT, ..} => {
+                self.builder.token(SyntaxKind::IDENT.into(), tk.get_text(self.src.1));
+            }
+            tk => {
+                let tk = tk.clone();
+                self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "invalid pattern"));
+            }
+        }
+        self.builder.finish_node();
     }
 
     /// Record the error and enter panic mode to prevent cascading errors
@@ -246,6 +308,17 @@ impl<'a> Parser<'a> {
             Output::Code{ highlight: vec![hl], lines: vec![(tk.line, &self.src.1[tk.line - 1])], src: self.src.0.clone() }
         ];
         CompilerError::new(ty, Level::Error, output)
+    }
+
+    /// Creates a compiler error that highlights the EOF if its run into.
+    fn eof_error(&self, ty: CompilerErrorType, hl_msg: &str) -> CompilerError<'a> {
+        let last_line = self.src.1.last().expect("should not be an empty source");
+        let hl = Highlight::new(self.src.1.len(), last_line.len()..=last_line.len(), hl_msg, Level::Error);
+        CompilerError::new(
+            ty,
+            Level::Error,
+            vec![Output::Code { lines: vec![(self.src.1.len(), last_line)], src: self.src.0.clone(), highlight: vec![hl] } ]
+        )
     }
 }
 
@@ -392,6 +465,21 @@ mod parser_tests {
     #[test]
     fn multiple_stmt() {
         let src = "1 + 2\nprint 3\n2 * 4";
+        let binding = src.split_inclusive('\n').collect();
+        let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
+        let parse = parser.parse();
+        for e in &parse.errors {
+            println!("{}", e);
+        }
+        assert_eq!(parse.errors.len(), 0);
+        let mut offset = 0;
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
+        insta::assert_snapshot!(output);
+    }
+
+    #[test]
+    fn let_stmt() {
+        let src = "let banana = 1";
         let binding = src.split_inclusive('\n').collect();
         let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
         let parse = parser.parse();
