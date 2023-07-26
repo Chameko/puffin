@@ -8,11 +8,11 @@ use crate::Level;
 #[derive(Debug, Error)]
 pub struct CompilerError<'a> {
     /// The type of compiler error
-    ty: CompilerErrorType,
+    pub ty: CompilerErrorType,
     /// The level of error
-    level: Level,
+    pub level: Level,
     /// Any additional context or contents that need to be outputed
-    contents: Vec<Output<'a>>,
+    pub contents: Vec<Output<'a>>,
 }
 
 impl<'a> CompilerError<'a> {
@@ -23,6 +23,11 @@ impl<'a> CompilerError<'a> {
             level,
             contents
         }
+    }
+
+    /// Appends an output to the error
+    pub fn append(&mut self, output: Output<'a>) {
+        self.contents.push(output);
     }
 }
 
@@ -36,11 +41,11 @@ impl<'a> Display for CompilerError<'a> {
             Level::Info => msg.bright_blue(),
             Level::Warn => msg.bright_yellow(),
         };
-        output.push(format!("{}{}", self.level, msg));
+        output.push(format!("{}{}\n", self.level, msg));
         for msg in &self.contents {
             output.push(format!("{}", msg));
         }
-        write!(f, "{}", output.into_iter().map(|mut s| { s.push('\n'); s }).collect::<String>())
+        write!(f, "{}", output.into_iter().collect::<String>())
     }
 }
 
@@ -52,6 +57,12 @@ pub enum CompilerErrorType {
     UnexpectedSymbol,
     /// When the user forgets to insert a newline before the next expression
     ForgotNewline,
+    /// When there are too many local variables and the VM can't handle them all
+    TooManyLocals,
+    /// When a variable is used before its declared
+    UnknownVariable,
+    /// When a variable is never used
+    UnusedVariable
 }
 
 impl Display for CompilerErrorType {
@@ -59,6 +70,9 @@ impl Display for CompilerErrorType {
         match self {
             CompilerErrorType::UnexpectedSymbol => write!(f, "unexpected symbol"),
             CompilerErrorType::ForgotNewline => write!(f, "forgot newline"),
+            CompilerErrorType::TooManyLocals => write!(f, "too many locals"),
+            CompilerErrorType::UnknownVariable => write!(f, "unknown variable"),
+            CompilerErrorType::UnusedVariable=> write!(f, "unused variable")
         }
     }
 }
@@ -107,8 +121,8 @@ pub enum Output<'a> {
 impl<'a> Display for Output<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Hint(s) => write!(f, "{}", s.cyan()),
-            Self::Msg(s) => write!(f, "{s}"),
+            Self::Hint(s) => write!(f, "{}{}\n", "hint: ".cyan(), s.cyan()),
+            Self::Msg(s) => write!(f, "{s}\n"),
             Self::Code{ lines, highlight, src} => write!(f, "{}", Self::format_code(lines, highlight, src) )
         }
     }
@@ -143,7 +157,7 @@ impl<'a> Output<'a> {
                 output.push_str(&format!("{} {} ...\n", " ".repeat(max_digit_size), "|".bold().bright_blue()));
             }
             // Add the line to the output
-            output.push_str(&format!("{:<max_digit_size$} {} {}\n", line.0.to_string().bold().bright_blue(), "|".bold().bright_blue(), line.1));
+            output.push_str(&format!("{:<max_digit_size$} {} {}\n", line.0.to_string().bold().bright_blue(), "|".bold().bright_blue(), line.1.trim_end()));
 
             // Add the possible highlight line
             for hl in highlight {

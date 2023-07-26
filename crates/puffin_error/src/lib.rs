@@ -3,6 +3,7 @@ use std::fmt::Display;
 use colored::*;
 
 use thiserror::Error;
+pub use compiler::CompilerError;
 
 /// The overarching error type for puffin
 #[derive(Debug, Error)]
@@ -16,7 +17,7 @@ pub enum PuffinInternalError<'a> {
 }
 
 /// The level of error
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Level {
     Error,
     Warn,

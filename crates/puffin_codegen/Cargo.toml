@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 puffin_vm = { path = "../puffin_vm/" }
 puffin_ast = { path = "../puffin_ast/" }
+puffin_error = { path = "../puffin_error/" }
