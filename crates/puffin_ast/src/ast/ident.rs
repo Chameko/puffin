@@ -5,7 +5,7 @@ use std::fmt::Display;
 #[puffin_macro::ast(_)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Ident {
-    name: String,
+    pub name: String,
 }
 
 impl Display for Ident {
@@ -15,10 +15,17 @@ impl Display for Ident {
 }
 
 impl Ident {
+    pub fn ast_node(name: &str, range: std::ops::RangeInclusive<usize>) -> Self {
+        Self {
+            name: name.to_string(),
+            range,
+        }
+    }
+
     pub fn test_node(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            line: 0,
+            range: 0..=0,
         }
     }
 }

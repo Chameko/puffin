@@ -138,21 +138,21 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
         let enum_struct = quote!(
             #[derive(Debug, PartialEq, Clone)]
             pub struct #struct_name {
-                pub line: usize,
+                pub range: std::ops::RangeInclusive<usize>,
                 #(#struct_fields),*
             }
 
             impl #struct_name {
-                pub fn new(line: usize,  #(#field_idents: #field_types),*) -> Self {
+                pub fn new(range: std::ops::RangeInclusive<usize>, #(#field_idents: #field_types),*) -> Self {
                     Self {
-                        line,
+                        range,
                         #(#field_idents),*
                     }
                 }
 
-                pub fn ast_node(line: usize, #(#field_idents: #field_types),*) -> #enum_name {
+                pub fn ast_node(range: std::ops::RangeInclusive<usize>, #(#field_idents: #field_types),*) -> #enum_name {
                     let value = Self {
-                        line,
+                        range,
                         #(#field_idents),*
                     };
                     #enum_name::#variant_name(#potential_box)
@@ -160,7 +160,7 @@ pub fn ast_enum(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 pub fn test_node(#(#field_idents: #field_types),*) -> #enum_name {
                     let value = Self {
-                        line: 0,
+                        range: 0..=0,
                         #(#field_idents),*
                     };
                     #enum_name::#variant_name(#potential_box)
@@ -243,7 +243,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         fields.named.push(
             syn::Field::parse_named
-                .parse2(quote! { pub line: usize })
+                .parse2(quote! { pub range: std::ops::RangeInclusive<usize>})
                 .unwrap(),
         );
     }
@@ -251,9 +251,9 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
     let rtrn = quote! {
         #input
         impl #name {
-            pub fn new(line: usize, #(#idents: #types),*) -> Self {
+            pub fn new(range: std::ops::RangeInclusive<usize>, #(#idents: #types),*) -> Self {
                 Self {
-                    line,
+                    range,
                     #(#idents),*
                 }
             }
@@ -266,9 +266,9 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
             let value = quote!(std::boxed::Box::new(value));
             quote!(
                 impl #name {
-                    pub fn ast_node(line: usize, #(#idents: #types),*) -> #var {
+                    pub fn ast_node(range: std::ops::RangeInclusive<usize>, #(#idents: #types),*) -> #var {
                         let value = Self {
-                            line,
+                            range,
                             #(#idents),*
                         };
                         #var::#variant(#value)
@@ -276,7 +276,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     pub fn test_node(#(#idents: #types),*) -> #var {
                         let value = Self {
-                            line: 0,
+                            range: 0..=0,
                             #(#idents),*
                         };
                         #var::#variant(#value)
@@ -289,9 +289,9 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
             let value = quote!(value);
             quote!(
                 impl #name {
-                    pub fn ast_node(line: usize, #(#idents: #types),*) -> #var {
+                    pub fn ast_node(range: RangeInclusive<usize>, #(#idents: #types),*) -> #var {
                         let value = Self {
-                            line,
+                            range,
                             #(#idents),*
                         };
                         #var::#variant(#value)
@@ -299,7 +299,7 @@ pub fn ast(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     pub fn test_node(#(#idents: #types),*) -> #var {
                         let value = Self {
-                            line: 0,
+                            range: 0..=0,
                             #(#idents),*
                         };
                         #var::#variant(#value)
