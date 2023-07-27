@@ -129,55 +129,57 @@ impl<'a> Lexer<'a> {
         tokens
     }
 
+    /// Used to record a symbol. Note: parses the working string before recording the symbol
+    fn symbol(&mut self, ty: SyntaxKind, string: &str, tokens: &mut Vec<Token>) {
+        if let Some(tk) = self.scan_working() {
+            tokens.push(tk);
+        }
+        tokens.push(Token::new(ty, self.col..=(self.col + string.len() - 1), self.line));
+        self.col += string.len();
+    }
+
     /// Scans the string into a flat array of [`SyntaxKind`] and [`String`]
     fn scan(&mut self, tokens: &mut Vec<Token>) {
-        fn symbol(this: &mut Lexer, ty: SyntaxKind, string: &str, tokens: &mut Vec<Token>) {
-            if let Some(tk) = this.scan_working() {
-                tokens.push(tk);
-            }
-            tokens.push(Token::new(ty, this.col..=(this.col + string.len() - 1), this.line));
-            this.col += string.len();
-        }
         if let Some(char) = self.next() {
             match char {
                 '&' => {
                     if let Some('&') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::AMPAMP, "&&", tokens);
+                        self.symbol( SyntaxKind::AMPAMP, "&&", tokens);
                     } else {
-                        symbol(self, SyntaxKind::AMP, "&", tokens);
+                        self.symbol( SyntaxKind::AMP, "&", tokens);
                     }
                 }
                 '|' => {
                     if let Some('|') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::PIPEPIPE, "||", tokens);
+                        self.symbol( SyntaxKind::PIPEPIPE, "||", tokens);
                     } else {
-                        symbol(self, SyntaxKind::PIPE, "|", tokens);
+                        self.symbol( SyntaxKind::PIPE, "|", tokens);
                     }
                 }
                 '=' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::EQEQ, "==", tokens);
+                        self.symbol( SyntaxKind::EQEQ, "==", tokens);
                     } else {
-                        symbol(self, SyntaxKind::EQ, "=", tokens)
+                        self.symbol( SyntaxKind::EQ, "=", tokens)
                     }
                 }
                 '>' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::GTEQ, ">=", tokens);
+                        self.symbol( SyntaxKind::GTEQ, ">=", tokens);
                     } else {
-                        symbol(self, SyntaxKind::GT, ">", tokens);
+                        self.symbol( SyntaxKind::GT, ">", tokens);
                     }
                 }
                 '<' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        symbol(self, SyntaxKind::LTEQ, "<=", tokens);
+                        self.symbol( SyntaxKind::LTEQ, "<=", tokens);
                     } else {
-                        symbol(self, SyntaxKind::LT, "<", tokens);
+                        self.symbol( SyntaxKind::LT, "<", tokens);
                     }
                 }
                 '.' => {
@@ -186,10 +188,10 @@ impl<'a> Lexer<'a> {
                         if c.is_numeric() {
                             self.working.push('.')
                         } else {
-                            symbol(self, SyntaxKind::DOT, ".", tokens);
+                            self.symbol( SyntaxKind::DOT, ".", tokens);
                         }
                     } else {
-                        symbol(self, SyntaxKind::DOT, ".", tokens)
+                        self.symbol( SyntaxKind::DOT, ".", tokens)
                     }
                 }
                 '/' => {
@@ -201,9 +203,9 @@ impl<'a> Lexer<'a> {
                             comment.push(self.next().unwrap());
                             peek = self.peek();
                         }
-                        symbol(self, SyntaxKind::COMMENT, "//", tokens);
+                        self.symbol( SyntaxKind::COMMENT, "//", tokens);
                     } else {
-                        symbol(self, SyntaxKind::SLASH, "/", tokens);
+                        self.symbol( SyntaxKind::SLASH, "/", tokens);
                     }
                 }
                 ' ' => {
@@ -221,18 +223,18 @@ impl<'a> Lexer<'a> {
                     tokens.push(Token::new(SyntaxKind::WHITESPACE, col..=(col + length - 1), self.line));
                     self.col += length;
                 }
-                '+' => symbol(self, SyntaxKind::PLUS, "+", tokens),
-                '-' => symbol(self, SyntaxKind::MINUS, "-", tokens),
-                '*' => symbol(self, SyntaxKind::STAR, "*", tokens),
-                '(' => symbol(self, SyntaxKind::L_PAREN, "(", tokens),
-                ')' => symbol(self, SyntaxKind::R_PAREN, ")", tokens),
-                '!' => symbol(self, SyntaxKind::EXCLAMATION, "!", tokens),
-                '\n' => symbol(self, SyntaxKind::NL, "\n", tokens),
+                '+' => self.symbol( SyntaxKind::PLUS, "+", tokens),
+                '-' => self.symbol( SyntaxKind::MINUS, "-", tokens),
+                '*' => self.symbol( SyntaxKind::STAR, "*", tokens),
+                '(' => self.symbol( SyntaxKind::L_PAREN, "(", tokens),
+                ')' => self.symbol( SyntaxKind::R_PAREN, ")", tokens),
+                '!' => self.symbol( SyntaxKind::EXCLAMATION, "!", tokens),
+                '\n' => self.symbol( SyntaxKind::NL, "\n", tokens),
                 c => {
                     if c.is_alphanumeric() {
                         self.working.push(c)
                     } else {
-                        symbol(self, SyntaxKind::ERROR, &c.to_string(), tokens)
+                        self.symbol( SyntaxKind::ERROR, &c.to_string(), tokens)
                     }
                 }
             }
