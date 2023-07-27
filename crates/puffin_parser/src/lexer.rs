@@ -228,6 +228,8 @@ impl<'a> Lexer<'a> {
                 '*' => self.symbol( SyntaxKind::STAR, "*", tokens),
                 '(' => self.symbol( SyntaxKind::L_PAREN, "(", tokens),
                 ')' => self.symbol( SyntaxKind::R_PAREN, ")", tokens),
+                '{' => self.symbol(SyntaxKind::L_BRACE, "{", tokens),
+                '}' => self.symbol(SyntaxKind::R_PAREN, "}", tokens),
                 '!' => self.symbol( SyntaxKind::EXCLAMATION, "!", tokens),
                 '\n' => self.symbol( SyntaxKind::NL, "\n", tokens),
                 c => {
@@ -262,7 +264,7 @@ mod lexer_test {
 
     #[test]
     fn symbol_kinds() {
-        let output = test_base("& | + - * / > < = ( ) ! . \n == >= <= && ||");
+        let output = test_base("& | + - * / > < = ( ) ! . \n == >= <= && || { }");
         insta::assert_snapshot!(output);
     }
 

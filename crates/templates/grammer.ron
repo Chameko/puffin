@@ -11,6 +11,8 @@ Grammer(
         ["=", "EQ"],
         ["(", "L_PAREN"],
         [")", "R_PAREN"],
+        ["{", "L_BRACE"],
+        ["}", "R_BRACE"],
         ["!", "EXCLAMATION"],
         [".", "DOT"],
         ["\n", "NL"]
@@ -27,6 +29,8 @@ Grammer(
         "and",
         "print",
         "let",
+        "if",
+        "while",
     ],
     literals: [
         "INT",
@@ -47,6 +51,9 @@ Grammer(
         "LET_STMT",
         "BLOCK_STMT",
         "PAT_STMT",
+        "ASSIGN_STMT",
+        "IF_STMT",
+        "WHILE_STMT",
         "BIN_EXPR",
         "PREFIX_EXPR",
         "PAREN_EXPR",

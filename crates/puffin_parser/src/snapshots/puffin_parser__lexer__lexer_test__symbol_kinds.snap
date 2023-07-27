@@ -3,4 +3,4 @@ source: crates/puffin_parser/src/lexer.rs
 expression: output
 ---
 & | + - * / > < = ( ) ! . 
- == >= <= && ||
+ == >= <= && || { }

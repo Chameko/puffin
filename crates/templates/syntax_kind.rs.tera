@@ -90,7 +90,13 @@ impl std::fmt::Display for SyntaxKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result  {
         match self {
             {%- for t in concat(a=single_char_tokens, b=multi_char_tokens) %}
+            {%- if t.0 == '{'%}
+            SyntaxKind::{{t.1}} => write!(f, "{% raw %}{{% endraw %}{{t.0}}"),
+            {%- elif t.0 == '}'%}
+            SyntaxKind::{{t.1}} => write!(f, "{{t.0}}{% raw %}}{% endraw %}"),
+            {%- else %}
             SyntaxKind::{{t.1}} => write!(f, "{{t.0}}"),
+            {%- endif -%}
             {%- endfor %}
             {%- for kw in keywords %}
             SyntaxKind::KW_{{kw | upper}} => write!(f, "{{kw}}"),
