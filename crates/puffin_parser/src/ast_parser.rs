@@ -175,6 +175,7 @@ impl ASTParser {
                 SyntaxKind::MINUS => {
                     let a = self.binary_operand_ast(nodes);
                     let ret = expr::binary_expr(binary::NegateBinaryExpr::ast_node(start..=(self.col - 1), a));
+                    self.skip_whitespace(nodes);
                     Self::node_check(nodes);
                     ret
                 }
@@ -237,7 +238,7 @@ impl ASTParser {
                     self.col += 1;
                     let b = self.binary_operand_ast(nodes);
                     expr::binary_expr(binary::DivideBinaryExpr::ast_node(start..=(self.col - 1), a, b))
-                }
+                },
                 k => panic!("Binary operation not found: {}", k)
             }
         } else {
@@ -256,17 +257,15 @@ impl ASTParser {
             Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::PAT_STMT.into() => Expr::Pat(self.pattern_stmt(&mut n.children().peekable())),
             Some(NodeOrToken::Token(t)) if t.kind() == SyntaxKind::INT.into() => {
                 self.col += usize::from(t.text_len());
-                let expr = lit::literal_expr(
+                lit::literal_expr(
                     lit::IntLiteral::ast_node(start..=(self.col - 1), t.text().parse().unwrap())
-                );
-                expr
+                )
             },
             Some(NodeOrToken::Token(t)) if t.kind() == SyntaxKind::FLOAT.into() => {
                 self.col += usize::from(t.text_len());
-                let expr = lit::literal_expr(
+                lit::literal_expr(
                     lit::FloatLiteral::ast_node(start..=(self.col - 1), t.text().parse().unwrap())
-                );
-                expr
+                )
             },
             _ => panic!("Unexpected Syntax Kind")
         }
