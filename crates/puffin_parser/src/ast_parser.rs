@@ -66,7 +66,7 @@ impl ASTParser {
         self.skip_whitespace(&mut children);
         let start = self.col;
         // Skip over print keyword
-        self.col += usize::from(children.next().expect("expected print keyword").as_token().expect("expected let keyword").text_len());
+        self.col += usize::from(children.next().expect("expected print keyword").as_token().expect("expected print keyword").text_len());
         self.skip_whitespace(&mut children);
         let ret = stmt::PrintStmt::ast_node(start..=self.col - 1, self.expr_stmt_ast(&mut children));
         Self::node_check(&mut children);
@@ -137,20 +137,20 @@ impl ASTParser {
             NodeOrToken::Node(n) => {
                 match SyntaxKind::from(n.kind().0) {
                     SyntaxKind::BIN_EXPR => {
-                        let expr = self.binary_ast(&mut n.children().peekable());
-                        expr
+                        self.binary_ast(&mut n.children().peekable())
                     }
                     SyntaxKind::PAREN_EXPR => {
-                        let expr = self.paren_ast(&mut n.children().peekable());
-                        expr
+                        self.paren_ast(&mut n.children().peekable())
                     },
                     SyntaxKind::PREFIX_EXPR => {
-                        let expr = self.prefix_ast(&mut n.children().peekable());
-                        expr
+                        self.prefix_ast(&mut n.children().peekable())
                     },
                     SyntaxKind::PAT_STMT => {
                         let pat = self.pattern_stmt(&mut n.children().peekable());
                         Expr::Pat(pat)
+                    },
+                    SyntaxKind::ASSIGN_STMT => {
+                        self.assign_ast(&mut n.children().peekable())
                     }
                     _ => {
                         panic!("invalid node");
@@ -178,15 +178,17 @@ impl ASTParser {
         expr
     }
 
-    /// Skip the whitespace tokens
-    fn skip_whitespace(&mut self, children: &mut Nodes) {
-        while let Some(NodeOrToken::Token(t)) = children.peek() {
-            if t.kind() != SyntaxKind::WHITESPACE.into() && t.kind() != SyntaxKind::NL.into() {
-                break;
-            }
-            self.col += usize::from(t.text_len());
-            children.next().expect("should not fail");
-        }
+    /// Parse an assignment expression from the CST
+    fn assign_ast(&mut self, children: &mut Nodes) -> Expr {
+        let start = self.col;
+        self.skip_whitespace(children);
+        let a = self.binary_operand_ast(children);
+        self.skip_whitespace(children);
+        self.col += usize::from(children.next().expect("expected =").as_token().expect("expected =").text_len());
+        let b = self.binary_operand_ast(children);
+        self.skip_whitespace(children);
+        Self::node_check(children);
+        expr::AssignExpr::ast_node(start..=self.col, a, b)
     }
 
     /// Parses a prefix expresssion from the CST
@@ -279,6 +281,7 @@ impl ASTParser {
             Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::PAREN_EXPR.into() => self.paren_ast(&mut n.children().peekable()),
             Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::PREFIX_EXPR.into() => self.prefix_ast(&mut n.children().peekable()),
             Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::PAT_STMT.into() => Expr::Pat(self.pattern_stmt(&mut n.children().peekable())),
+            Some(NodeOrToken::Node(n)) if n.kind() == SyntaxKind::ASSIGN_STMT.into() => self.assign_ast(&mut n.children().peekable()),
             Some(NodeOrToken::Token(t)) if t.kind() == SyntaxKind::INT.into() => {
                 self.col += usize::from(t.text_len());
                 lit::literal_expr(
@@ -291,7 +294,8 @@ impl ASTParser {
                     lit::FloatLiteral::ast_node(start..=(self.col - 1), t.text().parse().unwrap())
                 )
             },
-            _ => panic!("Unexpected Syntax Kind")
+            Some(t) => panic!("Unexpected Syntax Kind {}", SyntaxKind::from(t.kind().0)),
+            None => panic!("expected binary operand"),
         }
     }
 
@@ -299,6 +303,17 @@ impl ASTParser {
     fn node_check(children: &mut Nodes) {
         if children.next().is_some() {
             panic!("node must be empty when returning");
+        }
+    }
+
+    /// Skip the whitespace tokens
+    fn skip_whitespace(&mut self, children: &mut Nodes) {
+        while let Some(NodeOrToken::Token(t)) = children.peek() {
+            if t.kind() != SyntaxKind::WHITESPACE.into() && t.kind() != SyntaxKind::NL.into() {
+                break;
+            }
+            self.col += usize::from(t.text_len());
+            children.next().expect("should not fail");
         }
     }
 }
@@ -461,6 +476,17 @@ mod ast_parser_tests {
     #[test]
     fn block_stmt_2() {
         let src = "{\n print 2 + 4 \n}";
+        let lines = src.split_inclusive('\n').collect();
+        let parser = Parser::new(scan_tokens(src), "test.pf", &lines);
+        let parse = parser.parse();
+        assert_eq!(parse.errors.len(), 0);
+        let root = ASTParser::new().parse_ast(&parse.green_node);
+        insta::assert_snapshot!(format!("{:#?}", root));
+    }
+
+    #[test]
+    fn assign_stmt() {
+        let src = "a = 2 + 3";
         let lines = src.split_inclusive('\n').collect();
         let parser = Parser::new(scan_tokens(src), "test.pf", &lines);
         let parse = parser.parse();

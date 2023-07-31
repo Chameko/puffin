@@ -4,6 +4,16 @@ use puffin_ast::SyntaxKind;
 use crate::lexer::Token;
 use rowan::{GreenNode, GreenNodeBuilder, Checkpoint};
 
+#[derive(Debug)]
+#[repr(u8)]
+enum BindingPower {
+    None,
+    Assign, // =
+    Term, //+ -
+    Factor, // * /
+    Primary
+}
+
 /// The results of a parsed token stream. Contains the CST
 pub struct Parse<'a> {
     /// The Concrete Syntax Tree
@@ -25,14 +35,14 @@ struct ParseRule<'a, 'b> {
 /// Gets the [`ParseRule`] for a [`Token`] based on its [`SyntaxKind`]
 fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
     match tk.ty {
-        SyntaxKind::MINUS => ParseRule { prefix: Some(Parser::prefix), infix: Some(Parser::binary), binding_power: 2 },
-        SyntaxKind::PLUS => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: 2 },
-        SyntaxKind::STAR | SyntaxKind::SLASH => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: 3},
-        SyntaxKind::L_PAREN => ParseRule { prefix: Some(Parser::grouping), infix: None, binding_power: 0},
-        SyntaxKind::FLOAT | SyntaxKind::INT => ParseRule { prefix: Some(Parser::literal), infix: None, binding_power: 0 },
-        SyntaxKind::EQ => ParseRule {prefix: None, infix: Some(Parser::binary), binding_power: 1 },
-        SyntaxKind::IDENT => ParseRule { prefix: Some(Parser::ident), infix: None, binding_power: 0 },
-        _ => ParseRule { prefix: None, infix: None, binding_power: 0 },
+        SyntaxKind::MINUS => ParseRule { prefix: Some(Parser::prefix), infix: Some(Parser::binary), binding_power: BindingPower::Term as u8 },
+        SyntaxKind::PLUS => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Term as u8 },
+        SyntaxKind::STAR | SyntaxKind::SLASH => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Factor as u8},
+        SyntaxKind::L_PAREN => ParseRule { prefix: Some(Parser::grouping), infix: None, binding_power: BindingPower::None as u8 },
+        SyntaxKind::FLOAT | SyntaxKind::INT => ParseRule { prefix: Some(Parser::literal), infix: None, binding_power: BindingPower::Primary as u8 },
+        SyntaxKind::EQ => ParseRule {prefix: None, infix: Some(Parser::assign), binding_power: BindingPower::Assign as u8},
+        SyntaxKind::IDENT => ParseRule { prefix: Some(Parser::ident), infix: None, binding_power: BindingPower::Primary as u8 },
+        _ => ParseRule { prefix: None, infix: None, binding_power: BindingPower::None as u8  },
     }
 }
 
@@ -337,6 +347,13 @@ impl<'a> Parser<'a> {
         self.builder.finish_node();
     }
 
+    pub(crate) fn assign(&mut self, tk: Token, _: u8, cp: Checkpoint) {
+        self.builder.start_node_at(cp, SyntaxKind::ASSIGN_STMT.into());
+        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        self.expr(0);
+        self.builder.finish_node();
+    }
+
     /// Record the error and enter panic mode to prevent cascading errors
     fn report_error(&mut self, error: CompilerError<'a>) {
         if !self.panic_mode {
@@ -592,6 +609,21 @@ mod parser_tests {
     #[test]
     fn block_stmt_4() {
         let src = "{\nprint 1 + 1}";
+        let binding = src.split_inclusive('\n').collect();
+        let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
+        let parse = parser.parse();
+        for e in &parse.errors {
+            println!("{}", e);
+        }
+        assert_eq!(parse.errors.len(), 0);
+        let mut offset = 0;
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
+        insta::assert_snapshot!(output);
+    }
+
+    #[test]
+    fn assign_stmt() {
+        let src = "a = 4 + 3";
         let binding = src.split_inclusive('\n').collect();
         let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
         let parse = parser.parse();
