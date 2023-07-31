@@ -11,6 +11,8 @@ pub enum RequestType {
     MissingVariable(String),
     /// When there are too many local variables
     TooManyLocals,
+    /// When you cannot assign to a value
+    UnassignableValue,
 }
 
 /// Potential errors or resources that could be resolved later in the compilation stage
@@ -99,14 +101,17 @@ impl<'a> Compiler<'a> {
 
     /// Generates the bytecode from an AST. If successful it will return a [`VM`], if not it will return [`Compiler`], with unresolved requests.
     pub fn generate_bytecode(mut self, ast: Root) -> Result<VM, Self> {
+        self.depth += 1;
         self.stmt_gen_bytecode(ast.contents);
+        self.depth -= 1;
 
         // Pop all the local variables that were introduced in this scope off the stack
-        let mut index = self.locals.len() - 1;
-        while self.locals[index].depth > self.depth {
+        for index in (0..self.locals.len()).rev() {
+            if self.locals[index].depth <= self.depth {
+                break;
+            }
             self.instructions.push(Opcode::POP as u8);
             self.locals.pop();
-            index -= 1;
         }
 
         self.instructions.push(Opcode::HLT as u8);
@@ -122,7 +127,10 @@ impl<'a> Compiler<'a> {
         for stmt in stmts {
             match stmt {
                 Stmt::Var(stmt) => self.var_bytecode_gen(stmt),
-                Stmt::ExprStmt(expr) => self.expr_bytecode_gen(expr),
+                Stmt::ExprStmt(expr) => {
+                    self.expr_bytecode_gen(expr);
+                    self.instructions.push(Opcode::POP as u8);
+                },
                 Stmt::Print(stmt) => self.print_bytecode_gen(stmt),
                 Stmt::Block(stmt) => self.block_bytecode_gen(stmt),
                 _ => todo!()
@@ -158,11 +166,12 @@ impl<'a> Compiler<'a> {
         self.depth -= 1;
 
         // Pop all the local variables that were introduced in this scope off the stack
-        let mut index = self.locals.len() - 1;
-        while self.locals[index].depth > self.depth {
+        for index in (0..self.locals.len()).rev() {
+            if self.locals[index].depth <= self.depth {
+                break;
+            }
             self.instructions.push(Opcode::POP as u8);
             self.locals.pop();
-            index -= 1;
         }
     }
 
@@ -211,6 +220,9 @@ impl<'a> Compiler<'a> {
             },
             Expr::Pat(pat) => {
                 self.pattern_bytecode_gen(pat);
+            },
+            Expr::Assign(assign) => {
+                self.assign_bytecode_gen(*assign);
             }
             Expr::Lit(lit) => {
                 match lit {
@@ -265,34 +277,61 @@ impl<'a> Compiler<'a> {
     fn pattern_bytecode_gen(&mut self, pat: Pat) {
         match pat {
             Pat::Ident(ident) => {
-                let mut found = false;
-                for (i, local) in self.locals.iter().enumerate() {
-                    if ident.name == *local.name {
-                        found = true;
-                        if i <=  u8::MAX as usize {
-                            self.instructions.push(Opcode::LOCAL as u8);
-                            self.instructions.push(i as u8);
-                            // Remove unused variable warning
-                        } else {
-                            let error = self.generic_error(ident.range.clone(), CompilerErrorType::TooManyLocals, "too many local variables", Level::Error);
-                            self.requests.push(Request::new(RequestType::TooManyLocals, |_, _| {}, Some(error)));
-                        }
+                let slot = self.find_local(ident.name.clone());
+                if let Some(slot) = slot {
+                    if slot <= u8::MAX as usize {
+                        self.instructions.push(Opcode::GET_LOCAL as u8);
+                        self.instructions.push(slot as u8);
+                    } else {
+                        let error = self.generic_error(ident.range.clone(), CompilerErrorType::TooManyLocals, "too many local variables", Level::Error);
+                        self.requests.push(Request::new(RequestType::TooManyLocals, |_, _| {}, Some(error)));
                     }
-                }
-                if !found {
+                    self.pop_request_type(RequestType::UnusedVariable(ident.name.clone()));
+                } else {
                     let error = self.generic_error(
                         ident.range,
                         CompilerErrorType::UnknownVariable,
                         "unknown variable", Level::Error
                     );
                     self.requests.push(Request::new(RequestType::MissingVariable(ident.name.clone()), |_, _| {}, Some(error)));
-                } else {
-                    // This is done here so we don't have an immutable and mutable borow at the same time
-                    self.pop_request_type(RequestType::UnusedVariable(ident.name.clone()));
                 }
             },
             _ => panic!("other patterns not yet supported")
         }
+    }
+
+    /// Generates the bytecode for assignment stmts
+    fn assign_bytecode_gen(&mut self, assign: AssignExpr) {
+        match assign.assignee {
+            Expr::Pat(Pat::Ident(i)) => {
+                let slot = self.find_local(i.name);
+                if let Some(slot) = slot {
+                    // Get the required value on the stack
+                    self.expr_bytecode_gen(assign.value);
+                    self.instructions.push(Opcode::SET_LOCAL as u8);
+                    self.instructions.push(slot as u8);
+                }
+            },
+            _ => {
+                let error = self.generic_error(
+                    assign.assignee.range(),
+                    CompilerErrorType::UnassignableValue,
+                    "cannot assign to value",
+                    Level::Error
+                );
+                self.requests.push(Request::new(RequestType::UnassignableValue, |_, _| {}, Some(error)));
+            }
+        }
+    }
+
+    /// Searches for a local variable from back to front. This allows for the shadowing of variables
+    fn find_local(&self, name: String) -> Option<usize> {
+        for i in (0..self.locals.len()).rev() {
+            if self.locals[i].name == name {
+                return Some(i)
+            }
+        }
+        None
     }
 
     /// Produce a generic error that highlights everything over the supplied range and prints out all the lines covered by said range

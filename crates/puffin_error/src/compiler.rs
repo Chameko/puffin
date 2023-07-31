@@ -65,6 +65,8 @@ pub enum CompilerErrorType {
     UnusedVariable,
     /// When there is a missing `}`
     ForgotRBrace,
+    /// When you cannot assign to a value
+    UnassignableValue,
 }
 
 impl Display for CompilerErrorType {
@@ -76,6 +78,7 @@ impl Display for CompilerErrorType {
             CompilerErrorType::UnknownVariable => write!(f, "unknown variable"),
             CompilerErrorType::UnusedVariable=> write!(f, "unused variable"),
             CompilerErrorType::ForgotRBrace => write!(f, "missing `}}`"),
+            CompilerErrorType::UnassignableValue => write!(f, "unassignable value"),
         }
     }
 }

@@ -74,9 +74,15 @@ impl VM {
                     let constant = self.next_24_bits() as usize;
                     self.stack.push(self.constants.get(constant).expect("Expected constant").clone())
                 }
-                Opcode::LOCAL => {
+                Opcode::GET_LOCAL => {
                     let local = self.next_8_bits() as usize;
                     self.stack.push(self.stack[local]);
+                }
+                Opcode::SET_LOCAL => {
+                    let local = self.next_8_bits() as usize;
+                    // The value doesn't get popped off the stack so we can chain multiple assignments together
+                    let value = self.stack.get(self.stack.len() - 1).expect("attempted to set local on empty stack");
+                    self.stack[local] = value.clone();
                 }
                 Opcode::PRINT => {
                     println!("{}", self.stack.pop().expect("Popped on empty stack"));
