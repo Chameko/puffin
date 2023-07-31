@@ -82,10 +82,16 @@ impl<'a> Parser<'a> {
     /// Used to decide which stmt to attempt to parse
     fn stmt_core(&mut self) -> Option<()> {
         self.skip_whitespace();
+        // This skips blank lines. This has to be done otherwise we wrap around a node we didn't create.
+        while let Some(tk@Token { ty: SyntaxKind::NL, ..}) = self.tokens.peek() {
+            self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+            self.tokens.next();
+            self.skip_whitespace();
+        }
         match self.tokens.peek() {
             Some(Token { ty: SyntaxKind::KW_PRINT, ..}) => self.print_stmt(),
             Some(Token { ty: SyntaxKind::KW_LET, ..}) => self.let_stmt(),
-            Some(Token {ty: SyntaxKind::L_BRACE, ..}) => self.block_stmt(),
+            Some(Token { ty: SyntaxKind::L_BRACE, ..}) => self.block_stmt(),
             Some(_) => {
                 self.builder.start_node(SyntaxKind::EXPR_STMT.into());
                 self.expr(0);
@@ -132,11 +138,13 @@ impl<'a> Parser<'a> {
         self.builder.start_node(SyntaxKind::BLOCK_STMT.into());
         let tk = self.tokens.next().expect("peeked should not fail");
         self.builder.token(SyntaxKind::L_BRACE.into(), tk.get_text(self.src.1));
+
         // Skip over potential newline directly after opening brace
         if let Some(Token {ty: SyntaxKind::NL, ..}) = self.tokens.peek() {
             let tk = self.tokens.next().expect("peeked should not fail");
             self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
         }
+
         while !matches!(self.tokens.peek(), Some(Token { ty: SyntaxKind::R_BRACE, ..})) && self.tokens.peek().is_some() {
             if self.stmt_core().is_none() {
                 return;
@@ -229,11 +237,8 @@ impl<'a> Parser<'a> {
             if let Some(prefix) = rule.prefix {
                 prefix(self, tk, rule.binding_power, cp);
             } else {
-                self.report_error(self.generic_error(
-                    &tk,
-                    CompilerErrorType::UnexpectedSymbol,
-                    "unexpected symbol",
-                ));
+                // We don't report an error here, instead we rely on the calling function to state the error
+                // this is because the symbol may be valid it certain contexts, but invalid as a generic infix operator
                 return
             }
 
