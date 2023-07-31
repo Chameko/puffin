@@ -23,8 +23,27 @@ pub struct Request<'a> {
     error: Option<CompilerError<'a>>,
 }
 
+/// Represents a local variable in the VM
+#[derive(Debug)]
+struct Local {
+    /// Name of the variable
+    pub name: String,
+    /// Depth of the local
+    pub depth: u32,
+}
+
+impl Local {
+    /// Create a new Local
+    pub fn new(name: String, depth: u32) -> Self {
+        Self {
+            name,
+            depth
+        }
+    }
+}
+
 impl<'a> Request<'a> {
-    /// Create a new request
+    /// Create a new Request
     pub fn new(ty: RequestType, res: fn(&mut Request, &mut Compiler), error: Option<CompilerError<'a>>) -> Self {
         Self {
             ty,
@@ -56,9 +75,11 @@ pub struct Compiler<'a> {
     /// The constants to be loaded into the VM
     constants: Vec<Value>,
     /// The next index of a local variable in the VM stack
-    locals: Vec<String>,
+    locals: Vec<Local>,
     /// Potential errors that could be resolved
     requests: Vec<Request<'a>>,
+    /// Refers to the current scope depth
+    depth: u32,
     /// A reference to the source
     source: (String, &'a Vec<&'a str>),
 }
@@ -71,25 +92,41 @@ impl<'a> Compiler<'a> {
             constants: vec![],
             locals: vec![],
             requests: vec![],
+            depth: 0,
             source: (name.to_string(), src),
         }
     }
 
-    /// Generates the bytecode from an AST
+    /// Generates the bytecode from an AST. If successful it will return a [`VM`], if not it will return [`Compiler`], with unresolved requests.
     pub fn generate_bytecode(mut self, ast: Root) -> Result<VM, Self> {
-        for stmt in ast.contents {
-            match stmt {
-                Stmt::Var(stmt) => self.var_bytecode_gen(stmt),
-                Stmt::ExprStmt(expr) => self.expr_bytecode_gen(expr),
-                Stmt::Print(stmt) => self.print_bytecode_gen(stmt),
-                _ => todo!()
-            }
+        self.stmt_gen_bytecode(ast.contents);
+
+        // Pop all the local variables that were introduced in this scope off the stack
+        let mut index = self.locals.len() - 1;
+        while self.locals[index].depth > self.depth {
+            self.instructions.push(Opcode::POP as u8);
+            self.locals.pop();
+            index -= 1;
         }
+
         self.instructions.push(Opcode::HLT as u8);
         if self.requests.len() == 0 {
             Ok(VM::with_data((self.instructions, self.constants)))
         } else {
             Err(self)
+        }
+    }
+
+    /// Gnerates the bytecode for a [`Vec<Stmt>`]`
+    pub fn stmt_gen_bytecode(&mut self, stmts: Vec<Stmt>) {
+        for stmt in stmts {
+            match stmt {
+                Stmt::Var(stmt) => self.var_bytecode_gen(stmt),
+                Stmt::ExprStmt(expr) => self.expr_bytecode_gen(expr),
+                Stmt::Print(stmt) => self.print_bytecode_gen(stmt),
+                Stmt::Block(stmt) => self.block_bytecode_gen(stmt),
+                _ => todo!()
+            }
         }
     }
 
@@ -114,6 +151,21 @@ impl<'a> Compiler<'a> {
         self.instructions.push(Opcode::PRINT as u8);
     }
 
+    /// Generates the bytecode for block stmt
+    fn block_bytecode_gen(&mut self, stmt: BlockStmt) {
+        self.depth += 1;
+        self.stmt_gen_bytecode(stmt.contents);
+        self.depth -= 1;
+
+        // Pop all the local variables that were introduced in this scope off the stack
+        let mut index = self.locals.len() - 1;
+        while self.locals[index].depth > self.depth {
+            self.instructions.push(Opcode::POP as u8);
+            self.locals.pop();
+            index -= 1;
+        }
+    }
+
     /// Generates the bytecode for the let stmt
     fn var_bytecode_gen(&mut self, stmt: VarStmt) {
         // Add the varaible to the locals lookup
@@ -122,7 +174,7 @@ impl<'a> Compiler<'a> {
         } else {
             panic!("only supports ident patterns");
         };
-        self.locals.push(ident.name.clone());
+        self.locals.push(Local::new(ident.name.clone(), self.depth));
 
         if let Some(val) = stmt.init {
             // Locals keep their position in the stack. So we don't pop the value created off the stack and remember its poition, allowing us to refer back to it later
@@ -215,7 +267,7 @@ impl<'a> Compiler<'a> {
             Pat::Ident(ident) => {
                 let mut found = false;
                 for (i, local) in self.locals.iter().enumerate() {
-                    if ident.name == *local {
+                    if ident.name == *local.name {
                         found = true;
                         if i <=  u8::MAX as usize {
                             self.instructions.push(Opcode::LOCAL as u8);

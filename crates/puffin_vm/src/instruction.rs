@@ -23,6 +23,8 @@ pub enum Opcode {
     DIV,
     /// Prints to the standard output
     PRINT,
+    /// Pops an item off the stack
+    POP,
     /// Used for casting from u8 to Opcode
     __LAST,
 }

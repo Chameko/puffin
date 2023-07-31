@@ -93,7 +93,6 @@ impl VM {
                                 Value::Decimal(b) => {
                                     self.stack.push(Value::Decimal(a as f32 + b));
                                 },
-                                _ => panic!("Only supports numbers"),
                             }
                         },
                         Value::Decimal(a) => {
@@ -104,10 +103,8 @@ impl VM {
                                 Value::Decimal(b) => {
                                     self.stack.push(Value::Decimal(a + b));
                                 },
-                                _ => panic!("Only supports numbers"),
                             }
                         }
-                        _ => panic!("Only supports numbers"),
                     }
                 },
                 Opcode::SUB => {
@@ -122,7 +119,6 @@ impl VM {
                                 Value::Decimal(b) => {
                                     self.stack.push(Value::Decimal(a as f32 - b));
                                 },
-                                _ => panic!("Only supports numbers"),
                             }
                         },
                         Value::Decimal(a) => {
@@ -133,10 +129,8 @@ impl VM {
                                 Value::Decimal(b) => {
                                     self.stack.push(Value::Decimal(a - b));
                                 },
-                                _ => panic!("Only supports numbers"),
                             }
                         }
-                        _ => panic!("Only supports numbers"),
                     }
                 },
                 Opcode::DIV => {
@@ -151,7 +145,6 @@ impl VM {
                                 Value::Decimal(b) => {
                                     self.stack.push(Value::Decimal(a as f32 / b));
                                 },
-                                _ => panic!("Only supports numbers"),
                             }
                         },
                         Value::Decimal(a) => {
@@ -162,10 +155,8 @@ impl VM {
                                 Value::Decimal(b) => {
                                     self.stack.push(Value::Decimal(a / b));
                                 },
-                                _ => panic!("Only supports numbers"),
                             }
                         }
-                        _ => panic!("Only supports numbers"),
                     }
                 },
                 Opcode::MUL => {
@@ -180,7 +171,6 @@ impl VM {
                                 Value::Decimal(b) => {
                                     self.stack.push(Value::Decimal(a as f32 * b));
                                 },
-                                _ => panic!("Only supports numbers"),
                             }
                         },
                         Value::Decimal(a) => {
@@ -191,11 +181,12 @@ impl VM {
                                 Value::Decimal(b) => {
                                     self.stack.push(Value::Decimal(a * b));
                                 },
-                                _ => panic!("Only supports numbers"),
                             }
                         }
-                        _ => panic!("Only supports numbers"),
                     }
+                }
+                Opcode::POP => {
+                    self.stack.pop().expect("Popped on empty stack");
                 }
                 Opcode::__LAST => {
                     println!("Illegal opcode: Aborting");
@@ -203,7 +194,6 @@ impl VM {
                 }
             }
             true
-
     }
 
     /// Decode the instruction at the current instruction pointer and incrament the instruction pointer
