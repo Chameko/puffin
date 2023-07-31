@@ -46,13 +46,6 @@ pub enum Stmt {
         /// Optional initializer
         pub init: Option<Expr>,
     },
-    /// Assignment statement
-    Assign {
-        /// Expression to be assigned to
-        assignee: Expr,
-        /// Value to be assigned with
-        value: Expr,
-    },
     /// If statement
     If {
         /// The condition of the if statement

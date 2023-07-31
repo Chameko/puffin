@@ -32,13 +32,24 @@ pub enum Pat {
         /// The expressions in the tuple pattern
         tuple: Vec<Expr>,
     },
-    /// Object Pattern
-    Object {
-        /// The fields in the object pattern
-        fields: AHashMap<Ident, Expr>,
-    },
     /// Signifies that a specific part of the pattern should be ignored
     Ignore {},
     /// Signifies that the rest of the pattern should be ignored
     Continue {},
+}
+
+impl Pat {
+    /// Returns the range of the inner type
+    pub fn range(&self) -> std::ops::RangeInclusive<usize> {
+        match self {
+            Pat::Continue(c) => c.range.clone(),
+            Pat::Ident(i) => i.range.clone(),
+            Pat::Ignore(i) => i.range.clone(),
+            Pat::List(l) => l.range.clone(),
+            Pat::Literal(l) => l.range(),
+            Pat::Struct(s) => s.range.clone(),
+            Pat::Tuple(t) => t.range.clone(),
+            Pat::Type(t) => t.range.clone(),
+        }
+    }
 }

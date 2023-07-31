@@ -8,7 +8,7 @@ use super::stmt::{BlockStmt, IfStmt, MatchStmt};
 /// The building blocks of expressions
 #[puffin_macro::ast_enum(
     ignore = Binary, Pat, If, Match, Block, Lit
-    | boxed = Call, Access
+    | boxed = Call, Access, Assign
 )]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
@@ -32,6 +32,13 @@ pub enum Expr {
         /// The field looking to be accessed
         to_access: Expr,
     },
+    /// Assignment statement
+    Assign {
+        /// Expression to be assigned to
+        pub assignee: Expr,
+        /// Value to be assigned with
+        pub value: Expr,
+    },
     /// An if statement that returns a value
     If(Box<IfStmt>),
     /// A match statement that returns a value
@@ -40,6 +47,24 @@ pub enum Expr {
     Block(BlockStmt),
     /// For empty lines
     Empty
+}
+
+impl Expr {
+    /// Returns the range of the item inside the enum
+    pub fn range(&self) -> std::ops::RangeInclusive<usize> {
+        match self {
+            Expr::Binary(b) => b.range(),
+            Expr::Pat(p) => p.range(),
+            Expr::Lit(l) => l.range(),
+            Expr::Assign(assign) => assign.range.clone(),
+            Expr::Access(access) => access.range.clone(),
+            Expr::If(stmt) => stmt.range.clone(),
+            Expr::Match(stmt) => stmt.range.clone(),
+            Expr::Block(stmt) => stmt.range.clone(),
+            Expr::Call(c) => c.range.clone(),
+            Expr::Empty(e) => e.range.clone(),
+        }
+    }
 }
 
 impl CallExpr {

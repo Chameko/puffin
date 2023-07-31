@@ -11,6 +11,19 @@ pub enum Literal {
     Null {},
 }
 
+impl Literal {
+    /// Returns the range of the inner type
+    pub fn range(&self) -> std::ops::RangeInclusive<usize> {
+        match self {
+            Literal::Bool(b) => b.range.clone(),
+            Literal::Float(f) => f.range.clone(),
+            Literal::Int(i) => i.range.clone(),
+            Literal::Null(n) => n.range.clone(),
+            Literal::String(s) => s.range.clone(),
+        }
+    }
+}
+
 impl TestCmp for f32 {
     fn test_ast_cmp(&self, b: &Self) -> bool {
         self == b
