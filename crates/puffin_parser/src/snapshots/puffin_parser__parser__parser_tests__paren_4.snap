@@ -5,7 +5,6 @@ expression: "parse.errors.iter().map(|e| format!(\"{}\\n\", e)).collect::<String
 [1;91mERROR[0m[1;91m[0000]: unexpected symbol[0m
 [1;94m--> test.pf:1:7
 [0m[1;94m1[0m [1;94m|[0m 1 + 2 ) 3
-  [1;94m|[0m       [1;91m^[0m [1;91munexpected symbol[0m
-
+  [1;94m|[0m       [1;91m^[0m [1;91mexpected `\n` or valid operator here[0m
 
 

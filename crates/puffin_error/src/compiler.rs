@@ -62,17 +62,20 @@ pub enum CompilerErrorType {
     /// When a variable is used before its declared
     UnknownVariable,
     /// When a variable is never used
-    UnusedVariable
+    UnusedVariable,
+    /// When there is a missing `}`
+    ForgotRBrace,
 }
 
 impl Display for CompilerErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CompilerErrorType::UnexpectedSymbol => write!(f, "unexpected symbol"),
-            CompilerErrorType::ForgotNewline => write!(f, "forgot newline"),
+            CompilerErrorType::ForgotNewline => write!(f, "forgot newline (`\\n`)"),
             CompilerErrorType::TooManyLocals => write!(f, "too many locals"),
             CompilerErrorType::UnknownVariable => write!(f, "unknown variable"),
-            CompilerErrorType::UnusedVariable=> write!(f, "unused variable")
+            CompilerErrorType::UnusedVariable=> write!(f, "unused variable"),
+            CompilerErrorType::ForgotRBrace => write!(f, "missing `}}`"),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::{iter::Peekable, vec::IntoIter};
+use std::{iter::Peekable, vec::IntoIter, sync::mpsc::SyncSender};
 use puffin_error::{Level, compiler::{CompilerError, Output, Highlight, CompilerErrorType} };
 use puffin_ast::SyntaxKind;
 use crate::lexer::Token;
@@ -79,17 +79,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parse a statement
-    fn stmt(&mut self) {
+    /// Used to decide which stmt to attempt to parse
+    fn stmt_core(&mut self) -> Option<()> {
         self.skip_whitespace();
         match self.tokens.peek() {
             Some(Token { ty: SyntaxKind::KW_PRINT, ..}) => self.print_stmt(),
             Some(Token { ty: SyntaxKind::KW_LET, ..}) => self.let_stmt(),
+            Some(Token {ty: SyntaxKind::L_BRACE, ..}) => self.block_stmt(),
             Some(_) => {
                 self.builder.start_node(SyntaxKind::EXPR_STMT.into());
                 self.expr(0);
             },
-            _ => return
+            _ => return None
+        }
+        Some(())
+    }
+
+    /// Parse a statement
+    fn stmt(&mut self) {
+        if self.stmt_core().is_none() {
+            return;
         }
 
         self.skip_whitespace();
@@ -101,7 +110,7 @@ impl<'a> Parser<'a> {
             },
             Some(tk) => {
                 let tk = tk.clone();
-                self.report_error(self.generic_error(&tk, CompilerErrorType::ForgotNewline, "expected `\\n` here"))
+                self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "expected `\\n` or valid operator here"))
             }
             None => ()
         }
@@ -115,6 +124,50 @@ impl<'a> Parser<'a> {
         let tk = self.tokens.next().expect("peeked. Should not fail");
         self.builder.token(SyntaxKind::KW_PRINT.into(), tk.get_text(self.src.1));
         self.expr(0);
+    }
+
+    /// Parse a block statement
+    fn block_stmt(&mut self) {
+        // consume the {
+        self.builder.start_node(SyntaxKind::BLOCK_STMT.into());
+        let tk = self.tokens.next().expect("peeked should not fail");
+        self.builder.token(SyntaxKind::L_BRACE.into(), tk.get_text(self.src.1));
+        // Skip over potential newline directly after opening brace
+        if let Some(Token {ty: SyntaxKind::NL, ..}) = self.tokens.peek() {
+            let tk = self.tokens.next().expect("peeked should not fail");
+            self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        }
+        while !matches!(self.tokens.peek(), Some(Token { ty: SyntaxKind::R_BRACE, ..})) && self.tokens.peek().is_some() {
+            if self.stmt_core().is_none() {
+                return;
+            }
+
+            self.skip_whitespace();
+            match self.tokens.peek() {
+                Some(Token{ ty: SyntaxKind::NL, ..}) => {
+                    let tk = self.tokens.next().expect("Peeked before. should not fail.");
+                    self.panic_mode = false;
+                    self.builder.token(SyntaxKind::NL.into(), tk.get_text(self.src.1));
+                },
+                Some(Token{ ty: SyntaxKind::R_BRACE, ..}) => {
+                    self.panic_mode = false;
+                },
+                Some(tk) => {
+                    println!("Token: {}", SyntaxKind::from(tk.ty));
+                    let tk = tk.clone();
+                    self.report_error(self.generic_error(&tk, CompilerErrorType::ForgotNewline, "expected `\\n`, `}` or valid operator here"))
+                }
+                None => {
+                    self.report_error(self.eof_error(CompilerErrorType::ForgotRBrace, "expected `}` here`"));
+                }
+            }
+            self.builder.finish_node();
+            self.skip_whitespace();
+        }
+        self.panic_mode = false;
+        if let Some(tk) = self.tokens.next() {
+            self.builder.token(SyntaxKind::R_BRACE.into(), tk.get_text(self.src.1));
+        }
     }
 
     /// Parse a let statement
@@ -201,12 +254,8 @@ impl<'a> Parser<'a> {
                             return
                         }
                     } else {
-                        let tk = tk.clone();
-                        self.report_error(self.generic_error(
-                            &tk,
-                            CompilerErrorType::UnexpectedSymbol,
-                            "unexpected symbol",
-                        ));
+                        // We don't report an error here, instead we rely on the calling function to state the error
+                        // this is because the symbol may be valid it certain contexts, but invalid as a generic infix operator
                         return
                     }
                 } else {
@@ -246,8 +295,6 @@ impl<'a> Parser<'a> {
         self.expr(bp);
         if let Some(Token {ty: SyntaxKind::R_PAREN, .. }) = self.tokens.peek() {
             let tk = self.tokens.next().expect("peeked at before. Should not fail.");
-            // As `)` doesn't have an infix function it gets recorded as an error so we remove that error here
-            self.errors.pop();
             self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
         } else {
             // This is needed to not borrow the parser as mutable twice at once
@@ -491,6 +538,67 @@ mod parser_tests {
         let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
         insta::assert_snapshot!(output);
     }
+
+    #[test]
+    fn block_stmt() {
+        let src = "{ print 1 + 1 }";
+        let binding = src.split_inclusive('\n').collect();
+        let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
+        let parse = parser.parse();
+        for e in &parse.errors {
+            println!("{}", e);
+        }
+        assert_eq!(parse.errors.len(), 0);
+        let mut offset = 0;
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
+        insta::assert_snapshot!(output);
+    }
+
+    #[test]
+    fn block_stmt_2() {
+        let src = "{\nprint 1 + 1\n}";
+        let binding = src.split_inclusive('\n').collect();
+        let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
+        let parse = parser.parse();
+        for e in &parse.errors {
+            println!("{}", e);
+        }
+        assert_eq!(parse.errors.len(), 0);
+        let mut offset = 0;
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
+        insta::assert_snapshot!(output);
+    }
+
+    #[test]
+    fn block_stmt_3() {
+        let src = "{print 1 + 1\n}";
+        let binding = src.split_inclusive('\n').collect();
+        let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
+        let parse = parser.parse();
+        for e in &parse.errors {
+            println!("{}", e);
+        }
+        assert_eq!(parse.errors.len(), 0);
+        let mut offset = 0;
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
+        insta::assert_snapshot!(output);
+    }
+
+    #[test]
+    fn block_stmt_4() {
+        let src = "{\nprint 1 + 1}";
+        let binding = src.split_inclusive('\n').collect();
+        let parser = Parser::new(scan_tokens(src), "test.pf", &binding);
+        let parse = parser.parse();
+        for e in &parse.errors {
+            println!("{}", e);
+        }
+        assert_eq!(parse.errors.len(), 0);
+        let mut offset = 0;
+        let output = output_cst(&parse.green_node, String::new(), &mut offset, 0);
+        insta::assert_snapshot!(output);
+    }
+
     /// ------------------------------------
     /// Testing error handling and messaging
     /// ------------------------------------

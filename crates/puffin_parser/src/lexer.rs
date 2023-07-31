@@ -229,7 +229,7 @@ impl<'a> Lexer<'a> {
                 '(' => self.symbol( SyntaxKind::L_PAREN, "(", tokens),
                 ')' => self.symbol( SyntaxKind::R_PAREN, ")", tokens),
                 '{' => self.symbol(SyntaxKind::L_BRACE, "{", tokens),
-                '}' => self.symbol(SyntaxKind::R_PAREN, "}", tokens),
+                '}' => self.symbol(SyntaxKind::R_BRACE, "}", tokens),
                 '!' => self.symbol( SyntaxKind::EXCLAMATION, "!", tokens),
                 '\n' => self.symbol( SyntaxKind::NL, "\n", tokens),
                 c => {
