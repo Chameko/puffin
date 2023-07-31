@@ -96,7 +96,7 @@ impl<'a> Compiler<'a> {
     /// Consumes self and checks for unresolved requests. If there are none then it returns the valid VM, if there are it converts them into their relative error messages.
     pub fn check_unresolved_requests(self) -> Result<VM, Vec<CompilerError<'a>>> {
         if self.requests.len() == 0 {
-            todo!()
+            Ok(VM::with_data((self.instructions, self.constants)))
         } else {
             let mut errors = vec![];
             for req in self.requests {
@@ -152,68 +152,13 @@ impl<'a> Compiler<'a> {
     }
 
     /// Generates the bytecode for an expression
-    /// TODO: Break into smaller functions
     fn expr_bytecode_gen(&mut self, expr: Expr) {
         match expr {
             Expr::Binary(bin) => {
-                match *bin {
-                    BinaryExpr::Add(expr) => {
-                        self.expr_bytecode_gen(expr.a);
-                        self.expr_bytecode_gen(expr.b);
-                        self.instructions.push(Opcode::ADD as u8)
-                    },
-                    BinaryExpr::Subtract(expr) => {
-                        self.expr_bytecode_gen(expr.a);
-                        self.expr_bytecode_gen(expr.b);
-                        self.instructions.push(Opcode::SUB as u8)
-                    },
-                    BinaryExpr::Multiply(expr) => {
-                        self.expr_bytecode_gen(expr.a);
-                        self.expr_bytecode_gen(expr.b);
-                        self.instructions.push(Opcode::MUL as u8)
-                    },
-                    BinaryExpr::Divide(expr) => {
-                        self.expr_bytecode_gen(expr.a);
-                        self.expr_bytecode_gen(expr.b);
-                        self.instructions.push(Opcode::DIV as u8)
-                    },
-                    BinaryExpr::Group(expr) => {
-                        self.expr_bytecode_gen(expr.a);
-                    }
-                    bin => panic!("not yet implemented {:?}", bin),
-                }
+                self.binary_bytecode_gen(*bin);
             },
             Expr::Pat(pat) => {
-                match pat {
-                    Pat::Ident(ident) => {
-                        let mut found = false;
-                        for (i, local) in self.locals.iter().enumerate() {
-                            if ident.name == *local {
-                                found = true;
-                                if i <=  u8::MAX as usize {
-                                    self.instructions.push(Opcode::LOCAL as u8);
-                                    self.instructions.push(i as u8);
-                                    // Remove unused variable warning
-                                } else {
-                                    let error = self.generic_error(ident.range.clone(), CompilerErrorType::TooManyLocals, "too many local variables", Level::Error);
-                                    self.requests.push(Request::new(RequestType::TooManyLocals, |_, _| {}, Some(error)));
-                                }
-                            }
-                        }
-                        if !found {
-                            let error = self.generic_error(
-                                ident.range,
-                                CompilerErrorType::UnknownVariable,
-                                "unknown variable", Level::Error
-                            );
-                            self.requests.push(Request::new(RequestType::MissingVariable(ident.name.clone()), |_, _| {}, Some(error)));
-                        } else {
-                            // This is done here so we don't have an immutable and mutable borow at the same time
-                            self.pop_request_type(RequestType::UnusedVariable(ident.name.clone()));
-                        }
-                    },
-                    _ => panic!("other patterns not yet supported")
-                }
+                self.pattern_bytecode_gen(pat);
             }
             Expr::Lit(lit) => {
                 match lit {
@@ -231,6 +176,70 @@ impl<'a> Compiler<'a> {
                 }
             }
             _ => todo!()
+        }
+    }
+
+    /// Generate the bytecode for a binary expression
+    fn binary_bytecode_gen(&mut self, bin: BinaryExpr) {
+        match bin {
+            BinaryExpr::Add(expr) => {
+                self.expr_bytecode_gen(expr.a);
+                self.expr_bytecode_gen(expr.b);
+                self.instructions.push(Opcode::ADD as u8)
+            },
+            BinaryExpr::Subtract(expr) => {
+                self.expr_bytecode_gen(expr.a);
+                self.expr_bytecode_gen(expr.b);
+                self.instructions.push(Opcode::SUB as u8)
+            },
+            BinaryExpr::Multiply(expr) => {
+                self.expr_bytecode_gen(expr.a);
+                self.expr_bytecode_gen(expr.b);
+                self.instructions.push(Opcode::MUL as u8)
+            },
+            BinaryExpr::Divide(expr) => {
+                self.expr_bytecode_gen(expr.a);
+                self.expr_bytecode_gen(expr.b);
+                self.instructions.push(Opcode::DIV as u8)
+            },
+            BinaryExpr::Group(expr) => {
+                self.expr_bytecode_gen(expr.a);
+            }
+            bin => panic!("not yet implemented {:?}", bin),
+        }
+    }
+
+    /// Generate the bytecode for a pattern
+    fn pattern_bytecode_gen(&mut self, pat: Pat) {
+        match pat {
+            Pat::Ident(ident) => {
+                let mut found = false;
+                for (i, local) in self.locals.iter().enumerate() {
+                    if ident.name == *local {
+                        found = true;
+                        if i <=  u8::MAX as usize {
+                            self.instructions.push(Opcode::LOCAL as u8);
+                            self.instructions.push(i as u8);
+                            // Remove unused variable warning
+                        } else {
+                            let error = self.generic_error(ident.range.clone(), CompilerErrorType::TooManyLocals, "too many local variables", Level::Error);
+                            self.requests.push(Request::new(RequestType::TooManyLocals, |_, _| {}, Some(error)));
+                        }
+                    }
+                }
+                if !found {
+                    let error = self.generic_error(
+                        ident.range,
+                        CompilerErrorType::UnknownVariable,
+                        "unknown variable", Level::Error
+                    );
+                    self.requests.push(Request::new(RequestType::MissingVariable(ident.name.clone()), |_, _| {}, Some(error)));
+                } else {
+                    // This is done here so we don't have an immutable and mutable borow at the same time
+                    self.pop_request_type(RequestType::UnusedVariable(ident.name.clone()));
+                }
+            },
+            _ => panic!("other patterns not yet supported")
         }
     }
 
