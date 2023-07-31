@@ -6,19 +6,19 @@ Root {
     contents: [
         Block(
             BlockStmt {
-                range: 0..=13,
+                range: 0..=14,
                 contents: [
                     Print(
                         PrintStmt {
-                            range: 1..=6,
+                            range: 2..=7,
                             output: Binary(
                                 Add(
                                     AddBinaryExpr {
-                                        range: 7..=11,
+                                        range: 8..=12,
                                         a: Lit(
                                             Int(
                                                 IntLiteral {
-                                                    range: 7..=7,
+                                                    range: 8..=8,
                                                     int: 2,
                                                 },
                                             ),
@@ -26,7 +26,7 @@ Root {
                                         b: Lit(
                                             Int(
                                                 IntLiteral {
-                                                    range: 11..=11,
+                                                    range: 12..=12,
                                                     int: 4,
                                                 },
                                             ),

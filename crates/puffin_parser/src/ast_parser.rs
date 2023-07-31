@@ -53,7 +53,7 @@ impl ASTParser {
                     if valid_tokens.contains(&t.kind().0.into()) {
                         self.col += usize::from(t.text_len());
                     } else {
-                        panic!("invalid token in block stmt: {}", SyntaxKind::from(t.kind().0))
+                        panic!("invalid token in stmt: {}", SyntaxKind::from(t.kind().0))
                     }
                 },
             }
@@ -123,8 +123,10 @@ impl ASTParser {
     fn block_stmt_ast(&mut self, mut children: Nodes) -> Stmt {
         let start = self.col;
         // Skip the opening {
+        self.col += 1;
         children.next();
         let contents = self.stmt_core(&mut children, &[SyntaxKind::WHITESPACE, SyntaxKind::R_BRACE, SyntaxKind::NL]);
+        Self::node_check(&mut children);
         stmt::BlockStmt::ast_node(start..=self.col, contents)
     }
 
