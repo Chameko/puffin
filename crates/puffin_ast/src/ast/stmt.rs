@@ -90,7 +90,7 @@ pub enum Stmt {
     /// Block statement
     Block {
         /// Contents of the block
-        contents: Vec<Stmt>,
+        pub contents: Vec<Stmt>,
     },
     /// Match statement
     Match {

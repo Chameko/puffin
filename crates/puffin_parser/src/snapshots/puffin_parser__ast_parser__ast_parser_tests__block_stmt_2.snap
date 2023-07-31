@@ -1,0 +1,43 @@
+---
+source: crates/puffin_parser/src/ast_parser.rs
+expression: "format!(\"{:#?}\", root)"
+---
+Root {
+    contents: [
+        Block(
+            BlockStmt {
+                range: 0..=15,
+                contents: [
+                    Print(
+                        PrintStmt {
+                            range: 2..=7,
+                            output: Binary(
+                                Add(
+                                    AddBinaryExpr {
+                                        range: 8..=12,
+                                        a: Lit(
+                                            Int(
+                                                IntLiteral {
+                                                    range: 8..=8,
+                                                    int: 2,
+                                                },
+                                            ),
+                                        ),
+                                        b: Lit(
+                                            Int(
+                                                IntLiteral {
+                                                    range: 12..=12,
+                                                    int: 4,
+                                                },
+                                            ),
+                                        ),
+                                    },
+                                ),
+                            ),
+                        },
+                    ),
+                ],
+            },
+        ),
+    ],
+}
