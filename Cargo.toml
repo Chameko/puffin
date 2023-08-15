@@ -10,6 +10,7 @@ members = [
     "crates/puffin_vm/",
     "crates/puffin_codegen/",
     "crates/puffin_error/",
+    "crates/puffin_compiler/",
 ]
 default-members = [
     "crates/puffin_ast",
@@ -20,4 +21,5 @@ default-members = [
     "crates/puffin_vm/",
     "crates/puffin_codegen/",
     "crates/puffin_error/",
+    "crates/puffin_compiler/",
 ]
