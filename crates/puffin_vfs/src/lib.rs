@@ -21,9 +21,10 @@ pub enum VFSError {
     NotAbsolutePath,
 }
 
+/// The virtual file system
 #[derive(Debug)]
 pub struct VFS {
-    file_updates: Vec<bool>,
+    /// The internal path interner
     interner: PathInterner,
 }
 
@@ -31,5 +32,10 @@ impl VFS {
     /// Either adds a path and returns the [`FileID`] or returns the [`FileID`] if it already exists
     pub fn intern(&mut self, path: &AbsPath) -> FileID {
         self.interner.intern(path)
+    }
+
+    /// Get an absolute path from a file ID
+    pub fn get_path(&mut self, id: FileID) -> Option<&AbsPath> {
+        self.interner.get_path(id)
     }
 }

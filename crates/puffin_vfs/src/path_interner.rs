@@ -16,7 +16,7 @@ impl PathInterner {
             // If it already exists return its file ID
             fileID
         } else {
-            let path: AbsPathBuf = AbsPathBuf::from(path);
+            let path: AbsPathBuf = path.to_path_buf();
             // Add the file path to the interner
             self.id_to_path.push(path.clone());
             let file_id = self.id_to_path.len() - 1;

@@ -7,6 +7,12 @@ use super::VFSError;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AbsPathBuf(PathBuf);
 
+impl From<AbsPathBuf> for PathBuf {
+    fn from(value: AbsPathBuf) -> Self {
+        value.0
+    }
+}
+
 impl TryFrom<PathBuf> for AbsPathBuf {
     type Error = VFSError;
 
@@ -16,13 +22,6 @@ impl TryFrom<PathBuf> for AbsPathBuf {
         } else {
             Err(VFSError::NotAbsolutePath)
         }
-    }
-}
-
-impl From<&AbsPath> for AbsPathBuf {
-    fn from(value: &AbsPath) -> Self {
-        let path_buf: PathBuf = value.0.into();
-        AbsPathBuf(path_buf)
     }
 }
 
@@ -63,7 +62,7 @@ impl AbsPathBuf {
     pub fn as_path(&self) -> &AbsPath {
         let path = self.0.as_path();
         // As AbsPath is a transparent wrapper around Path this is safe
-        unsafe { &*(path as *const Path as *const AbsPath) }
+        AbsPath::assert_new(path)
     }
 }
 
@@ -74,13 +73,44 @@ pub struct AbsPath(Path);
 
 impl AbsPath {
     /// Constructs a new `AbsPath` from a [`Path`]
-    pub fn new(path: &Path) -> Result<&AbsPath, VFSError> {
-        if path.is_absolute() {
-            // As AbsPath is a transparent wrapper around Path this is safe
-            Ok(unsafe { &*(path as *const Path as *const AbsPath) })
+    ///
+    /// ## Panics
+    /// Panics if the path isn't absolute
+    pub fn assert_new(path: &Path) -> &AbsPath {
+        assert!(path.is_absolute());
+
+        // As AbsPath is a transparent wrapper this is fine
+        unsafe { &*(path as *const Path as *const AbsPath )}
+    }
+
+    /// Convert [`AbsPath`] to an owned [`AbsPathBuf`]
+    pub fn to_path_buf(&self) -> AbsPathBuf {
+        AbsPathBuf::try_from(self.0.to_path_buf()).unwrap()
+    }
+}
+
+impl AsRef<Path> for AbsPath {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Deref for AbsPath {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> TryFrom<&'a Path> for &'a AbsPath {
+    type Error = VFSError;
+
+    fn try_from(value: &Path) -> Result<Self, Self::Error> {
+        if value.is_absolute() {
+            Ok(AbsPath::assert_new(&value))
         } else {
             Err(VFSError::NotAbsolutePath)
         }
-        
     }
 }
