@@ -1,12 +1,19 @@
 /// Contains the path interner
 mod path_interner;
+use path_interner::PathInterner;
+
 /// Contains the moniter
 mod monitor;
+pub use monitor::Monitor;
+pub use monitor::ForegroundMessage;
+pub use monitor::MonitorMessage;
+
 /// Contains the path types used in Puffin
 pub mod path;
+pub use path::AbsPath;
+pub use path::AbsPathBuf;
 
-use path_interner::PathInterner;
-use path::AbsPath;
+use relative_path::RelativePath;
 use thiserror::Error;
 
 /// Identifier for a file in the virtual file system
@@ -37,5 +44,10 @@ impl VFS {
     /// Get an absolute path from a file ID
     pub fn get_path(&mut self, id: FileID) -> Option<&AbsPath> {
         self.interner.get_path(id)
+    }
+
+    /// Intern a [RelativePath] that is relative to a supplied [AbsPath]
+    pub fn intern_relative_path(&mut self, path: &RelativePath, relative_to: &AbsPath) -> FileID {
+        self.interner.intern(&AbsPathBuf::try_from(path.to_logical_path(relative_to)).unwrap())
     }
 }

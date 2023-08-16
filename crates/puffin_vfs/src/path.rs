@@ -106,7 +106,7 @@ impl Deref for AbsPath {
 impl<'a> TryFrom<&'a Path> for &'a AbsPath {
     type Error = VFSError;
 
-    fn try_from(value: &Path) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a Path) -> Result<Self, Self::Error> {
         if value.is_absolute() {
             Ok(AbsPath::assert_new(&value))
         } else {
