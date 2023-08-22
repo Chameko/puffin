@@ -42,7 +42,7 @@ impl VFS {
     }
 
     /// Get an absolute path from a file ID
-    pub fn get_path(&mut self, id: FileID) -> Option<&AbsPath> {
+    pub fn get_path(&self, id: FileID) -> Option<&AbsPath> {
         self.interner.get_path(id)
     }
 

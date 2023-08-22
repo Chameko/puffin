@@ -6,5 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+puffin_hir = { path = "../puffin_hir/" }
+puffin_vfs = { path = "../puffin_vfs/" }
 thiserror = "1.0.43"
 colored = "2.0.4"

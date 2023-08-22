@@ -1,5 +1,5 @@
-use std::ops::RangeInclusive;
 use puffin_ast::SyntaxKind;
+use puffin_hir::source::TextSlice;
 
 /// A token used in the lexer and parser
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -7,14 +7,14 @@ pub struct Token {
     /// The type of the token
     pub ty: SyntaxKind,
     /// The column on the line the token is on. The indexing starts from 0
-    pub col: RangeInclusive<usize>,
+    pub col: TextSlice,
     /// The line the token is on. The indexing starts from 1
     pub line: usize,
 }
 
 impl Token {
     /// Creates a new token
-    pub fn new(ty: SyntaxKind, col: RangeInclusive<usize>, line: usize) -> Self {
+    pub fn new(ty: SyntaxKind, col: TextSlice, line: usize) -> Self {
         Self {
             ty,
             col,

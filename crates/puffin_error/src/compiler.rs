@@ -1,23 +1,24 @@
 use std::{fmt::Display, ops::RangeInclusive};
 use colored::*;
-use thiserror::Error;
+use puffin_hir::source::SourceTree;
+use puffin_vfs::{VFS, FileID};
 
 use crate::Level;
 
 /// Contains the information about the compiler error
-#[derive(Debug, Error)]
-pub struct CompilerError<'a> {
+#[derive(Debug)]
+pub struct CompilerError {
     /// The type of compiler error
     pub ty: CompilerErrorType,
     /// The level of error
     pub level: Level,
     /// Any additional context or contents that need to be outputed
-    pub contents: Vec<Output<'a>>,
+    pub contents: Vec<Output>,
 }
 
-impl<'a> CompilerError<'a> {
+impl CompilerError {
     /// Create a new [`CompilerError`]
-    pub fn new(ty: CompilerErrorType, level: Level, contents: Vec<Output<'a>>) -> Self {
+    pub fn new(ty: CompilerErrorType, level: Level, contents: Vec<Output>) -> Self {
         Self {
             ty,
             level,
@@ -26,13 +27,12 @@ impl<'a> CompilerError<'a> {
     }
 
     /// Appends an output to the error
-    pub fn append(&mut self, output: Output<'a>) {
+    pub fn append(&mut self, output: Output) {
         self.contents.push(output);
     }
-}
 
-impl<'a> Display for CompilerError<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    /// Converts the [`CompilerError`] to a readable [`String`]
+    pub fn display(self, src_tree: &SourceTree, vfs: &VFS) -> String {
         let mut output: Vec<String> = vec![];
         let msg = format!("[{:04}]: {}", self.ty.clone() as u8, self.ty).bold();
         // Color the message appropriatly
@@ -42,10 +42,10 @@ impl<'a> Display for CompilerError<'a> {
             Level::Warn => msg.bright_yellow(),
         };
         output.push(format!("{}{}\n", self.level, msg));
-        for msg in &self.contents {
-            output.push(format!("{}", msg));
+        for msg in self.contents {
+            output.push(msg.display(vfs, src_tree));
         }
-        write!(f, "{}", output.into_iter().collect::<String>())
+        output.into_iter().collect::<String>()
     }
 }
 
@@ -111,11 +111,14 @@ impl Highlight {
 
 /// Formats additional outputs to each of their corresponding formats
 #[derive(Debug)]
-pub enum Output<'a> {
+pub enum Output {
     /// Displays the code snippet
     Code {
-        lines: Vec<(usize, &'a str)>,
-        src: String,
+        /// The lines the code segment covers
+        lines: std::ops::RangeInclusive<usize>,
+        /// The file ID the output comes from
+        src: FileID,
+        /// The part to highlight
         highlight: Vec<Highlight>
     },
     /// Displays a message with hint formatting
@@ -124,25 +127,52 @@ pub enum Output<'a> {
     Msg(String),
 }
 
-impl<'a> Display for Output<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Output {
+    /// Converts the output to a readable [`String`]
+    fn display(self, vfs: &VFS, src_tree: &SourceTree) -> String {
         match self {
-            Self::Hint(s) => write!(f, "{}{}\n", "hint: ".cyan(), s.cyan()),
-            Self::Msg(s) => write!(f, "{s}\n"),
-            Self::Code{ lines, highlight, src} => write!(f, "{}", Self::format_code(lines, highlight, src) )
+            Self::Hint(s) => format!("{}{}\n", "hint: ".cyan(), s.cyan()),
+            Self::Msg(s) => format!("{s}\n"),
+            Self::Code{ lines, highlight, src} => {
+                let file_name = *vfs
+                    .get_path(src)
+                    .expect("expected file to be in VFS")
+                    .file_name()
+                    .get_or_insert(std::ffi::OsStr::new("N/A"))
+                    .to_str()
+                    .get_or_insert("N/A");
+                let text = &src_tree.find_source(src).expect("expected to find source in sources").text;
+                let lines = text
+                    .split_inclusive('\n')
+                    .into_iter()
+                    .enumerate()
+                    .filter(|l| lines.contains(&l.0))
+                    .map(|l| (l.0 + 1, l.1))
+                    .collect();
+                format!("{}", Self::format_code(lines, highlight, file_name))
+            }
         }
     }
-}
 
-impl<'a> Output<'a> {
+    /// Get the potential file id of the output
+    fn get_src_id(&self) -> Option<FileID> {
+        if let Output::Code { src, .. } = self {
+            Some(*src)
+        } else {
+            None
+        }
+    }
+
     /// Formats the code block to look pretty. Uses the first highlight as the error's soruce line and column
-    fn format_code(lines: &Vec<(usize, &str)>, highlight: &Vec<Highlight>, src: &str) -> String {
+    fn format_code(lines: Vec<(usize, &str)>, highlight: Vec<Highlight>, src: &str) -> String {
         // Count the amount of digits in the line
-        let max_digit_size = lines.last().get_or_insert(&(0, &String::new())).0.to_string().len();
+        let max_digit_size = lines.last().get_or_insert(&(0, "")).0.to_string().len();
         // Get the previous line number so we can print a '...' when we skip lines
-        let prev_line = lines.first().get_or_insert(&(0, &String::new())).0;
+        let prev_line = lines.first().get_or_insert(&(0, "")).0;
         let mut output = String::new();
-        // References the first highlight line + col for the error. If there are no highlights it uses the first supplied lines line number. Otherwise it displays nothing
+        // References the first highlight line + col for the error.
+        // If there are no highlights it uses the first line's line number.
+        // Otherwise it displays nothing
         output.push_str(&format!(
             "{}",
             format!(
@@ -166,7 +196,7 @@ impl<'a> Output<'a> {
             output.push_str(&format!("{:<max_digit_size$} {} {}\n", line.0.to_string().bold().bright_blue(), "|".bold().bright_blue(), line.1.trim_end()));
 
             // Add the possible highlight line
-            for hl in highlight {
+            for hl in &highlight {
                 if hl.line == line.0 {
                     let (cursor, msg) = match hl.level {
                         Level::Error => ("^".repeat(hl.area.end() + 1 - hl.area.start()).bold().bright_red(), hl.msg.bold().bright_red()),

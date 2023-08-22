@@ -2,6 +2,10 @@ use puffin_vfs::{AbsPathBuf, FileID};
 use relative_path::RelativePathBuf;
 use std::sync::Arc;
 
+/// Type use for marking slices of text in the source files
+pub type TextSlice = std::ops::RangeInclusive<usize>;
+
+/// The query group for interacting with the source files
 #[salsa::query_group(SourceStorage)]
 pub trait SourceDatabase {
     /// Set the input file
@@ -22,13 +26,24 @@ pub struct SourceTree {
     sources: Vec<Source>
 }
 
+impl SourceTree {
+    pub fn find_source(&self, file_id: FileID) -> Option<&Source> {
+        for source in &self.sources {
+            if source.file == file_id {
+                return Some(&source)
+            }
+        }
+        None
+    }
+}
+
 /// A source in the source tree
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Source {
     // The file that the source belongs to
-    file: FileID,
+    pub file: FileID,
     // The text contained within the file
-    text: String,
+    pub text: String,
 }
 
 impl Source {
