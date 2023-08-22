@@ -23,8 +23,8 @@ impl<'a> Lexer<'a> {
         let nxt = self.src.next();
         // Add a line if neccessary
         if self.next_line {
-            self.line += 1;
             self.col = 0;
+            self.line += 1;
             self.next_line = false;
         }
         // Prepare for next line

@@ -1,5 +1,6 @@
 use puffin_error::{Level, compiler::{CompilerError, Output, Highlight, CompilerErrorType} };
 use puffin_ast::SyntaxKind;
+use puffin_hir::source::Source;
 use crate::{Token, TokenStream};
 use rowan::{GreenNode, GreenNodeBuilder, Checkpoint};
 
@@ -14,25 +15,25 @@ enum BindingPower {
 }
 
 /// The results of a parsed token stream. Contains the CST
-pub struct Parse<'a> {
+pub struct Parse {
     /// The Concrete Syntax Tree
     pub green_node: GreenNode,
     /// The errors generated when parsing
-    pub errors: Vec<CompilerError<'a>>,
+    pub errors: Vec<CompilerError>,
 }
 
 /// A rule that tells the parser whether a [`SyntaxKind`] has a prefix or infix function for the parser to use and its binding power
-struct ParseRule<'a, 'b> {
+struct ParseRule<'a> {
     // Function to call if the token is in the prefix position
-    pub prefix: Option<fn(&'a mut Parser<'b>, Token, u8, Checkpoint)>,
+    pub prefix: Option<fn(&'a mut Parser, Checkpoint)>,
     // Function to call if the token is in the postfix position
-    pub infix: Option<fn(&'a mut Parser<'b>, Token, u8, Checkpoint)>,
+    pub infix: Option<fn(&'a mut Parser, Checkpoint)>,
     // The binding power of the token
     pub binding_power: u8,
 }
 
 /// Gets the [`ParseRule`] for a [`Token`] based on its [`SyntaxKind`]
-fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
+fn get_parse_rule<'a, 'b>(tk: &'a Token) -> ParseRule<'b> {
     match tk.ty {
         SyntaxKind::MINUS => ParseRule { prefix: Some(Parser::prefix), infix: Some(Parser::binary), binding_power: BindingPower::Term as u8 },
         SyntaxKind::PLUS => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Term as u8 },
@@ -46,33 +47,33 @@ fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
 }
 
 /// Parses a token stream (Vec<Token>) into a [Parse] result
-pub struct Parser<'a> {
+pub struct Parser {
     /// The token stream for the parser
     tokens: TokenStream,
     /// The builder used to build the concrete syntax tree
     builder: GreenNodeBuilder<'static>,
     /// The errors the parser accumilates
-    errors: Vec<CompilerError<'a>>,
+    errors: Vec<CompilerError>,
     /// The source of the parser with the file name and the lines
-    src: (String, &'a Vec<&'a str>),
+    src: Source,
     /// Whether the parser is in panic mode or not. If in panic mode errors are discarded. This prevents too many cascading errors.
     panic_mode: bool,
 }
 
-impl<'a> Parser<'a> {
+impl Parser {
     /// Create a new parser
-    pub fn new(tokens: TokenStream, file: &str, lines: &'a Vec<&'a str>) -> Self {
+    pub fn new(tokens: TokenStream, file: Source) -> Self {
         Self {
             tokens,
             builder: GreenNodeBuilder::new(),
             errors: vec![],
-            src: (file.to_string(), lines),
+            src: file,
             panic_mode: false,
         }
     }
 
     /// Parse the token stream into a [`Parse`]
-    pub fn parse(mut self) -> Parse<'a> {
+    pub fn parse(mut self) -> Parse {
         self.builder.start_node(SyntaxKind::SOURCE_FILE.into());
 
 
@@ -93,7 +94,7 @@ impl<'a> Parser<'a> {
         self.skip_whitespace();
         // This skips blank lines. This has to be done otherwise we wrap around a node we didn't create.
         while let Some(tk@Token { ty: SyntaxKind::NL, ..}) = self.tokens.peek() {
-            self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
             self.tokens.next();
             self.skip_whitespace();
         }
@@ -121,7 +122,7 @@ impl<'a> Parser<'a> {
             Some(Token{ ty: SyntaxKind::NL, ..}) => {
                 let tk = self.tokens.next().expect("Peeked before. should not fail.");
                 self.panic_mode = false;
-                self.builder.token(SyntaxKind::NL.into(), tk.get_text(self.src.1));
+                self.builder.token(SyntaxKind::NL.into(), tk.get_text(&self.src.text));
             },
             Some(tk) => {
                 let tk = tk.clone();
@@ -137,7 +138,7 @@ impl<'a> Parser<'a> {
         // Move past print keyword
         self.builder.start_node(SyntaxKind::PRINT_STMT.into());
         let tk = self.tokens.next().expect("peeked. Should not fail");
-        self.builder.token(SyntaxKind::KW_PRINT.into(), tk.get_text(self.src.1));
+        self.builder.token(SyntaxKind::KW_PRINT.into(), tk.get_text(&self.src.text));
         self.expr(0);
     }
 
@@ -146,12 +147,12 @@ impl<'a> Parser<'a> {
         // consume the {
         self.builder.start_node(SyntaxKind::BLOCK_STMT.into());
         let tk = self.tokens.next().expect("peeked should not fail");
-        self.builder.token(SyntaxKind::L_BRACE.into(), tk.get_text(self.src.1));
+        self.builder.token(SyntaxKind::L_BRACE.into(), tk.get_text(&self.src.text));
 
         // Skip over potential newline directly after opening brace
         if let Some(Token {ty: SyntaxKind::NL, ..}) = self.tokens.peek() {
             let tk = self.tokens.next().expect("peeked should not fail");
-            self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
         }
 
         while !matches!(self.tokens.peek(), Some(Token { ty: SyntaxKind::R_BRACE, ..})) && self.tokens.peek().is_some() {
@@ -164,7 +165,7 @@ impl<'a> Parser<'a> {
                 Some(Token{ ty: SyntaxKind::NL, ..}) => {
                     let tk = self.tokens.next().expect("Peeked before. should not fail.");
                     self.panic_mode = false;
-                    self.builder.token(SyntaxKind::NL.into(), tk.get_text(self.src.1));
+                    self.builder.token(SyntaxKind::NL.into(), tk.get_text(&self.src.text));
                 },
                 Some(Token{ ty: SyntaxKind::R_BRACE, ..}) => {
                     self.panic_mode = false;
@@ -183,7 +184,7 @@ impl<'a> Parser<'a> {
         }
         self.panic_mode = false;
         if let Some(tk) = self.tokens.next() {
-            self.builder.token(SyntaxKind::R_BRACE.into(), tk.get_text(self.src.1));
+            self.builder.token(SyntaxKind::R_BRACE.into(), tk.get_text(&self.src.text));
         }
     }
 
@@ -192,14 +193,14 @@ impl<'a> Parser<'a> {
         self.builder.start_node(SyntaxKind::LET_STMT.into());
         // Move past the let keyword
         let tk = self.tokens.next().expect("peeked. Should not fail");
-        self.builder.token(SyntaxKind::KW_LET.into(), tk.get_text(self.src.1));
+        self.builder.token(SyntaxKind::KW_LET.into(), tk.get_text(&self.src.text));
         // Get the ident
         self.pattern();
         self.skip_whitespace();
         match self.tokens.peek() {
             Some( Token { ty: SyntaxKind::EQ, ..}) => {
                 let tk = self.tokens.next().expect("peeked. Should not fail");
-                self.builder.token(SyntaxKind::EQ.into(), tk.get_text(self.src.1));
+                self.builder.token(SyntaxKind::EQ.into(), tk.get_text(&self.src.text));
             },
             // Allow variable declarations without initialisation
             Some( Token { ty: SyntaxKind::NL, ..}) => (),
@@ -220,7 +221,7 @@ impl<'a> Parser<'a> {
         self.builder.start_node(SyntaxKind::PAT_STMT.into());
         match self.tokens.peek() {
             Some(tk@Token { ty: SyntaxKind::IDENT, ..}) => {
-                self.builder.token(SyntaxKind::IDENT.into(), tk.get_text(self.src.1));
+                self.builder.token(SyntaxKind::IDENT.into(), tk.get_text(&self.src.text));
                 self.tokens.next();
             }
             Some(tk) => {
@@ -244,7 +245,7 @@ impl<'a> Parser<'a> {
         if let Some(tk) = self.tokens.next() {
             let rule = get_parse_rule(&tk);
             if let Some(prefix) = rule.prefix {
-                prefix(self, tk, rule.binding_power, cp);
+                prefix(self, cp);
             } else {
                 // We don't report an error here, instead we rely on the calling function to state the error
                 // this is because the symbol may be valid it certain contexts, but invalid as a generic infix operator
@@ -263,7 +264,7 @@ impl<'a> Parser<'a> {
                     if let Some(infix) = rule.infix {
                         if rule.binding_power > bp {
                             let tk = self.tokens.next().expect("peeked. Should not fail.");
-                            infix(self, tk, rule.binding_power, cp);
+                            infix(self, cp);
                         } else {
                             return
                         }
@@ -284,32 +285,38 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse binary operations
-    pub(crate) fn binary(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+    pub(crate) fn binary(&mut self, cp: Checkpoint) {
+        let tk = self.tokens.current();
+        let bp = get_parse_rule(tk).binding_power;
         self.panic_mode = false;
         self.builder.start_node_at(cp, SyntaxKind::BIN_EXPR.into());
-        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
         self.expr(bp);
         self.builder.finish_node();
     }
 
     /// Parse prefix operations
-    pub(crate) fn prefix(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+    pub(crate) fn prefix(&mut self, cp: Checkpoint) {
+        let tk = self.tokens.current();
+        let bp = get_parse_rule(tk).binding_power;
         self.panic_mode = false;
         self.builder.start_node_at(cp, SyntaxKind::PREFIX_EXPR.into());
-        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
         self.expr(bp);
         self.builder.finish_node();
     }
 
     /// Parse grouping `(` and `)` operations
-    pub(crate) fn grouping(&mut self, tk: Token, bp: u8, cp: Checkpoint) {
+    pub(crate) fn grouping(&mut self, cp: Checkpoint) {
+        let tk = self.tokens.current();
+        let bp = get_parse_rule(tk).binding_power;
         self.panic_mode = false;
         self.builder.start_node_at(cp, SyntaxKind::PAREN_EXPR.into());
-        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
         self.expr(bp);
         if let Some(Token {ty: SyntaxKind::R_PAREN, .. }) = self.tokens.peek() {
             let tk = self.tokens.next().expect("peeked at before. Should not fail.");
-            self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
         } else {
             // This is needed to not borrow the parser as mutable twice at once
             let mut potential_tk: Option<Token>  = None;
@@ -327,16 +334,18 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse number literals
-    pub(crate) fn literal(&mut self, tk: Token, _: u8, _: Checkpoint) {
-        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+    pub(crate) fn literal(&mut self, _: Checkpoint) {
+        let tk = self.tokens.current();
+        self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
     }
 
     /// Parse a pattern (this specific version is called when we run into an ident in an expression)
-    pub(crate) fn ident(&mut self, tk: Token, _: u8, _: Checkpoint) {
+    pub(crate) fn ident(&mut self, _: Checkpoint) {
+        let tk = self.tokens.current();
         self.builder.start_node(SyntaxKind::PAT_STMT.into());
         match tk {
             tk@Token { ty: SyntaxKind::IDENT, ..} => {
-                self.builder.token(SyntaxKind::IDENT.into(), tk.get_text(self.src.1));
+                self.builder.token(SyntaxKind::IDENT.into(), tk.get_text(&self.src.text));
             }
             tk => {
                 let tk = tk.clone();
@@ -346,15 +355,16 @@ impl<'a> Parser<'a> {
         self.builder.finish_node();
     }
 
-    pub(crate) fn assign(&mut self, tk: Token, _: u8, cp: Checkpoint) {
+    pub(crate) fn assign(&mut self, cp: Checkpoint) {
+        let tk = self.tokens.current();
         self.builder.start_node_at(cp, SyntaxKind::ASSIGN_STMT.into());
-        self.builder.token(tk.ty.into(), tk.get_text(self.src.1));
+        self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
         self.expr(0);
         self.builder.finish_node();
     }
 
     /// Record the error and enter panic mode to prevent cascading errors
-    fn report_error(&mut self, error: CompilerError<'a>) {
+    fn report_error(&mut self, error: CompilerError) {
         if !self.panic_mode {
             self.errors.push(error);
             self.panic_mode = true;
@@ -365,27 +375,27 @@ impl<'a> Parser<'a> {
     fn skip_whitespace(&mut self) {
         while let Some(Token { ty: SyntaxKind::WHITESPACE, .. }) = self.tokens.peek() {
             let tk = self.tokens.next().expect("Expected a token");
-            self.builder.token(tk.ty.into(), &tk.get_text(self.src.1));
+            self.builder.token(tk.ty.into(), &tk.get_text(&self.src.text));
         }
     }
 
     /// Creates a compiler error where the line the supplied [`Token`] is on is outputed with that same [`Token`] highlighted
-    fn generic_error(&self, tk: &Token, ty: CompilerErrorType, hl_msg: &str) -> CompilerError<'a> {
+    fn generic_error(&self, tk: &Token, ty: CompilerErrorType, hl_msg: &str) -> CompilerError {
         let hl = Highlight::new(tk.line, tk.col.clone(), hl_msg, Level::Error);
         let output = vec![
-            Output::Code{ highlight: vec![hl], lines: vec![(tk.line, &self.src.1[tk.line - 1])], src: self.src.0.clone() }
+            Output::Code{ highlight: vec![hl], lines: tk.line..=tk.line, src: self.src.file }
         ];
         CompilerError::new(ty, Level::Error, output)
     }
 
     /// Creates a compiler error that highlights the EOF if its run into.
-    fn eof_error(&self, ty: CompilerErrorType, hl_msg: &str) -> CompilerError<'a> {
-        let last_line = self.src.1.last().expect("should not be an empty source");
-        let hl = Highlight::new(self.src.1.len(), last_line.len()..=last_line.len(), hl_msg, Level::Error);
+    fn eof_error(&self, ty: CompilerErrorType, hl_msg: &str) -> CompilerError {
+        let last_token= self.tokens.current();
+        let hl = Highlight::new(last_token.line, last_token.col.clone(), hl_msg, Level::Error);
         CompilerError::new(
             ty,
             Level::Error,
-            vec![Output::Code { lines: vec![(self.src.1.len(), last_line)], src: self.src.0.clone(), highlight: vec![hl] } ]
+            vec![Output::Code { lines: last_token.line..=last_token.line, src: self.src.file, highlight: vec![hl] } ]
         )
     }
 }

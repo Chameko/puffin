@@ -6,7 +6,7 @@ use puffin_hir::source::TextSlice;
 pub struct Token {
     /// The type of the token
     pub ty: SyntaxKind,
-    /// The column on the line the token is on. The indexing starts from 0
+    /// The column of line the token is on. The indexing starts from 0
     pub col: TextSlice,
     /// The line the token is on. The indexing starts from 1
     pub line: usize,
@@ -23,8 +23,8 @@ impl Token {
     }
 
     /// Extracts the tokens text from the provided source, split by lines.
-    pub fn get_text<'a>(&self, src: &Vec<&'a str>) -> &'a str {
-        src[self.line - 1].get(self.col.clone()).expect("Token out of range")
+    pub fn get_text<'a>(&self, src: &'a str) -> &'a str {
+        src.get(self.col.clone()).expect("token out of range")
     }
 }
 
@@ -33,25 +33,36 @@ impl Token {
 pub struct TokenStream {
     /// The internal tokens
     tokens: Vec<Token>,
+    /// Which token we are currently at
+    cursor: usize,
 }
 
 impl TokenStream {
     /// Create a new token stream
     pub fn new(mut tokens: Vec<Token>) -> Self {
-        // We reverse the token stream so we can pop off the tokens from the end
-        tokens.reverse();
         Self {
             tokens,
+            cursor: 0,
         }
     }
 
     /// Peek at the next [Token]
     pub fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.tokens.len())
+        self.tokens.get(self.cursor + 1)
     }
 
     /// Get the next [Token]
-    pub fn next(&mut self) -> Option<Token> {
-        self.tokens.pop()
+    pub fn next(&mut self) -> Option<&Token> {
+        if self.peek().is_some() {
+            self.cursor += 1;
+            self.tokens.get(self.cursor)
+        } else {
+            None
+        }
+    }
+
+    /// Get the current [`Token`]. Note that current will always be the last valid token
+    pub fn current(&self) -> &Token {
+        self.tokens.get(self.cursor).expect("current token should always be valid")
     }
 }
