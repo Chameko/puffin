@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 relative-path = "1.8"
+salsa = "0.16"
 puffin_vfs = { path = "../puffin_vfs/" }

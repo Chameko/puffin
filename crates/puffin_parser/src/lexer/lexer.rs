@@ -1,32 +1,6 @@
 use puffin_ast::SyntaxKind;
-use std::{iter::Peekable, str::Chars, ops::RangeInclusive};
-
-/// A token used in the lexer and parser
-#[derive(Debug, Clone)]
-pub struct Token {
-    /// The type of the token
-    pub ty: SyntaxKind,
-    /// The column on the line the token is on. The indexing starts from 0
-    pub col: RangeInclusive<usize>,
-    /// The line the token is on. The indexing starts from 1
-    pub line: usize,
-}
-
-impl Token {
-    /// Creates a new token
-    pub fn new(ty: SyntaxKind, col: RangeInclusive<usize>, line: usize) -> Self {
-        Self {
-            ty,
-            col,
-            line,
-        }
-    }
-
-    /// Extracts the tokens text from the provided source, split by lines.
-    pub fn get_text<'a>(&self, src: &Vec<&'a str>) -> &'a str {
-        src[self.line - 1].get(self.col.clone()).expect("Token out of range")
-    }
-}
+use std::{iter::Peekable, str::Chars};
+use super::tokenstream::Token;
 
 /// The lexer responsible for taking a raw file as a string and converting it to a flat array of [`Token`]
 pub struct Lexer<'a> {

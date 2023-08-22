@@ -1,7 +1,6 @@
-use std::{iter::Peekable, vec::IntoIter, sync::mpsc::SyncSender};
 use puffin_error::{Level, compiler::{CompilerError, Output, Highlight, CompilerErrorType} };
 use puffin_ast::SyntaxKind;
-use crate::lexer::Token;
+use crate::{Token, TokenStream};
 use rowan::{GreenNode, GreenNodeBuilder, Checkpoint};
 
 #[derive(Debug)]
@@ -49,7 +48,7 @@ fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
 /// Parses a token stream (Vec<Token>) into a [Parse] result
 pub struct Parser<'a> {
     /// The token stream for the parser
-    tokens: Peekable<IntoIter<Token>>,
+    tokens: TokenStream,
     /// The builder used to build the concrete syntax tree
     builder: GreenNodeBuilder<'static>,
     /// The errors the parser accumilates
@@ -62,9 +61,9 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     /// Create a new parser
-    pub fn new(tokens: Vec<Token>, file: &str, lines: &'a Vec<&'a str>) -> Self {
+    pub fn new(tokens: TokenStream, file: &str, lines: &'a Vec<&'a str>) -> Self {
         Self {
-            tokens: tokens.into_iter().peekable(),
+            tokens,
             builder: GreenNodeBuilder::new(),
             errors: vec![],
             src: (file.to_string(), lines),
