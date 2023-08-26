@@ -51,6 +51,7 @@ Grammer(
         "LET_STMT",
         "BLOCK_STMT",
         "PAT_STMT",
+        "LIT_PAT",
         "ASSIGN_STMT",
         "IF_STMT",
         "WHILE_STMT",

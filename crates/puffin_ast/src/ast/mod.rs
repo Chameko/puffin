@@ -1,59 +1,77 @@
 //! Contains the various enums and structs that create Puffins abstract syntax tree
+//! Most is automagically generated through the [`puffin_macro::ast_enum`] and [`puffin_macro::ast_node`] macros which attach either a [`AstNode`] or
+//! [`AstToken`] trait as well as some helper functions and enums. Read the macro docs for a better understading of whats going on
 
-/// Expressions
 pub mod expr;
-/// Identifier
-pub mod ident;
-/// Literal
-pub mod lit;
-/// Patterns
 pub mod pat;
-/// A path in puffin
-pub mod path;
-/// Commonly used ast nodes
-pub mod prelude;
-/// Statements
 pub mod stmt;
 
-pub use expr::Expr;
-pub use ident::Ident;
-pub use lit::Literal;
-pub use pat::Pat;
-pub use path::Path;
-pub use stmt::Stmt;
+use std::marker::PhantomData;
+use crate::{SyntaxKind, SyntaxNode, SyntaxToken, SyntaxNodeChildren};
 
 /// The root of the Abstract Syntax Tree
 #[derive(Debug, PartialEq)]
 pub struct Root {
-    pub contents: Vec<Stmt>,
+    pub contents: SyntaxNode,
 }
 
-impl Root {
-    /// Create a new root for the AST
-    pub fn new() -> Self {
-        Self { contents: vec![] }
-    }
+/// A trait for AstNodes which wrap around a [`SyntaxNode`]
+pub trait AstNode: Clone {
+    /// Whether the provided nodes [`SyntaxKind`] allows it to be this node
+    fn can_cast(ty: SyntaxKind) -> bool;
 
-    /// Push a statement onto the AST
-    pub fn push(&mut self, stmt: Stmt) {
-        self.contents.push(stmt);
+    /// Cast a syntax node into Self if it is valid to do so
+    fn cast(node: SyntaxNode) -> Option<Self>;
+
+    /// Get the inner [`SyntaxNode`] from self
+    fn syntax(&self) -> &SyntaxNode;
+}
+
+/// A trait for AstNodes which wrap around a [`SyntaxNode`]
+pub trait AstToken: Clone {
+    /// Whether the provided nodes [`SyntaxKind`] allows it to be this token
+    fn can_cast(ty: SyntaxKind) -> bool;
+
+    /// Cast a syntax node into Self if it is valid to do so
+    fn cast(token: SyntaxToken) -> Option<Self>;
+
+    /// Get the inner [`SyntaxToken`] from self
+    fn syntax(&self) -> &SyntaxToken;
+
+    /// Get the [`SyntaxToken`] text
+    fn text(&self) -> &str {
+        self.syntax().text()
     }
 }
 
-impl Default for Root {
-    fn default() -> Self {
-        Self::new()
+/// An iterator over [`SyntaxNode`] of a certain type
+pub struct AstChildren<N> {
+    inner: SyntaxNodeChildren,
+    ph: PhantomData<N>,
+}
+
+impl<N> AstChildren<N> {
+    pub fn new(parent: &SyntaxNode) -> Self {
+        AstChildren {
+            inner: parent.children(),
+            ph: PhantomData
+        }
     }
 }
 
-/// Trait for ast nodes which allows us to determine whether the ast tree structure matches or not
-pub trait TestCmp {
-    /// Compare between two ast nodes
-    fn test_ast_cmp(&self, b: &Self) -> bool;
+impl<N: AstNode> Iterator for AstChildren<N> {
+    type Item = N;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.by_ref().find_map(N::cast)
+    }
 }
 
-impl TestCmp for Root {
-    fn test_ast_cmp(&self, b: &Self) -> bool {
-        self.contents.test_ast_cmp(&b.contents)
-    }
+/// Get a possible child from the parent's child node
+fn possible_child<P: AstNode, C: AstNode>(parent: &P) -> Option<C> {
+    children(parent).next()
+}
+
+/// Get an [`AstChildren`] for the parent node
+fn children<P: AstNode, C: AstNode>(parent: &P) -> AstChildren<C> {
+    AstChildren::new(parent.syntax())
 }

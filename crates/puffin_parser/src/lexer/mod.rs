@@ -1,4 +1,4 @@
-mod lexer;
+pub mod lexer;
 pub mod tokenstream;
 use tokenstream::TokenStream;
 use puffin_hir::source::SourceDatabase;
