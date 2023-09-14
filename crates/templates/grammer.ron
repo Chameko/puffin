@@ -15,7 +15,7 @@ Grammer(
         ["}", "R_BRACE"],
         ["!", "EXCLAMATION"],
         [".", "DOT"],
-        ["\n", "NL"]
+        ["\n", "NL"],
     ],
     multi_char_tokens: [
         ["==", "EQEQ"],
@@ -45,13 +45,13 @@ Grammer(
     ],
     nodes: [
         "SOURCE_FILE",
-
         "EXPR_STMT",
+        "PAT_EXPR",
         "PRINT_STMT",
         "LET_STMT",
         "BLOCK_STMT",
-        "PAT_STMT",
         "LIT_PAT",
+        "IDENT_PAT",
         "ASSIGN_STMT",
         "IF_STMT",
         "WHILE_STMT",
