@@ -9,6 +9,13 @@ pub struct PathInterner {
 }
 
 impl PathInterner {
+    /// Create a new [`PathInterner`]
+    pub fn new() -> Self {
+        Self {
+            path_to_id: FxHashMap::default(),
+            id_to_path: vec![],
+        }
+    }
     /// Either adds a path and returns the [`FileID`] or returns the [`FileID`] if it already exists
     pub fn intern(&mut self, path: &AbsPath) -> FileID {
         #[allow(non_snake_case)]

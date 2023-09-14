@@ -36,6 +36,12 @@ pub struct VFS {
 }
 
 impl VFS {
+    /// Create a new [`VFS`]
+    pub fn new() -> Self {
+        Self {
+            interner: PathInterner::new(),
+        }
+    }
     /// Either adds a path and returns the [`FileID`] or returns the [`FileID`] if it already exists
     pub fn intern(&mut self, path: &AbsPath) -> FileID {
         self.interner.intern(path)
