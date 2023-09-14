@@ -13,12 +13,12 @@ pub struct CompilerError {
     /// The level of error
     pub level: Level,
     /// Any additional context or contents that need to be outputed
-    pub contents: Vec<Output>,
+    pub contents: Vec<DeferredOutput>,
 }
 
 impl CompilerError {
     /// Create a new [`CompilerError`]
-    pub fn new(ty: CompilerErrorType, level: Level, contents: Vec<Output>) -> Self {
+    pub fn new(ty: CompilerErrorType, level: Level, contents: Vec<DeferredOutput>) -> Self {
         Self {
             ty,
             level,
@@ -27,7 +27,7 @@ impl CompilerError {
     }
 
     /// Appends an output to the error
-    pub fn append(&mut self, output: Output) {
+    pub fn append(&mut self, output: DeferredOutput) {
         self.contents.push(output);
     }
 
@@ -42,9 +42,31 @@ impl CompilerError {
             Level::Warn => msg.bright_yellow(),
         };
         output.push(format!("{}{}\n", self.level, msg));
-        for msg in self.contents {
-            output.push(msg.display(vfs, src_tree));
-        }
+        output.push(self.contents.into_iter().map(
+            |o| {
+                o.resolve(vfs, src_tree).display()
+            }
+        ).collect::<String>());
+        output.into_iter().collect::<String>()
+    }
+
+    /// Converts the [`CompilerError`] to a readable [`String`] but uses a provided filename and lines rather than trying to resolve a [`SourceTree`]
+    /// with the [`VFS`]
+    pub fn debug_display(self, filename: &str, lines: Vec<(usize, &str)>) -> String {
+        let mut output: Vec<String> = vec![];
+        let msg = format!("[{:04}]: {}", self.ty.clone() as u8, self.ty).bold();
+        // Color the message appropriatly
+        let msg = match self.level {
+            Level::Error => msg.bright_red(),
+            Level::Info => msg.bright_blue(),
+            Level::Warn => msg.bright_yellow(),
+        };
+        output.push(format!("{}{}\n", self.level, msg));
+        output.push(self.contents.into_iter().map(
+            |o| {
+                o.debug_resolve(lines.clone(), filename).display()
+            }
+        ).collect::<String>());
         output.into_iter().collect::<String>()
     }
 }
@@ -108,16 +130,118 @@ impl Highlight {
     }
 }
 
-
-/// Formats additional outputs to each of their corresponding formats
+/// Used to store the minimum information [`CompilerError`] needs to later be resolved into an [`Output`] when it needs to be
+/// displayed
 #[derive(Debug)]
-pub enum Output {
+pub enum DeferredOutput {
+    /// A code snippet
+    Code {
+        src: FileID,
+        highlight: Vec<DeferredHighlight>
+    },
+    /// A hint
+    Hint(String),
+    /// A message
+    Msg(String),
+}
+
+/// Used to store information about code snippets.
+#[derive(Debug)]
+pub struct DeferredHighlight {
+    /// Which columns of the file to highlight
+    pub area: RangeInclusive<usize>,
+    /// A short message displayed after the line
+    pub msg: String,
+    /// The level to display the highlight as
+    pub level: Level,
+}
+
+impl DeferredOutput {
+    /// Transform into an [`Output`] by resolving the [`DeferredHighlight`] and locating the source string
+    pub fn resolve<'a>(self, vfs: &'a VFS, src_tree: &'a SourceTree) -> Output<'a> {
+        match self {
+            Self::Hint(s) => Output::Hint(s),
+            Self::Msg(s) => Output::Msg(s),
+            Self::Code{ highlight, src} => {
+                let file_name = vfs
+                    .get_path(src)
+                    .expect("expected file to be in VFS")
+                    .file_name()
+                    .unwrap_or(std::ffi::OsStr::new("N/A"))
+                    .to_str()
+                    .unwrap_or("N/A");
+                let text = &src_tree.find_source(src).expect("expected to find source in sources").text;
+                let lines: Vec<(usize, &str)> = text
+                    .split_inclusive('\n')
+                    .into_iter()
+                    .enumerate()
+                    .map(|l| (l.0 + 1, l.1))
+                    .collect();
+                let highlight = highlight.into_iter().map(|hl| hl.resolve(&lines)).collect();
+                Output::Code {
+                    lines,
+                    highlight,
+                    file_name,
+                }
+            }
+        }
+    }
+
+    /// Transform into an [`Output`] by resolving the [`DeferredHighlight`] and locating the source string.
+    /// This is primarily for debugging as it takes the lines directly rather than resolve them using a [`SourceTree`] and [`VFS`]
+    pub fn debug_resolve<'a>(self, lines: Vec<(usize, &'a str)>, file_name: &'a str) -> Output<'a> {
+        match self {
+            Self::Hint(s) => Output::Hint(s),
+            Self::Msg(s) => Output::Msg(s),
+            Self::Code{ highlight, ..} => {
+                let highlight = highlight.into_iter().map(|hl| hl.resolve(&lines)).collect();
+                Output::Code {
+                    lines,
+                    highlight,
+                    file_name,
+                }
+            }
+        }    }
+}
+
+impl DeferredHighlight {
+    /// Create a new [`DeferredHighlight`]
+    pub fn new(area: RangeInclusive<usize>, msg: &str, level: Level) -> Self {
+        Self {
+            area,
+            msg: msg.to_string(),
+            level,
+        }
+    }
+
+    /// Transform into a [`Highlight`] by changing the area be line-relative and determining the line the highlight is on
+    pub fn resolve(self, lines: &Vec<(usize, &str)>) -> Highlight {
+        // Get the offset relative to the line
+        let mut line = 0;
+        let mut offset = lines[line].1.len();
+        while offset <= *self.area.start() {
+            line += 1;
+            offset += lines[line].1.len();
+        }
+        offset = *self.area.start() - (offset - lines[line].1.len());
+        Highlight {
+            area: offset..=(offset + (self.area.end() - self.area.start())),
+            line: lines[line].0,
+            msg: self.msg,
+            level: self.level,
+        }
+    }
+}
+
+/// Used to store information to output about an error such as code snippets, hints and messages
+#[derive(Debug)]
+pub enum Output<'a> {
     /// Displays the code snippet
     Code {
         /// The lines the code segment covers
-        lines: std::ops::RangeInclusive<usize>,
+        lines: Vec<(usize, &'a str)>,
         /// The file ID the output comes from
-        src: FileID,
+        file_name: &'a str,
         /// The part to highlight
         highlight: Vec<Highlight>
     },
@@ -127,52 +251,26 @@ pub enum Output {
     Msg(String),
 }
 
-impl Output {
+impl<'a> Output<'a> {
     /// Converts the output to a readable [`String`]
-    fn display(self, vfs: &VFS, src_tree: &SourceTree) -> String {
+    pub fn display(self) -> String {
         match self {
             Self::Hint(s) => format!("{}{}\n", "hint: ".cyan(), s.cyan()),
             Self::Msg(s) => format!("{s}\n"),
-            Self::Code{ lines, highlight, src} => {
-                let file_name = *vfs
-                    .get_path(src)
-                    .expect("expected file to be in VFS")
-                    .file_name()
-                    .get_or_insert(std::ffi::OsStr::new("N/A"))
-                    .to_str()
-                    .get_or_insert("N/A");
-                let text = &src_tree.find_source(src).expect("expected to find source in sources").text;
-                let lines = text
-                    .split_inclusive('\n')
-                    .into_iter()
-                    .enumerate()
-                    .filter(|l| lines.contains(&l.0))
-                    .map(|l| (l.0 + 1, l.1))
-                    .collect();
+            Self::Code{ lines, highlight, file_name } => {
                 format!("{}", Self::format_code(lines, highlight, file_name))
             }
         }
     }
 
-    /// Get the potential file id of the output
-    fn get_src_id(&self) -> Option<FileID> {
-        if let Output::Code { src, .. } = self {
-            Some(*src)
-        } else {
-            None
-        }
-    }
-
     /// Formats the code block to look pretty. Uses the first highlight as the error's soruce line and column
     fn format_code(lines: Vec<(usize, &str)>, highlight: Vec<Highlight>, src: &str) -> String {
-        // Count the amount of digits in the line
+        // Count the amount of digits in the last line
         let max_digit_size = lines.last().get_or_insert(&(0, "")).0.to_string().len();
         // Get the previous line number so we can print a '...' when we skip lines
-        let prev_line = lines.first().get_or_insert(&(0, "")).0;
         let mut output = String::new();
         // References the first highlight line + col for the error.
-        // If there are no highlights it uses the first line's line number.
-        // Otherwise it displays nothing
+        // If there are no highlights it doesn't display anything.
         output.push_str(&format!(
             "{}",
             format!(
@@ -180,40 +278,116 @@ impl Output {
                 src,
                 format!(
                     "{}:{}",
-                    highlight.iter().map(|h| h.line.to_string()).nth(0).get_or_insert(
-                        lines.iter().map(|l| l.0.to_string()).nth(0).get_or_insert(String::new()).to_string()
-                    ),
-                    highlight.iter().map(|h| (h.area.start() + 1).to_string()).nth(0).get_or_insert(String::new())
+                    highlight.first().map(|h| h.line.to_string()).unwrap_or(String::new()),
+                    highlight.first().map(|h| (h.area.start() + 1).to_string()).unwrap_or(String::new())
                 )
             ).bright_blue().bold()
         ));
-        for line in lines {
+        let mut prev_line = highlight.first().map(|hl| hl.line).unwrap_or(0);
+        for mut hl in highlight {
             // Add '...' if we skip a line
-            if line.0 - prev_line > 1 {
+            // The and is to prevent an integer underflow
+            if hl.line > prev_line && hl.line - prev_line > 1 {
                 output.push_str(&format!("{} {} ...\n", " ".repeat(max_digit_size), "|".bold().bright_blue()));
             }
-            // Add the line to the output
-            output.push_str(&format!("{:<max_digit_size$} {} {}\n", line.0.to_string().bold().bright_blue(), "|".bold().bright_blue(), line.1.trim_end()));
 
-            // Add the possible highlight line
-            for hl in &highlight {
-                if hl.line == line.0 {
-                    let (cursor, msg) = match hl.level {
-                        Level::Error => ("^".repeat(hl.area.end() + 1 - hl.area.start()).bold().bright_red(), hl.msg.bold().bright_red()),
-                        Level::Warn => ("^".repeat(hl.area.end() + 1 - hl.area.start()).bold().bright_yellow(), hl.msg.bold().bright_yellow()),
-                        Level::Info => ("~".repeat(hl.area.end() + 1 - hl.area.start()).bold().bright_blue(), hl.msg.bold().bright_blue()),
-                    };
-                    output.push_str(&format!(
-                        "{} {} {}{} {}\n",
-                        " ".repeat(max_digit_size),
-                        "|".bold().bright_blue(),
-                        " ".repeat(*hl.area.start()),
-                        cursor,
-                        msg
-                    ))
+            // Figure out how many lines the highlight covers
+            let mut offset = lines[hl.line].1.len();
+            let mut max_line_offset = 0;
+            while offset < *hl.area.end() {
+                max_line_offset += 1;
+                offset += lines[hl.line + max_line_offset].1.len();
+            }
+
+            for line_offset in 0..=max_line_offset {
+                let line = lines[hl.line + line_offset];
+                // Add the line to the output
+                output.push_str(&format!(
+                    "{:<max_digit_size$} {} {}\n",
+                    line.0.to_string().bold().bright_blue(),
+                    "|".bold().bright_blue(),
+                    line.1.trim_end()
+                ));
+
+                // Add the highlight. Note we clamp then end to a maximum of the line length
+                let (cursor, mut msg) = match hl.level {
+                    Level::Error => (
+                        "^"
+                            .repeat(hl.area.end().min(&(line.1.len() - 1)) + 1 - hl.area.start())
+                            .bold()
+                            .bright_red(),
+                        hl.msg.bold().bright_red()),
+                    Level::Warn => (
+                        "~"
+                            .repeat(hl.area.end().min(&(line.1.len() - 1)) + 1 - hl.area.start())
+                            .bold()
+                            .bright_yellow(),
+                        hl.msg.bold().bright_yellow()),
+                    Level::Info => (
+                        "-"
+                            .repeat(hl.area.end().min(&(line.1.len() - 1)) + 1 - hl.area.start())
+                            .bold()
+                            .bright_blue(),
+                        hl.msg.bold().bright_blue()),
+                };
+                // Don't display a message if this isn't the last line of a highlight being outputed
+                if line_offset != max_line_offset {
+                    msg = String::new().white();
+                }
+                output.push_str(&format!(
+                    "{} {} {}{} {}\n",
+                    " ".repeat(max_digit_size),
+                    "|".bold().bright_blue(),
+                    " ".repeat(*hl.area.start()),
+                    cursor,
+                    msg
+                ));
+
+                // This makes so that any highlights past the initial one work
+                if line_offset != max_line_offset {
+                    hl.area = 0..=(hl.area.end() - line.1.len());
                 }
             }
+
+            prev_line = hl.line + max_line_offset;
         }
         output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn multiple_highlights() {
+        colored::control::set_override(false);
+        let src = "This shouldn't have the word potato\npotato\noops";
+        let hl = DeferredHighlight::new(36..=41, "no potato >:(", Level::Error);
+        let hl2 = DeferredHighlight::new(29..=34, "don't think I didn't notice", Level::Warn);
+        let out = DeferredOutput::Code{ highlight: vec![hl2, hl], src: FileID(0)};
+        let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().collect()));
+    }
+
+    #[test]
+    fn multiline_highlights() {
+        colored::control::set_override(false);
+        let src = "this is a line\nthis is also a line\ni am an error thats across multiple lines. haha\nhahaha\nhahaha oh you got me\nI'm sad";
+        let hl = DeferredHighlight::new(78..=95, "caught you", Level::Error);
+        let out = DeferredOutput::Code{ highlight: vec![hl], src: FileID(0)};
+        let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().collect()));
+    }
+
+    #[test]
+    fn skip() {
+        colored::control::set_override(false);
+        let src = "a skip here\nnot here\nand a skip there";
+        let hl = DeferredHighlight::new(2..=5, "skip 1", Level::Error);
+        let hl2 = DeferredHighlight::new(27..=30, "skip 2", Level::Info);
+        let out = DeferredOutput::Code{ highlight: vec![hl, hl2], src: FileID(0)};
+        let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().collect()));
     }
 }

@@ -10,3 +10,6 @@ puffin_hir = { path = "../puffin_hir/" }
 puffin_vfs = { path = "../puffin_vfs/" }
 thiserror = "1.0.43"
 colored = "2.0.4"
+
+[dev-dependencies]
+insta = "1.31"

@@ -1,0 +1,11 @@
+---
+source: crates/puffin_error/src/compiler.rs
+expression: "error.debug_display(\"test\", src.split_inclusive('\\n').enumerate().collect())"
+---
+ERROR[0000]: unexpected symbol
+--> test:0:30
+0 | This shouldn't have the word potato
+  |                              ~~~~~~ don't think I didn't notice
+1 | potato
+  | ^^^^^^ no potato >:(
+

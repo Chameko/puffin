@@ -1,5 +1,5 @@
 pub mod compiler;
-pub use compiler::CompilerError;
+pub use compiler::{CompilerError, DeferredHighlight, DeferredOutput, CompilerErrorType};
 
 use std::fmt::Display;
 use colored::*;

@@ -1,0 +1,12 @@
+---
+source: crates/puffin_error/src/compiler.rs
+expression: "error.debug_display(\"test\", src.split_inclusive('\\n').enumerate().collect())"
+---
+ERROR[0000]: unexpected symbol
+--> test:0:3
+0 | a skip here
+  |   ^^^^ skip 1
+  | ...
+2 | and a skip there
+  |       ---- skip 2
+
