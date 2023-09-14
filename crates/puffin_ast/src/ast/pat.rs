@@ -10,7 +10,15 @@ pub enum Pat {
     LiteralPat {
         lit: (Int<SyntaxKind::INT>, Float<SyntaxKind::FLOAT>, String<SyntaxKind::STRING>),
     },
+    #[valid_for(SyntaxKind::IDENT_PAT)]
+    IdentPat {
+        ident: (Ident),
+    }
 }
+
+#[ast_node]
+#[valid_for(SyntaxKind::IDENT)]
+struct Ident {}
 
 #[ast_node]
 #[valid_for(SyntaxKind::INT)]

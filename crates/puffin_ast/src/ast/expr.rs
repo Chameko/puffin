@@ -1,4 +1,5 @@
 use crate::SyntaxKind;
+use super::pat::Pat;
 use crate::ast::AstNode;
 use puffin_macro::ast_enum;
 
@@ -9,6 +10,10 @@ pub enum Expr {
         lhs: Expr,
         bin_op: (Add<SyntaxKind::PLUS>, Subtract<SyntaxKind::MINUS>, Multiply<SyntaxKind::STAR>, Divide<SyntaxKind::SLASH>),
         rhs: Expr,
+    },
+    #[valid_for(SyntaxKind::PAT_EXPR)]
+    PatExpr {
+        pat: Pat,
     },
     #[valid_for(SyntaxKind::PAREN_EXPR)]
     ParenExpr {

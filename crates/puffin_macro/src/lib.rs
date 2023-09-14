@@ -482,6 +482,19 @@ fn extract_field_data(fields: syn::Fields) -> Result<FieldsGenerated, TokenStrea
                     let extracted_tuple_data = extract_field_tuple_enum(elems, &field)?;
                     extra.push(extracted_tuple_data.generated_enum);
                     impls.push(extracted_tuple_data.extra_func);
+                },
+                field_ty@syn::Type::Paren(syn::TypeParen{elem, ..}) => {
+                    // Get the syntax kind of the token from generic parameters
+                    types.push((field_ty.clone(), field_ident.clone()));
+                    impls.push(quote!(
+                        pub fn #field_ident(&self) -> Option<#elem> {
+                            self.syntax.children_with_tokens()
+                                .filter_map(|it| it.into_token())
+                                .find_map(|t| {
+                                    #elem::cast(t)
+                                })
+                        }
+                    ))
                 }
                 _ => {
                     return Err(syn::Error::new(field.span(), "field type not handled").into_compile_error().into());
