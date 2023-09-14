@@ -1,0 +1,38 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"1 + 2\\nprint 3\\n2 * 4\")"
+---
+SOURCE_FILE@0..=18
+    EXPR_STMT@0..=5
+        BIN_EXPR@0..=4
+            PAT_EXPR@0..=0
+                LIT_PAT@0..=0
+                    1 |INT@0..0
+              |WHITESPACE@1..1
+            + |PLUS@2..2
+              |WHITESPACE@3..3
+            PAT_EXPR@4..=4
+                LIT_PAT@4..=4
+                    2 |INT@4..4
+        
+ |NL@5..5
+    PRINT_STMT@6..=13
+        print |KW_PRINT@6..10
+          |WHITESPACE@11..11
+        PAT_EXPR@12..=12
+            LIT_PAT@12..=12
+                3 |INT@12..12
+        
+ |NL@13..13
+    EXPR_STMT@14..=18
+        BIN_EXPR@14..=18
+            PAT_EXPR@14..=14
+                LIT_PAT@14..=14
+                    2 |INT@14..14
+              |WHITESPACE@15..15
+            * |STAR@16..16
+              |WHITESPACE@17..17
+            PAT_EXPR@18..=18
+                LIT_PAT@18..=18
+                    4 |INT@18..18
+

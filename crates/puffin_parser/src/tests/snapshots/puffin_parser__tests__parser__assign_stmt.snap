@@ -1,0 +1,24 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"a = 4 + 3\")"
+---
+SOURCE_FILE@0..=8
+    EXPR_STMT@0..=8
+        ASSIGN_STMT@0..=8
+            PAT_EXPR@0..=0
+                IDENT_PAT@0..=0
+                    a |IDENT@0..0
+              |WHITESPACE@1..1
+            = |EQ@2..2
+              |WHITESPACE@3..3
+            BIN_EXPR@4..=8
+                PAT_EXPR@4..=4
+                    LIT_PAT@4..=4
+                        4 |INT@4..4
+                  |WHITESPACE@5..5
+                + |PLUS@6..6
+                  |WHITESPACE@7..7
+                PAT_EXPR@8..=8
+                    LIT_PAT@8..=8
+                        3 |INT@8..8
+

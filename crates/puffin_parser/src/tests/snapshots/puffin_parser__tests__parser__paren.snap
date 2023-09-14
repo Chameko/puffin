@@ -1,0 +1,51 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"1 + 2 * (3 - 2) + (1 * 2)\")"
+---
+SOURCE_FILE@0..=24
+    EXPR_STMT@0..=24
+        BIN_EXPR@0..=24
+            BIN_EXPR@0..=15
+                PAT_EXPR@0..=0
+                    LIT_PAT@0..=0
+                        1 |INT@0..0
+                  |WHITESPACE@1..1
+                + |PLUS@2..2
+                  |WHITESPACE@3..3
+                BIN_EXPR@4..=15
+                    PAT_EXPR@4..=4
+                        LIT_PAT@4..=4
+                            2 |INT@4..4
+                      |WHITESPACE@5..5
+                    * |STAR@6..6
+                      |WHITESPACE@7..7
+                    PAREN_EXPR@8..=14
+                        ( |L_PAREN@8..8
+                        BIN_EXPR@9..=13
+                            PAT_EXPR@9..=9
+                                LIT_PAT@9..=9
+                                    3 |INT@9..9
+                              |WHITESPACE@10..10
+                            - |MINUS@11..11
+                              |WHITESPACE@12..12
+                            PAT_EXPR@13..=13
+                                LIT_PAT@13..=13
+                                    2 |INT@13..13
+                        ) |R_PAREN@14..14
+                      |WHITESPACE@15..15
+            + |PLUS@16..16
+              |WHITESPACE@17..17
+            PAREN_EXPR@18..=24
+                ( |L_PAREN@18..18
+                BIN_EXPR@19..=23
+                    PAT_EXPR@19..=19
+                        LIT_PAT@19..=19
+                            1 |INT@19..19
+                      |WHITESPACE@20..20
+                    * |STAR@21..21
+                      |WHITESPACE@22..22
+                    PAT_EXPR@23..=23
+                        LIT_PAT@23..=23
+                            2 |INT@23..23
+                ) |R_PAREN@24..24
+

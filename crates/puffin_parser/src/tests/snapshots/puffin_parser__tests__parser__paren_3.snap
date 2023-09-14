@@ -1,0 +1,47 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"(1 + (1)) - (2 + 1 + 2)\")"
+---
+SOURCE_FILE@0..=22
+    EXPR_STMT@0..=22
+        BIN_EXPR@0..=22
+            PAREN_EXPR@0..=8
+                ( |L_PAREN@0..0
+                BIN_EXPR@1..=7
+                    PAT_EXPR@1..=1
+                        LIT_PAT@1..=1
+                            1 |INT@1..1
+                      |WHITESPACE@2..2
+                    + |PLUS@3..3
+                      |WHITESPACE@4..4
+                    PAREN_EXPR@5..=7
+                        ( |L_PAREN@5..5
+                        PAT_EXPR@6..=6
+                            LIT_PAT@6..=6
+                                1 |INT@6..6
+                        ) |R_PAREN@7..7
+                ) |R_PAREN@8..8
+              |WHITESPACE@9..9
+            - |MINUS@10..10
+              |WHITESPACE@11..11
+            PAREN_EXPR@12..=22
+                ( |L_PAREN@12..12
+                BIN_EXPR@13..=21
+                    BIN_EXPR@13..=18
+                        PAT_EXPR@13..=13
+                            LIT_PAT@13..=13
+                                2 |INT@13..13
+                          |WHITESPACE@14..14
+                        + |PLUS@15..15
+                          |WHITESPACE@16..16
+                        PAT_EXPR@17..=17
+                            LIT_PAT@17..=17
+                                1 |INT@17..17
+                          |WHITESPACE@18..18
+                    + |PLUS@19..19
+                      |WHITESPACE@20..20
+                    PAT_EXPR@21..=21
+                        LIT_PAT@21..=21
+                            2 |INT@21..21
+                ) |R_PAREN@22..22
+

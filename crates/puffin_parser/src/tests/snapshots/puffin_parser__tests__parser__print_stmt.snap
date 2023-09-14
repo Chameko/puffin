@@ -1,0 +1,29 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"print 2 * (4 - 2)\")"
+---
+SOURCE_FILE@0..=16
+    PRINT_STMT@0..=16
+        print |KW_PRINT@0..4
+          |WHITESPACE@5..5
+        BIN_EXPR@6..=16
+            PAT_EXPR@6..=6
+                LIT_PAT@6..=6
+                    2 |INT@6..6
+              |WHITESPACE@7..7
+            * |STAR@8..8
+              |WHITESPACE@9..9
+            PAREN_EXPR@10..=16
+                ( |L_PAREN@10..10
+                BIN_EXPR@11..=15
+                    PAT_EXPR@11..=11
+                        LIT_PAT@11..=11
+                            4 |INT@11..11
+                      |WHITESPACE@12..12
+                    - |MINUS@13..13
+                      |WHITESPACE@14..14
+                    PAT_EXPR@15..=15
+                        LIT_PAT@15..=15
+                            2 |INT@15..15
+                ) |R_PAREN@16..16
+

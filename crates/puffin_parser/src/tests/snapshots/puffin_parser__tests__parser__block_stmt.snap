@@ -1,0 +1,24 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"{ print 1 + 1 }\")"
+---
+SOURCE_FILE@0..=14
+    BLOCK_STMT@0..=14
+        { |L_BRACE@0..0
+          |WHITESPACE@1..1
+        PRINT_STMT@2..=13
+            print |KW_PRINT@2..6
+              |WHITESPACE@7..7
+            BIN_EXPR@8..=13
+                PAT_EXPR@8..=8
+                    LIT_PAT@8..=8
+                        1 |INT@8..8
+                  |WHITESPACE@9..9
+                + |PLUS@10..10
+                  |WHITESPACE@11..11
+                PAT_EXPR@12..=12
+                    LIT_PAT@12..=12
+                        1 |INT@12..12
+                  |WHITESPACE@13..13
+        } |R_BRACE@14..14
+

@@ -1,5 +1,5 @@
 mod parser;
-use parser::Parse;
+pub use parser::{Parse, Parser};
 
 use crate::TokenStream;
 use std::sync::Arc;

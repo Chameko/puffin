@@ -1,0 +1,18 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"let banana = 1\")"
+---
+SOURCE_FILE@0..=13
+    LET_STMT@0..=13
+        let |KW_LET@0..2
+          |WHITESPACE@3..3
+        PAT_EXPR@4..=9
+            IDENT_PAT@4..=9
+                banana |IDENT@4..9
+          |WHITESPACE@10..10
+        = |EQ@11..11
+          |WHITESPACE@12..12
+        PAT_EXPR@13..=13
+            LIT_PAT@13..=13
+                1 |INT@13..13
+
