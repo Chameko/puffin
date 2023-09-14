@@ -1,0 +1,6 @@
+---
+source: crates/puffin_parser/src/lexer/lexer.rs
+expression: output
+---
+& | + - * / > < = ( ) ! . 
+ == >= <= && || { }

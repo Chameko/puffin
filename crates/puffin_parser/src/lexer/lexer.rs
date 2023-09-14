@@ -8,8 +8,6 @@ pub struct Lexer<'a> {
     src: Peekable<Chars<'a>>,
     /// Charaters that may form a keyword or identifier are stored here
     working: String,
-    /// The current line
-    line: usize,
     /// The current column
     col: usize,
     /// If the next character is on a newline
@@ -20,18 +18,7 @@ impl<'a> Lexer<'a> {
     /// Next character
     #[inline]
     fn next(&mut self) -> Option<char> {
-        let nxt = self.src.next();
-        // Add a line if neccessary
-        if self.next_line {
-            self.col = 0;
-            self.line += 1;
-            self.next_line = false;
-        }
-        // Prepare for next line
-        if let Some('\n') = nxt {
-            self.next_line = true;
-        }
-        nxt
+        self.src.next()
     }
 
     /// Peek one character ahead
@@ -46,7 +33,6 @@ impl<'a> Lexer<'a> {
             src: src.chars().peekable(),
             working: String::new(),
             next_line: false,
-            line: 1,
             col: 0,
         }
     }
@@ -86,9 +72,9 @@ impl<'a> Lexer<'a> {
                 }
             }
         };
-        let working_clone = std::mem::take(&mut self.working) ;
+        let working_clone = std::mem::take(&mut self.working);
         if let Some(ty) = ret {
-            let ret = Some(Token::new(ty, self.col..=(self.col + working_clone.len() - 1), self.line));
+            let ret = Some(Token::new(ty, self.col..=(self.col + working_clone.len() - 1)));
             self.col += working_clone.len();
             ret
         } else {
@@ -108,7 +94,7 @@ impl<'a> Lexer<'a> {
         if let Some(tk) = self.scan_working() {
             tokens.push(tk);
         }
-        tokens.push(Token::new(ty, self.col..=(self.col + string.len() - 1), self.line));
+        tokens.push(Token::new(ty, self.col..=(self.col + string.len() - 1)));
         self.col += string.len();
     }
 
@@ -194,7 +180,7 @@ impl<'a> Lexer<'a> {
                         col = *tk.col.end() + 1;
                         tokens.push(tk);
                     }
-                    tokens.push(Token::new(SyntaxKind::WHITESPACE, col..=(col + length - 1), self.line));
+                    tokens.push(Token::new(SyntaxKind::WHITESPACE, col..=(col + length - 1)));
                     self.col += length;
                 }
                 '+' => self.symbol( SyntaxKind::PLUS, "+", tokens),
@@ -230,9 +216,8 @@ mod lexer_test {
     fn test_base(input: &str) -> String {
         let lexer = super::Lexer::new(input);
         let tokens = lexer.start_scan();
-        let input = input.split_inclusive('\n').collect::<Vec<&str>>();
         tokens.into_iter().map(|t| {
-            input[t.line - 1].get(t.col).unwrap()
+            input.get(t.col).unwrap()
         }).collect::<String>()
     }
 
@@ -247,17 +232,16 @@ mod lexer_test {
         let input = "and sometoiurng or skngeing";
         let lexer = super::Lexer::new(input);
         let tokens = lexer.start_scan();
-        let input = input.split('\n').collect::<Vec<&str>>();
         let output = tokens
             .into_iter()
             .map(|p| {
                 match p {
-                Token {ty: super::SyntaxKind::KW_AND, ..} => format!("|and:{}|", input[p.line - 1].get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::KW_OR, ..} => format!("|or:{}|", input[p.line - 1].get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::WHITESPACE, ..} => format!("|whitespace:{}|", input[p.line - 1].get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::IDENT, ..} => format!("|ident:{}|", input[p.line - 1].get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::SOURCE_FILE, ..}  => format!("|src:{}|", input[p.line - 1].get(p.col).unwrap()),
-                _ => format!("error:{}", input[p.line].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::KW_AND, ..} => format!("|and:{}|", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::KW_OR, ..} => format!("|or:{}|", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::WHITESPACE, ..} => format!("|whitespace:{}|", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::IDENT, ..} => format!("|ident:{}|", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::SOURCE_FILE, ..}  => format!("|src:{}|", input.get(p.col).unwrap()),
+                _ => format!("error:{}", input.get(p.col).unwrap()),
             }})
             .collect::<String>();
         insta::assert_snapshot!(output);
@@ -267,16 +251,15 @@ mod lexer_test {
     fn numbers() {
         let input = "1.23 42";
         let lexer = super::Lexer::new(input);
-        let input = input.split('\n').collect::<Vec<&str>>();
         let tokens = lexer.start_scan();
         let output = tokens
             .into_iter()
             .map(|p| match p {
-                Token {ty: super::SyntaxKind::FLOAT, .. } => format!("|float:{}|", input[p.line - 1].get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::INT, .. } => format!("|int:{}|", input[p.line - 1].get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::WHITESPACE, .. } => format!("|whitespace:{}|", input[p.line - 1].get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::SOURCE_FILE, .. }  => format!("|src:{}|", input[p.line - 1].get(p.col).unwrap()),
-                _ => format!("error:{}", input[p.line].get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::FLOAT, .. } => format!("|float:{}|", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::INT, .. } => format!("|int:{}|", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::WHITESPACE, .. } => format!("|whitespace:{}|", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::SOURCE_FILE, .. }  => format!("|src:{}|", input.get(p.col).unwrap()),
+                _ => format!("error:{}", input.get(p.col).unwrap()),
             })
             .collect::<String>();
         insta::assert_snapshot!(output);

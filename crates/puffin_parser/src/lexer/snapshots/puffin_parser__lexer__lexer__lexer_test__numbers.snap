@@ -1,0 +1,5 @@
+---
+source: crates/puffin_parser/src/lexer/lexer.rs
+expression: output
+---
+|float:1.23||whitespace: ||int:42|

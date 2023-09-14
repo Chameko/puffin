@@ -8,17 +8,14 @@ pub struct Token {
     pub ty: SyntaxKind,
     /// The column of line the token is on. The indexing starts from 0
     pub col: TextSlice,
-    /// The line the token is on. The indexing starts from 1
-    pub line: usize,
 }
 
 impl Token {
     /// Creates a new token
-    pub fn new(ty: SyntaxKind, col: TextSlice, line: usize) -> Self {
+    pub fn new(ty: SyntaxKind, col: TextSlice) -> Self {
         Self {
             ty,
             col,
-            line,
         }
     }
 
@@ -39,7 +36,7 @@ pub struct TokenStream {
 
 impl TokenStream {
     /// Create a new token stream
-    pub fn new(mut tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Self {
             tokens,
             cursor: 0,
@@ -53,16 +50,22 @@ impl TokenStream {
 
     /// Get the next [Token]
     pub fn next(&mut self) -> Option<&Token> {
-        if self.peek().is_some() {
-            self.cursor += 1;
-            self.tokens.get(self.cursor)
-        } else {
-            None
-        }
+        self.cursor += 1;
+        self.tokens.get(self.cursor)
+    }
+
+    /// Advance the cursor by one
+    pub fn advance(&mut self) {
+        self.cursor += 1;
     }
 
     /// Get the current [`Token`]. Note that current will always be the last valid token
-    pub fn current(&self) -> &Token {
-        self.tokens.get(self.cursor).expect("current token should always be valid")
+    pub fn current(&self) -> Option<&Token> {
+        self.tokens.get(self.cursor)
+    }
+
+    /// Gets the last token. This is primarily used for error generation. [`SyntaxKind::EOF`] is used if there are no tokens
+    pub fn last(&self) -> Option<&Token> {
+        self.tokens.last()
     }
 }

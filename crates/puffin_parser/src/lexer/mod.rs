@@ -1,6 +1,7 @@
 pub mod lexer;
 pub mod tokenstream;
-use tokenstream::TokenStream;
+pub use lexer::Lexer;
+pub use tokenstream::TokenStream;
 use puffin_hir::source::SourceDatabase;
 use std::sync::Arc;
 

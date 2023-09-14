@@ -1,0 +1,5 @@
+---
+source: crates/puffin_parser/src/lexer/lexer.rs
+expression: output
+---
+|and:and||whitespace: ||ident:sometoiurng||whitespace: ||or:or||whitespace: ||ident:skngeing|
