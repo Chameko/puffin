@@ -5,6 +5,7 @@ use puffin_error::{Level, CompilerError, CompilerErrorType, DeferredOutput, Defe
 use puffin_ast::SyntaxKind;
 use puffin_hir::source::Source;
 use crate::{Token, TokenStream};
+use std::sync::Arc;
 use rowan::{GreenNode, GreenNodeBuilder, Checkpoint};
 
 /// Represents the binding power, or how strongly an operator or otherwise holds its operands together
@@ -19,7 +20,7 @@ enum BindingPower {
 }
 
 /// The results of a parsed token stream. Contains the CST
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Parse {
     /// The Concrete Syntax Tree
     pub green_node: GreenNode,
@@ -29,17 +30,17 @@ pub struct Parse {
 
 /// A rule that tells the parser whether a [`SyntaxKind`] has a prefix or infix function for the parser to use and its binding power
 #[derive(Debug)]
-struct ParseRule<'a> {
+struct ParseRule<'a, 'b> {
     // Function to call if the token is in the prefix position. The token that caused this function to be called will be the current.
-    pub prefix: Option<fn(&'a mut Parser, Checkpoint)>,
+    pub prefix: Option<fn(&'a mut Parser<'b>, Checkpoint)>,
     // Function to call if the token is in the postfix position. The token that caused this function to be called will be the current.
-    pub infix: Option<fn(&'a mut Parser, Checkpoint)>,
+    pub infix: Option<fn(&'a mut Parser<'b>, Checkpoint)>,
     // The binding power of the token
     pub binding_power: u8,
 }
 
 /// Gets the [`ParseRule`] for a [`Token`] based on its [`SyntaxKind`]
-fn get_parse_rule<'a, 'b>(tk: &'a Token) -> ParseRule<'b> {
+fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
     match tk.ty {
         SyntaxKind::MINUS => ParseRule { prefix: Some(Parser::prefix), infix: Some(Parser::binary), binding_power: BindingPower::Term as u8 },
         SyntaxKind::PLUS => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Term as u8 },
@@ -55,7 +56,7 @@ fn get_parse_rule<'a, 'b>(tk: &'a Token) -> ParseRule<'b> {
 }
 
 /// Parses a token stream (Vec<Token>) into a [Parse] result
-pub struct Parser {
+pub struct Parser<'a> {
     /// The token stream for the parser
     tokens: TokenStream,
     /// The builder used to build the concrete syntax tree
@@ -63,14 +64,14 @@ pub struct Parser {
     /// The errors the parser accumilates
     errors: Vec<CompilerError>,
     /// The source of the parser with the file name and the lines
-    src: Source,
+    src: &'a Source,
     /// Whether the parser is in panic mode or not. If in panic mode errors are discarded. This prevents too many cascading errors.
     panic_mode: bool,
 }
 
-impl Parser {
+impl<'a> Parser<'a> {
     /// Create a new parser
-    pub fn new(tokens: TokenStream, file: Source) -> Self {
+    pub fn new(tokens: TokenStream, file: &'a Source) -> Self {
         Self {
             tokens,
             builder: GreenNodeBuilder::new(),
