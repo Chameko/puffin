@@ -5,14 +5,40 @@
 pub mod expr;
 pub mod pat;
 pub mod stmt;
+pub mod item;
 
 use std::marker::PhantomData;
 use crate::{SyntaxKind, SyntaxNode, SyntaxToken, SyntaxNodeChildren};
+use item::Item;
+use rowan::GreenNode;
+use stmt::Stmt;
 
 /// The root of the Abstract Syntax Tree
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct Root {
     pub contents: SyntaxNode,
+}
+
+impl Root {
+    pub fn new(green: GreenNode) -> Self {
+        Self {
+            contents: SyntaxNode::new_root(green) ,
+        }
+    }
+
+    // Interprests the CST into its items and into the statements that make up the main function
+    pub fn interpret(&self) -> Vec<Item> {
+        let mut items = vec![];
+        for node in self.contents.children() {
+            if Item::can_cast(node.kind()) {
+                items.push(Item::cast(node).expect("verified cast. Should not fail"));
+            } else {
+                // Every node should either be wrapped in a stmt or an item even if its an error.
+                panic!("Unexpected syntax type: {}", node.kind());
+            }
+        }
+        items
+    }
 }
 
 /// A trait for AstNodes which wrap around a [`SyntaxNode`]

@@ -57,7 +57,8 @@ pub enum SyntaxKind {
     WHILE_STMT,
     BIN_EXPR,
     PREFIX_EXPR,
-    PAREN_EXPR,// Allows for casting from u16 safely
+    PAREN_EXPR,
+    FUNC_ITEM,// Allows for casting from u16 safely
     __LAST,
 }
 
@@ -262,6 +263,7 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::BIN_EXPR => write!(f, "BIN_EXPR"),
             SyntaxKind::PREFIX_EXPR => write!(f, "PREFIX_EXPR"),
             SyntaxKind::PAREN_EXPR => write!(f, "PAREN_EXPR"),
+            SyntaxKind::FUNC_ITEM => write!(f, "FUNC_ITEM"),
             SyntaxKind::EOF => write!(f, "EOF"),
             SyntaxKind::__LAST => write!(f, "__LAST")
         }
