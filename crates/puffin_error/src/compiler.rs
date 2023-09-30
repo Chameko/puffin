@@ -6,7 +6,7 @@ use puffin_vfs::{VFS, FileID};
 use crate::Level;
 
 /// Contains the information about the compiler error
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompilerError {
     /// The type of compiler error
     pub ty: CompilerErrorType,
@@ -72,7 +72,7 @@ impl CompilerError {
 }
 
 /// The different types of compiler errors
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum CompilerErrorType {
     /// When a symbol other than the expected one is produced
@@ -132,7 +132,7 @@ impl Highlight {
 
 /// Used to store the minimum information [`CompilerError`] needs to later be resolved into an [`Output`] when it needs to be
 /// displayed
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeferredOutput {
     /// A code snippet
     Code {
@@ -146,7 +146,7 @@ pub enum DeferredOutput {
 }
 
 /// Used to store information about code snippets.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeferredHighlight {
     /// Which columns of the file to highlight
     pub area: RangeInclusive<usize>,

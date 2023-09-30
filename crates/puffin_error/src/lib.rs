@@ -5,7 +5,7 @@ use std::fmt::Display;
 use colored::*;
 
 /// The level of error
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Level {
     Error,
     Warn,
