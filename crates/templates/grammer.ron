@@ -58,5 +58,6 @@ Grammer(
         "BIN_EXPR",
         "PREFIX_EXPR",
         "PAREN_EXPR",
+        "FUNC_ITEM",
     ]
 )
