@@ -17,7 +17,7 @@ use relative_path::RelativePath;
 use thiserror::Error;
 
 /// Identifier for a file in the virtual file system
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[repr(transparent)]
 pub struct FileID(pub u32);
 
