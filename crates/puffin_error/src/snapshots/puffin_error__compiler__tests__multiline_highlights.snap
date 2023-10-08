@@ -1,13 +1,13 @@
 ---
 source: crates/puffin_error/src/compiler.rs
-expression: "error.debug_display(\"test\", src.split_inclusive('\\n').enumerate().collect())"
+expression: "error.debug_display(\"test\",\n    src.split_inclusive('\\n').enumerate().map(|l| (l.0 + 1, l.1)).collect())"
 ---
-ERROR[0000]: unexpected symbol
---> test:2:44
-2 | i am an error thats across multiple lines. haha
+ERROR[0001]: unexpected symbol
+--> test:3:44
+3 | i am an error thats across multiple lines. haha
   |                                            ^^^^^ 
-3 | hahaha
+4 | hahaha
   | ^^^^^^^ 
-4 | hahaha oh you got me
+5 | hahaha oh you got me
   | ^^^^^^ caught you
 

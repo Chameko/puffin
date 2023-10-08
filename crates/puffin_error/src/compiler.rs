@@ -75,8 +75,20 @@ impl CompilerError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum CompilerErrorType {
+    /// When an invalid top level structure is found at the top level
+    InvalidTopLevel,
     /// When a symbol other than the expected one is produced
     UnexpectedSymbol,
+    /// When there is an expected symbol that is not found
+    ExpectedComma,
+    /// When a block of code is expected
+    ExpectedBlock,
+    /// When an identifier is expected and not found
+    ExpectedIdent,
+    /// When a Left paren `(` is expected and not found
+    ExpectedLParen,
+    /// When a right paren `)` is expected and not found
+    ExpectedRParen,
     /// When the user forgets to insert a newline before the next expression
     ForgotNewline,
     /// When there are too many local variables and the VM can't handle them all
@@ -94,7 +106,13 @@ pub enum CompilerErrorType {
 impl Display for CompilerErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            CompilerErrorType::InvalidTopLevel => write!(f, "invalid top level structure, expected fun, struct, enum, trait or import."),
+            CompilerErrorType::ExpectedBlock => write!(f, "expected block"),
             CompilerErrorType::UnexpectedSymbol => write!(f, "unexpected symbol"),
+            CompilerErrorType::ExpectedIdent => write!(f, "expected identifier"),
+            CompilerErrorType::ExpectedComma => write!(f, "expected symbol `,`"),
+            CompilerErrorType::ExpectedLParen => write!(f, "expected symbol `(`"),
+            CompilerErrorType::ExpectedRParen => write!(f, "expected symbol `)`"),
             CompilerErrorType::ForgotNewline => write!(f, "forgot newline (`\\n`)"),
             CompilerErrorType::TooManyLocals => write!(f, "too many locals"),
             CompilerErrorType::UnknownVariable => write!(f, "unknown variable"),
@@ -226,7 +244,7 @@ impl DeferredHighlight {
         offset = *self.area.start() - (offset - lines[line].1.len());
         Highlight {
             area: offset..=(offset + (self.area.end() - self.area.start())),
-            line: lines[line].0,
+            line: lines[line].0 - 1,
             msg: self.msg,
             level: self.level,
         }
@@ -278,7 +296,7 @@ impl<'a> Output<'a> {
                 src,
                 format!(
                     "{}:{}",
-                    highlight.first().map(|h| h.line.to_string()).unwrap_or(String::new()),
+                    highlight.first().map(|h| (h.line + 1).to_string()).unwrap_or(String::new()),
                     highlight.first().map(|h| (h.area.start() + 1).to_string()).unwrap_or(String::new())
                 )
             ).bright_blue().bold()
@@ -367,7 +385,7 @@ mod tests {
         let hl2 = DeferredHighlight::new(29..=34, "don't think I didn't notice", Level::Warn);
         let out = DeferredOutput::Code{ highlight: vec![hl2, hl], src: FileID(0)};
         let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
-        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().collect()));
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect()));
     }
 
     #[test]
@@ -377,7 +395,7 @@ mod tests {
         let hl = DeferredHighlight::new(78..=95, "caught you", Level::Error);
         let out = DeferredOutput::Code{ highlight: vec![hl], src: FileID(0)};
         let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
-        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().collect()));
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect()));
     }
 
     #[test]
@@ -388,6 +406,6 @@ mod tests {
         let hl2 = DeferredHighlight::new(27..=30, "skip 2", Level::Info);
         let out = DeferredOutput::Code{ highlight: vec![hl, hl2], src: FileID(0)};
         let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
-        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().collect()));
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect()));
     }
 }
