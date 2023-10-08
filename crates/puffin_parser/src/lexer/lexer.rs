@@ -10,8 +10,6 @@ pub struct Lexer<'a> {
     working: String,
     /// The current column
     col: usize,
-    /// If the next character is on a newline
-    next_line: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -32,7 +30,6 @@ impl<'a> Lexer<'a> {
         Self {
             src: src.chars().peekable(),
             working: String::new(),
-            next_line: false,
             col: 0,
         }
     }
@@ -60,6 +57,7 @@ impl<'a> Lexer<'a> {
             "or" => Some(SyntaxKind::KW_OR),
             "print" => Some(SyntaxKind::KW_PRINT),
             "let" => Some(SyntaxKind::KW_LET),
+            "fun" => Some(SyntaxKind::KW_FUN),
             s => {
                 if let Some(char) = s.chars().next() {
                     if char.is_numeric() {
@@ -191,6 +189,8 @@ impl<'a> Lexer<'a> {
                 '{' => self.symbol(SyntaxKind::L_BRACE, "{", tokens),
                 '}' => self.symbol(SyntaxKind::R_BRACE, "}", tokens),
                 '!' => self.symbol( SyntaxKind::EXCLAMATION, "!", tokens),
+                ',' => self.symbol(SyntaxKind::COMMA, ",", tokens),
+                ':' => self.symbol(SyntaxKind::COLON, ":", tokens),
                 '\n' => self.symbol( SyntaxKind::NL, "\n", tokens),
                 c => {
                     if c.is_alphanumeric() {
