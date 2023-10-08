@@ -7,7 +7,25 @@ use super::output_cst;
 fn standard_test(src: &str) -> String {
     let lexer = Lexer::new(src);
     let source = Source{ file: FileID(0), text: src.to_string() };
-    let parser = Parser::new(TokenStream::new(lexer.start_scan()), source);
+    let parser = Parser::new(TokenStream::new(lexer.start_scan()), &source);
+    let parse = parser.parse_test();
+    if parse.errors.len() > 0 {
+        for error in parse.errors {
+            println!("{}", error.debug_display("test.pf", src.split_inclusive('\n').enumerate().map(|mut v| {
+                v.0 += 1;
+                v
+            }).collect()));
+            panic!("Errors detected when parsing");
+        }
+    }
+    output_cst(&parse.green_node)
+}
+
+/// Same as standard_test except it uses the default parsing function
+fn item_test(src: &str) -> String {
+    let lexer = Lexer::new(src);
+    let source = Source{ file: FileID(0), text: src.to_string() };
+    let parser = Parser::new(TokenStream::new(lexer.start_scan()), &source);
     let parse = parser.parse();
     if parse.errors.len() > 0 {
         for error in parse.errors {
@@ -104,4 +122,14 @@ fn block_stmt_4() {
 #[test]
 fn assign_stmt() {
     insta::assert_snapshot!(standard_test("a = 4 + 3"));
+}
+
+#[test]
+fn basic_fn() {
+    insta::assert_snapshot!(item_test("fun hello() {}"));
+
+}
+#[test]
+fn fn_with_param() {
+    insta::assert_snapshot!(item_test("fun move(p1: Point, p2: Point) {}"));
 }

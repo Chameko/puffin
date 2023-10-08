@@ -1,0 +1,28 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"fun move(p1: Point, p2: Point) {}\")"
+---
+FUNC_ITEM@0..=32
+    fun |KW_FUN@0..2
+      |WHITESPACE@3..3
+    move |IDENT@4..7
+    FUNC_PARAM@8..=29
+        ( |L_PAREN@8..8
+        TYPE_BIND@9..=17
+            p1 |IDENT@9..10
+            : |COLON@11..11
+              |WHITESPACE@12..12
+            Point |IDENT@13..17
+        , |COMMA@18..18
+          |WHITESPACE@19..19
+        TYPE_BIND@20..=28
+            p2 |IDENT@20..21
+            : |COLON@22..22
+              |WHITESPACE@23..23
+            Point |IDENT@24..28
+        ) |R_PAREN@29..29
+      |WHITESPACE@30..30
+    BLOCK_STMT@31..=32
+        { |L_BRACE@31..31
+        } |R_BRACE@32..32
+

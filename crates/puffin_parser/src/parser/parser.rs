@@ -1,11 +1,12 @@
 //! This is the parser implementation. It is a recursive descent pratt parser. In general, functions in [`Parser`] should end with the [`Token`]
 //! they want to be parsed next in the [`TokenStream::current()`] position
 
+use std::fmt::Debug;
+
 use puffin_error::{Level, CompilerError, CompilerErrorType, DeferredOutput, DeferredHighlight};
 use puffin_ast::SyntaxKind;
 use puffin_hir::source::Source;
 use crate::{Token, TokenStream};
-use std::sync::Arc;
 use rowan::{GreenNode, GreenNodeBuilder, Checkpoint};
 
 /// Represents the binding power, or how strongly an operator or otherwise holds its operands together
@@ -55,7 +56,7 @@ fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
     }
 }
 
-/// Parses a token stream (Vec<Token>) into a [Parse] result
+/// Parses a [`TokenStream`] into a [Parse] result
 pub struct Parser<'a> {
     /// The token stream for the parser
     tokens: TokenStream,
@@ -87,6 +88,22 @@ impl<'a> Parser<'a> {
 
         // Parse until end of fule
         while self.tokens.current().is_some() {
+            self.item();
+        }
+        self.builder.finish_node();
+        let green_node = self.builder.finish();
+        Parse {
+            green_node,
+            errors: self.errors
+        }
+    }
+
+    /// Parses the token stream [`Parse`] but uses statements at the top level for easier testing
+    pub(crate) fn parse_test(mut self) -> Parse {
+        self.builder.start_node(SyntaxKind::SOURCE_FILE.into());
+
+        // Parse until end of fule
+        while self.tokens.current().is_some() {
             self.stmt();
         }
         self.builder.finish_node();
@@ -95,6 +112,31 @@ impl<'a> Parser<'a> {
             green_node,
             errors: self.errors
         }
+    }
+
+    fn item(&mut self) -> Option<()> {
+        self.skip_whitespace();
+        // This skips blank lines. This has to be done otherwise we wrap around a node we didn't create.
+        while let Some(tk@Token { ty: SyntaxKind::NL, ..}) = self.tokens.current() {
+            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
+            self.tokens.advance();
+            self.skip_whitespace();
+        }
+        match self.tokens.current() {
+            Some(Token { ty: SyntaxKind::KW_FUN, ..}) => self.func_item(),
+            Some(tk) => {
+                let error = self.generic_error(
+                    tk,
+                    CompilerErrorType::InvalidTopLevel,
+                    "invalid top level structure"
+                );
+                self.builder.token(SyntaxKind::ERROR.into(), tk.get_text(&self.src.text));
+                self.report_error(error);
+                self.tokens.advance();
+            },
+            _ => return None
+        }
+        Some(())
     }
 
     /// Used to decide which stmt to attempt to parse
@@ -133,6 +175,7 @@ impl<'a> Parser<'a> {
                 self.tokens.advance();
             },
             Some(tk) => {
+                self.builder.token(SyntaxKind::ERROR.into(), tk.get_text(&self.src.text));
                 self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "expected `\\n` or valid operator here"));
                 // As this is the bottom, we skip over the character here
                 self.tokens.advance();
@@ -153,6 +196,50 @@ impl<'a> Parser<'a> {
         self.expr(0);
     }
 
+    /// Parse a function item
+    fn func_item(&mut self) {
+        self.builder.start_node(SyntaxKind::FUNC_ITEM.into());
+        let tk = self.tokens.current().expect("checked before. Should not fail");
+        self.builder.token(SyntaxKind::KW_FUN.into(), tk.get_text(&self.src.text));
+        self.tokens.advance();
+        self.skip_whitespace();
+        self.require_token(SyntaxKind::IDENT, CompilerErrorType::ExpectedIdent);
+        self.builder.start_node(SyntaxKind::FUNC_PARAM.into());
+        self.require_token(SyntaxKind::L_PAREN, CompilerErrorType::ExpectedLParen);
+        self.comma_seperated_list(SyntaxKind::R_PAREN, &Parser::type_bounds);
+        self.builder.finish_node();
+        self.skip_whitespace();
+        // Get possible return type
+        if let Some(tk@Token{ ty: SyntaxKind::GT, ..}) = self.tokens.current() {
+            self.builder.start_node(SyntaxKind::FUNC_RETURN.into());
+            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
+            self.skip_whitespace();
+            self.require_token(SyntaxKind::IDENT, CompilerErrorType::ExpectedIdent);
+            self.builder.finish_node();
+        }
+        self.skip_whitespace();
+        // Parse the block
+        if let Some(tk) = self.tokens.current() {
+            if tk.ty == SyntaxKind::L_BRACE {
+                self.block_stmt();
+            } else {
+                let error = self.generic_error(
+                    tk,
+                    CompilerErrorType::ExpectedBlock,
+                    "expected block after function declaration"
+                );
+                self.report_error(error);
+            }
+        } else {
+            let error = self.eof_error(
+                CompilerErrorType::ExpectedBlock,
+                "expected block after function declaration"
+            );
+            self.report_error(error);
+        }
+        self.builder.finish_node();
+    }
+
     /// Parse a block statement
     fn block_stmt(&mut self) {
         // consume the opening brace
@@ -160,16 +247,11 @@ impl<'a> Parser<'a> {
         let tk = self.tokens.current().expect("checked before. should not fail");
         self.builder.token(SyntaxKind::L_BRACE.into(), tk.get_text(&self.src.text));
         self.tokens.advance();
-
-        // Skip over potential newline directly after opening brace
-        if let Some(tk@Token {ty: SyntaxKind::NL, ..}) = self.tokens.current() {
-            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
-            self.tokens.advance()
-        }
+        self.skip_newline();
 
         // Loop until we reach the closing bracket or we are at the eof
         while !matches!(self.tokens.current(), Some(Token { ty: SyntaxKind::R_BRACE, ..})) && self.tokens.current().is_some() {
-            // Skip invalid statements
+            // Parse statements and exit early if we reach eof
             if self.stmt_core().is_none() {
                 return;
             }
@@ -218,6 +300,13 @@ impl<'a> Parser<'a> {
         // Get the ident
         self.skip_whitespace();
         self.pattern(self.builder.checkpoint());
+        self.skip_whitespace();
+        // Get optional type
+        if let Some(tk@Token{ ty: SyntaxKind::COLON, ..}) = self.tokens.current() {
+            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
+            self.tokens.advance();
+            self.type_p();
+        }
         self.skip_whitespace();
         match self.tokens.current() {
             // Variable declarations with initialisation
@@ -365,28 +454,6 @@ impl<'a> Parser<'a> {
         self.builder.finish_node();
     }
 
-    // /// Parse number literals
-    // pub(crate) fn literal(&mut self, _: Checkpoint) {
-    //     let tk = self.tokens.current();
-    //     self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
-    // }
-
-    // /// Parse a pattern (this specific version is called when we run into an ident in an expression)
-    // pub(crate) fn ident(&mut self, _: Checkpoint) {
-    //     let tk = self.tokens.current();
-    //     self.builder.start_node(SyntaxKind::PAT_STMT.into());
-    //     match tk {
-    //         tk@Token { ty: SyntaxKind::IDENT, ..} => {
-    //             self.builder.token(SyntaxKind::IDENT.into(), tk.get_text(&self.src.text));
-    //         }
-    //         tk => {
-    //             let tk = tk.clone();
-    //             self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "invalid pattern"));
-    //         }
-    //     }
-    //     self.builder.finish_node();
-    // }
-
     pub(crate) fn assign(&mut self, cp: Checkpoint) {
         let tk = self.tokens.current().expect("checked before. Should not fail");
         self.builder.start_node_at(cp, SyntaxKind::ASSIGN_STMT.into());
@@ -394,6 +461,81 @@ impl<'a> Parser<'a> {
         self.tokens.advance();
         self.expr(0);
         self.builder.finish_node();
+    }
+
+    /// Parses an identifier with type bounds
+    fn type_bounds(&mut self) {
+        self.builder.start_node(SyntaxKind::TYPE_BIND.into());
+        self.require_token(SyntaxKind::IDENT, CompilerErrorType::ExpectedIdent);
+        self.skip_whitespace();
+        if let Some(tk@Token { ty: SyntaxKind::COLON, .. }) = self.tokens.current() {
+            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
+            self.tokens.advance();
+            self.skip_whitespace();
+            self.type_p();
+        }
+        self.builder.finish_node();
+    }
+
+    /// Parses a type specification
+    fn type_p(&mut self) {
+        // TODO: Currently supports only identifiers and will be expanded for trait bounds etc.
+        self.require_token(SyntaxKind::IDENT, CompilerErrorType::ExpectedIdent);
+    }
+
+    /// Parse a comma seperated list. Note that parse_fn is required to always advance the parser when it runs into an error
+    fn comma_seperated_list<T: Fn(&mut Parser<'a>)>(&mut self, delimiter: SyntaxKind, parse_fn: &T) {
+        self.skip_newline();
+        while !matches!(self.tokens.current(), Some(Token { ty, ..}) if *ty == delimiter ) && self.tokens.current().is_some() {
+            parse_fn(self);
+            self.skip_whitespace();
+            if let Some(tk) = self.tokens.current() {
+                if tk.ty == SyntaxKind::COMMA {
+                    self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
+                    self.tokens.advance();
+                } else if tk.ty == SyntaxKind::NL && matches!(self.tokens.peek(), Some(Token{ ty, ..}) if *ty == delimiter) {
+                    // Deals with a NL before the delimiter
+                    self.skip_newline();
+                } else if tk.ty == delimiter {
+                    // Do nothing
+                } else {
+                    let error = self.generic_error(
+                        tk,
+                        CompilerErrorType::ExpectedComma,
+                        &format!("expected {} found `{}`", delimiter, tk.ty)
+                    );
+                    self.report_error(error);
+                }
+            } else {
+                let error = self.eof_error(CompilerErrorType::ExpectedComma, "expected {} found `{}`");
+                self.report_error(error);
+            }
+            self.skip_whitespace();
+            self.skip_newline();
+        }
+        self.panic_mode = false;
+        self.require_token(delimiter, CompilerErrorType::ExpectedRParen);
+    }
+
+    /// Parse a possible token of kind expect. Will produce an error of type error_ty if it fails. Note it will only advance if it finds the token
+    /// its looking for
+    fn require_token(&mut self, expect: SyntaxKind, error_ty: CompilerErrorType) {
+        if let Some(tk) = self.tokens.current() {
+            if tk.ty == expect {
+                self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
+                self.tokens.advance();
+            } else {
+                let error = self.generic_error(
+                    tk,
+                    error_ty,
+                    &format!("expected {} found `{}`", expect, tk.ty)
+                );
+                self.report_error(error);
+            }
+        } else {
+            let error = self.eof_error(error_ty, "expected {} found `{}`");
+            self.report_error(error);
+        }
     }
 
     /// Record the error and enter panic mode to prevent cascading errors
@@ -407,6 +549,14 @@ impl<'a> Parser<'a> {
     /// Skips whitespace and adds it to the tree
     fn skip_whitespace(&mut self) {
         while let Some(tk@Token { ty: SyntaxKind::WHITESPACE, .. }) = self.tokens.current() {
+            self.builder.token(tk.ty.into(), &tk.get_text(&self.src.text));
+            self.tokens.advance();
+        }
+    }
+
+    /// Skips a possible newlien character
+    fn skip_newline(&mut self) {
+        if let Some(tk@Token {ty: SyntaxKind::NL, .. }) = self.tokens.current() {
             self.builder.token(tk.ty.into(), &tk.get_text(&self.src.text));
             self.tokens.advance();
         }
