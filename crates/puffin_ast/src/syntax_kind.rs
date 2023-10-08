@@ -25,7 +25,9 @@ pub enum SyntaxKind {
     R_BRACE,
     EXCLAMATION,
     DOT,
+    COLON,
     NL,
+    COMMA,
     EQEQ,
     GTEQ,
     LTEQ,
@@ -37,6 +39,7 @@ pub enum SyntaxKind {
     KW_LET,
     KW_IF,
     KW_WHILE,
+    KW_FUN,
     INT,
     FLOAT,
     STRING,
@@ -58,7 +61,10 @@ pub enum SyntaxKind {
     BIN_EXPR,
     PREFIX_EXPR,
     PAREN_EXPR,
-    FUNC_ITEM,// Allows for casting from u16 safely
+    FUNC_ITEM,
+    FUNC_PARAM,
+    FUNC_RETURN,
+    TYPE_BIND,// Allows for casting from u16 safely
     __LAST,
 }
 
@@ -108,9 +114,15 @@ macro_rules! T {
     (.) => {
         $crate::SyntaxKind::DOT
     };
+    (:) => {
+        $crate::SyntaxKind::COLON
+    };
     (
 ) => {
         $crate::SyntaxKind::NL
+    };
+    (,) => {
+        $crate::SyntaxKind::COMMA
     };
     (==) => {
         $crate::SyntaxKind::EQEQ
@@ -145,6 +157,9 @@ macro_rules! T {
     (while) => {
         $crate::SyntaxKind::KW_WHILE
     };
+    (fun) => {
+        $crate::SyntaxKind::KW_FUN
+    };
 }
 
 impl SyntaxKind {
@@ -157,6 +172,7 @@ impl SyntaxKind {
         | KW_LET
         | KW_IF
         | KW_WHILE
+        | KW_FUN
         )
     }
 
@@ -178,7 +194,9 @@ impl SyntaxKind {
         | R_BRACE
         | EXCLAMATION
         | DOT
+        | COLON
         | NL
+        | COMMA
         | EQEQ
         | GTEQ
         | LTEQ
@@ -229,8 +247,10 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::R_BRACE => write!(f, "}}"),
             SyntaxKind::EXCLAMATION => write!(f, "!"),
             SyntaxKind::DOT => write!(f, "."),
+            SyntaxKind::COLON => write!(f, ":"),
             SyntaxKind::NL => write!(f, "
 "),
+            SyntaxKind::COMMA => write!(f, ","),
             SyntaxKind::EQEQ => write!(f, "=="),
             SyntaxKind::GTEQ => write!(f, ">="),
             SyntaxKind::LTEQ => write!(f, "<="),
@@ -242,6 +262,7 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::KW_LET => write!(f, "let"),
             SyntaxKind::KW_IF => write!(f, "if"),
             SyntaxKind::KW_WHILE => write!(f, "while"),
+            SyntaxKind::KW_FUN => write!(f, "fun"),
             SyntaxKind::INT => write!(f, "INT"),
             SyntaxKind::FLOAT => write!(f, "FLOAT"),
             SyntaxKind::STRING => write!(f, "STRING"),
@@ -264,6 +285,9 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::PREFIX_EXPR => write!(f, "PREFIX_EXPR"),
             SyntaxKind::PAREN_EXPR => write!(f, "PAREN_EXPR"),
             SyntaxKind::FUNC_ITEM => write!(f, "FUNC_ITEM"),
+            SyntaxKind::FUNC_PARAM => write!(f, "FUNC_PARAM"),
+            SyntaxKind::FUNC_RETURN => write!(f, "FUNC_RETURN"),
+            SyntaxKind::TYPE_BIND => write!(f, "TYPE_BIND"),
             SyntaxKind::EOF => write!(f, "EOF"),
             SyntaxKind::__LAST => write!(f, "__LAST")
         }

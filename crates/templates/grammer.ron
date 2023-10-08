@@ -15,7 +15,9 @@ Grammer(
         ["}", "R_BRACE"],
         ["!", "EXCLAMATION"],
         [".", "DOT"],
+        [":", "COLON"],
         ["\n", "NL"],
+        [",", "COMMA"],
     ],
     multi_char_tokens: [
         ["==", "EQEQ"],
@@ -31,6 +33,7 @@ Grammer(
         "let",
         "if",
         "while",
+        "fun",
     ],
     literals: [
         "INT",
@@ -59,5 +62,8 @@ Grammer(
         "PREFIX_EXPR",
         "PAREN_EXPR",
         "FUNC_ITEM",
+        "FUNC_PARAM",
+        "FUNC_RETURN",
+        "TYPE_BIND",
     ]
 )
