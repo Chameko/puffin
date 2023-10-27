@@ -484,17 +484,53 @@ fn extract_field_data(fields: syn::Fields) -> Result<FieldsGenerated, TokenStrea
                     impls.push(extracted_tuple_data.extra_func);
                 },
                 field_ty@syn::Type::Paren(syn::TypeParen{elem, ..}) => {
-                    // Get the syntax kind of the token from generic parameters
-                    types.push((field_ty.clone(), field_ident.clone()));
-                    impls.push(quote!(
-                        pub fn #field_ident(&self) -> Option<#elem> {
-                            self.syntax.children_with_tokens()
-                                .filter_map(|it| it.into_token())
-                                .find_map(|t| {
-                                    #elem::cast(t)
-                                })
+                    // Interpret the type as a AstToken rather than AstNode
+                    let count_matching_types = types.iter().filter(|t| t.0 == *field_ty).count();
+                    // If there is a matching type we transform the current implementations into ones that grab the nodes in the order they appear
+                    if count_matching_types > 0 {
+                        let mut count: usize = 0;
+                        for (idx, (_, ident)) in types
+                            .iter()
+                            .enumerate()
+                            .filter(|ty| ty.1.0 == *field_ty)
+                            .skip(1 - count_matching_types)
+                        {
+                            // Update the impl to produce the actual node that it refers to
+                            impls[idx] = quote!(
+                                pub fn #ident(&self) -> Option<#elem> {
+                                    self.syntax.children_with_tokens()
+                                        .filter_map(|it| it.into_token())
+                                        .filter_map(|t| {
+                                            #elem::cast(t)
+                                        })
+                                        .nth(#count)
+                                }
+                            );
+                            count += 1;
                         }
-                    ))
+                        types.push((field_ty.clone(), field_ident.clone()));
+                        impls.push(quote!(
+                            pub fn #field_ident(&self) -> Option<#elem> {
+                                self.syntax.children_with_tokens()
+                                    .filter_map(|it| it.into_token())
+                                    .filter_map(|t| {
+                                        #elem::cast(t)
+                                    })
+                                    .nth(#count)
+                            }
+                        ))
+                    } else {
+                        types.push((field_ty.clone(), field_ident.clone()));
+                        impls.push(quote!(
+                            pub fn #field_ident(&self) -> Option<#elem> {
+                                self.syntax.children_with_tokens()
+                                    .filter_map(|it| it.into_token())
+                                    .find_map(|t| {
+                                        #elem::cast(t)
+                                    })
+                            }
+                        ));
+                    }
                 }
                 _ => {
                     return Err(syn::Error::new(field.span(), "field type not handled").into_compile_error().into());

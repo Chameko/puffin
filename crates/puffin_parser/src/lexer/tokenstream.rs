@@ -1,5 +1,5 @@
 use puffin_ast::SyntaxKind;
-use puffin_hir::source::TextSlice;
+use puffin_source::TextSlice;
 
 /// A token used in the lexer and parser
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,7 +21,7 @@ impl Token {
 
     /// Extracts the tokens text from the provided source, split by lines.
     pub fn get_text<'a>(&self, src: &'a str) -> &'a str {
-        src.get(self.col.clone()).expect("token out of range")
+        src.get(*self.col.start() as usize..=*self.col.end() as usize).expect("token out of range")
     }
 }
 

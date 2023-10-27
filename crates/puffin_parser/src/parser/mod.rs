@@ -1,6 +1,6 @@
 mod parser;
 pub use parser::{Parse, Parser};
-use puffin_ast::ast::Root;
+use puffin_ast::ast::{Root, AstIdMap};
 use puffin_vfs::FileID;
 use std::sync::Arc;
 use crate::lexer::LexerDatabase;
@@ -10,6 +10,8 @@ pub trait ParserDatabase: LexerDatabase {
     fn parse(&self, file: FileID) -> Parse;
 
     fn ast(&self, file: FileID) -> Arc<Root>;
+
+    fn ast_map(&self, file: FileID) -> Arc<AstIdMap>;
 }
 
 fn parse(db: &dyn ParserDatabase, file: FileID) -> Parse {
@@ -20,4 +22,9 @@ fn parse(db: &dyn ParserDatabase, file: FileID) -> Parse {
 fn ast(db: &dyn ParserDatabase, file: FileID) -> Arc<Root> {
     let parse = db.parse(file);
     Arc::new(Root::new(parse.green_node))
+}
+
+fn ast_map(db: &dyn ParserDatabase, file: FileID) -> Arc<AstIdMap> {
+    let root = db.ast(file);
+    Arc::new(AstIdMap::new(&root, file))
 }

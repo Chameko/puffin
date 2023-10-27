@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{id::{ModuleID, Arena}, source::SourceDatabase};
+use crate::{id::{ModuleID, Arena}, SourceDatabase};
 use fxhash::FxHashMap;
 use puffin_vfs::FileID;
 

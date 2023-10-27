@@ -1,35 +1,41 @@
 pub mod func;
 pub mod expr;
 pub mod pattern;
-pub mod block;
+pub mod body;
 pub mod stmt;
 pub mod common;
 
-pub use func::Function;
+use crate::{id::ItemID, signature::FunctionSignature};
+
+pub use func::{Function, FunctionSource};
 pub use expr::Expr;
 pub use pattern::Pattern;
-pub use block::Block;
+pub use body::Body;
+use puffin_ast::ast::AstNode;
+use puffin_parser::parser::ParserDatabase;
 pub use stmt::Stmt;
 
-use puffin_ast::{SyntaxKind, ast::AstNode};
-use crate::source::{TextSlice, SourceDatabase};
+/// A function ID used to refer to a function in a semi-stable way
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+pub struct FunctionID(salsa::InternId);
+
+impl salsa::InternKey for FunctionID {
+    fn as_intern_id(&self) -> salsa::InternId {
+        self.0
+    }
+    fn from_intern_id(v: salsa::InternId) -> Self {
+        Self(v)
+    }
+}
 
 /// Used to intern the top level items of puffin
-pub trait InternDatabase: SourceDatabase {
-    fn intern_function(&self) -> crate::id::ItemID<Function>;
+#[salsa::query_group(InternDatabaseStorage)]
+pub trait InternDatabase: ParserDatabase {
+    #[salsa::interned]
+    fn intern_function(&self, func: ItemID<FunctionSignature>) -> FunctionID;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AstPtr {
-    kind: SyntaxKind,
-    location: TextSlice,
-}
-
-impl AstPtr {
-    pub fn new<T: AstNode>(kind: SyntaxKind, location: TextSlice) -> Self {
-        Self {
-            kind,
-            location,
-        }
-    }
+pub trait HirNode: Clone {
+    type AstSource: AstNode;
+    fn from_ast(ast: Self::AstSource) -> Self;
 }

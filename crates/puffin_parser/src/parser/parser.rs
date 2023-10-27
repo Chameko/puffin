@@ -5,7 +5,7 @@ use std::fmt::Debug;
 
 use puffin_error::{Level, CompilerError, CompilerErrorType, DeferredOutput, DeferredHighlight};
 use puffin_ast::SyntaxKind;
-use puffin_hir::source::Source;
+use puffin_source::Source;
 use crate::{Token, TokenStream};
 use rowan::{GreenNode, GreenNodeBuilder, Checkpoint};
 
@@ -466,7 +466,8 @@ impl<'a> Parser<'a> {
     /// Parses an identifier with type bounds
     fn type_bounds(&mut self) {
         self.builder.start_node(SyntaxKind::TYPE_BIND.into());
-        self.require_token(SyntaxKind::IDENT, CompilerErrorType::ExpectedIdent);
+        let cp = self.builder.checkpoint();
+        self.pattern(cp);
         self.skip_whitespace();
         if let Some(tk@Token { ty: SyntaxKind::COLON, .. }) = self.tokens.current() {
             self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
@@ -480,7 +481,9 @@ impl<'a> Parser<'a> {
     /// Parses a type specification
     fn type_p(&mut self) {
         // TODO: Currently supports only identifiers and will be expanded for trait bounds etc.
+        self.builder.start_node(SyntaxKind::PATH_TYPE.into());
         self.require_token(SyntaxKind::IDENT, CompilerErrorType::ExpectedIdent);
+        self.builder.finish_node();
     }
 
     /// Parse a comma seperated list. Note that parse_fn is required to always advance the parser when it runs into an error

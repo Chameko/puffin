@@ -3,7 +3,7 @@ pub mod tokenstream;
 pub use lexer::Lexer;
 use puffin_vfs::FileID;
 pub use tokenstream::TokenStream;
-pub use puffin_hir::source::SourceDatabase;
+pub use puffin_source::SourceDatabase;
 
 #[salsa::query_group(LexerStorage)]
 pub trait LexerDatabase : SourceDatabase {

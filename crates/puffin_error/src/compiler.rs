@@ -1,6 +1,6 @@
-use std::{fmt::Display, ops::RangeInclusive};
+use std::fmt::Display;
 use colored::*;
-use puffin_hir::source::SourceTree;
+use puffin_source::{SourceTree, TextSlice};
 use puffin_vfs::{VFS, FileID};
 
 use crate::Level;
@@ -129,7 +129,7 @@ pub struct Highlight {
     /// The line the highlight is on
     pub line: usize,
     /// Which columns of the line to highlight
-    pub area: RangeInclusive<usize>,
+    pub area: TextSlice,
     /// A short message displayed after the line
     pub msg: String,
     /// The level to display the highlight as
@@ -138,7 +138,7 @@ pub struct Highlight {
 
 impl Highlight {
     /// Create a new [`Highlight`]
-    pub fn new(line: usize, area: RangeInclusive<usize>, msg: &str, level: Level) -> Self {
+    pub fn new(line: usize, area: TextSlice, msg: &str, level: Level) -> Self {
         Self {
             line,
             area,
@@ -167,7 +167,7 @@ pub enum DeferredOutput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeferredHighlight {
     /// Which columns of the file to highlight
-    pub area: RangeInclusive<usize>,
+    pub area: TextSlice,
     /// A short message displayed after the line
     pub msg: String,
     /// The level to display the highlight as
@@ -224,7 +224,7 @@ impl DeferredOutput {
 
 impl DeferredHighlight {
     /// Create a new [`DeferredHighlight`]
-    pub fn new(area: RangeInclusive<usize>, msg: &str, level: Level) -> Self {
+    pub fn new(area: TextSlice, msg: &str, level: Level) -> Self {
         Self {
             area,
             msg: msg.to_string(),
@@ -236,12 +236,12 @@ impl DeferredHighlight {
     pub fn resolve(self, lines: &Vec<(usize, &str)>) -> Highlight {
         // Get the offset relative to the line
         let mut line = 0;
-        let mut offset = lines[line].1.len();
+        let mut offset = lines[line].1.len() as u32;
         while offset <= *self.area.start() {
             line += 1;
-            offset += lines[line].1.len();
+            offset += lines[line].1.len() as u32;
         }
-        offset = *self.area.start() - (offset - lines[line].1.len());
+        offset = *self.area.start() - (offset - lines[line].1.len() as u32);
         Highlight {
             area: offset..=(offset + (self.area.end() - self.area.start())),
             line: lines[line].0 - 1,
@@ -310,11 +310,11 @@ impl<'a> Output<'a> {
             }
 
             // Figure out how many lines the highlight covers
-            let mut offset = lines[hl.line].1.len();
+            let mut offset = lines[hl.line].1.len() as u32;
             let mut max_line_offset = 0;
             while offset < *hl.area.end() {
                 max_line_offset += 1;
-                offset += lines[hl.line + max_line_offset].1.len();
+                offset += lines[hl.line + max_line_offset].1.len() as u32;
             }
 
             for line_offset in 0..=max_line_offset {
@@ -331,19 +331,19 @@ impl<'a> Output<'a> {
                 let (cursor, mut msg) = match hl.level {
                     Level::Error => (
                         "^"
-                            .repeat(hl.area.end().min(&(line.1.len() - 1)) + 1 - hl.area.start())
+                            .repeat((hl.area.end().min(&(line.1.len() as u32 - 1)) + 1 - hl.area.start()) as usize)
                             .bold()
                             .bright_red(),
                         hl.msg.bold().bright_red()),
                     Level::Warn => (
                         "~"
-                            .repeat(hl.area.end().min(&(line.1.len() - 1)) + 1 - hl.area.start())
+                            .repeat((hl.area.end().min(&(line.1.len()  as u32 - 1)) + 1 - hl.area.start()) as usize)
                             .bold()
                             .bright_yellow(),
                         hl.msg.bold().bright_yellow()),
                     Level::Info => (
                         "-"
-                            .repeat(hl.area.end().min(&(line.1.len() - 1)) + 1 - hl.area.start())
+                            .repeat((hl.area.end().min(&(line.1.len()  as u32 - 1)) + 1 - hl.area.start()) as usize)
                             .bold()
                             .bright_blue(),
                         hl.msg.bold().bright_blue()),
@@ -356,14 +356,14 @@ impl<'a> Output<'a> {
                     "{} {} {}{} {}\n",
                     " ".repeat(max_digit_size),
                     "|".bold().bright_blue(),
-                    " ".repeat(*hl.area.start()),
+                    " ".repeat(*hl.area.start() as usize),
                     cursor,
                     msg
                 ));
 
                 // This makes so that any highlights past the initial one work
                 if line_offset != max_line_offset {
-                    hl.area = 0..=(hl.area.end() - line.1.len());
+                    hl.area = 0..=(hl.area.end() - line.1.len() as u32);
                 }
             }
 

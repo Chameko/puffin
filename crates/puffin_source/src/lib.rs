@@ -1,11 +1,14 @@
-use puffin_vfs::{FileID, VFS};
+pub mod module;
+pub mod id;
+
+use puffin_vfs::VFS;
+pub use puffin_vfs::FileID;
 use relative_path::RelativePathBuf;
 use std::sync::Arc;
-
 use crate::module::{ModuleTree, generate_module_tree};
 
 /// Type use for marking slices of text in the source files
-pub type TextSlice = std::ops::RangeInclusive<usize>;
+pub type TextSlice = std::ops::RangeInclusive<u32>;
 
 /// The query group for interacting with the source files
 #[salsa::query_group(SourceStorage)]

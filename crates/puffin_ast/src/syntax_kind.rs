@@ -64,7 +64,8 @@ pub enum SyntaxKind {
     FUNC_ITEM,
     FUNC_PARAM,
     FUNC_RETURN,
-    TYPE_BIND,// Allows for casting from u16 safely
+    TYPE_BIND,
+    PATH_TYPE,// Allows for casting from u16 safely
     __LAST,
 }
 
@@ -288,6 +289,7 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::FUNC_PARAM => write!(f, "FUNC_PARAM"),
             SyntaxKind::FUNC_RETURN => write!(f, "FUNC_RETURN"),
             SyntaxKind::TYPE_BIND => write!(f, "TYPE_BIND"),
+            SyntaxKind::PATH_TYPE => write!(f, "PATH_TYPE"),
             SyntaxKind::EOF => write!(f, "EOF"),
             SyntaxKind::__LAST => write!(f, "__LAST")
         }

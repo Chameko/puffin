@@ -1,5 +1,6 @@
 use crate::SyntaxKind;
 use crate::ast::AstNode;
+use super::common::TypeBind;
 use super::expr::Expr;
 use puffin_macro::ast_enum;
 
@@ -11,6 +12,7 @@ enum Stmt {
     },
     #[valid_for(SyntaxKind::LET_STMT)]
     LetStmt {
+        bind: TypeBind,
         expr: Expr,
     },
     #[valid_for(SyntaxKind::BLOCK_STMT)]
@@ -26,7 +28,7 @@ enum Stmt {
     IfStmt {
         condition: Expr,
         truthy: BlockStmt,
-        falsy: BlockStmt,
+        falsy: Option<BlockStmt>,
     },
     #[valid_for(SyntaxKind::PRINT_STMT)]
     PrintStmt {

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 puffin_ast = { path = "../puffin_ast" }
-puffin_hir = { path = "../puffin_hir/" }
+puffin_source = { path = "../puffin_source/" }
 puffin_vfs = { path = "../puffin_vfs"}
 puffin_error = { path = "../puffin_error" }
 salsa = "0.16"

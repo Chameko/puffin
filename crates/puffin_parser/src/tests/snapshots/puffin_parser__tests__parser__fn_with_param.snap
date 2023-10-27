@@ -9,17 +9,23 @@ FUNC_ITEM@0..=32
     FUNC_PARAM@8..=29
         ( |L_PAREN@8..8
         TYPE_BIND@9..=17
-            p1 |IDENT@9..10
+            PAT_EXPR@9..=10
+                IDENT_PAT@9..=10
+                    p1 |IDENT@9..10
             : |COLON@11..11
               |WHITESPACE@12..12
-            Point |IDENT@13..17
+            TYPE_TYPE@13..=17
+                Point |IDENT@13..17
         , |COMMA@18..18
           |WHITESPACE@19..19
         TYPE_BIND@20..=28
-            p2 |IDENT@20..21
+            PAT_EXPR@20..=21
+                IDENT_PAT@20..=21
+                    p2 |IDENT@20..21
             : |COLON@22..22
               |WHITESPACE@23..23
-            Point |IDENT@24..28
+            TYPE_TYPE@24..=28
+                Point |IDENT@24..28
         ) |R_PAREN@29..29
       |WHITESPACE@30..30
     BLOCK_STMT@31..=32

@@ -1,4 +1,4 @@
-use puffin_hir::source::Source;
+use puffin_source::Source;
 use puffin_vfs::FileID;
 use crate::{TokenStream, lexer::Lexer, parser::Parser};
 use super::output_cst;

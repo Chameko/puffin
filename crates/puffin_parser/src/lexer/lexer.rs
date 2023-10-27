@@ -9,7 +9,7 @@ pub struct Lexer<'a> {
     /// Charaters that may form a keyword or identifier are stored here
     working: String,
     /// The current column
-    col: usize,
+    col: u32,
 }
 
 impl<'a> Lexer<'a> {
@@ -72,8 +72,8 @@ impl<'a> Lexer<'a> {
         };
         let working_clone = std::mem::take(&mut self.working);
         if let Some(ty) = ret {
-            let ret = Some(Token::new(ty, self.col..=(self.col + working_clone.len() - 1)));
-            self.col += working_clone.len();
+            let ret = Some(Token::new(ty, self.col..=(self.col + working_clone.len() as u32 - 1)));
+            self.col += working_clone.len() as u32;
             ret
         } else {
             None
@@ -92,8 +92,8 @@ impl<'a> Lexer<'a> {
         if let Some(tk) = self.scan_working() {
             tokens.push(tk);
         }
-        tokens.push(Token::new(ty, self.col..=(self.col + string.len() - 1)));
-        self.col += string.len();
+        tokens.push(Token::new(ty, self.col..=(self.col + string.len() as u32 - 1)));
+        self.col += string.len() as u32;
     }
 
     /// Scans the string into a flat array of [`SyntaxKind`] and [`String`]
@@ -217,7 +217,7 @@ mod lexer_test {
         let lexer = super::Lexer::new(input);
         let tokens = lexer.start_scan();
         tokens.into_iter().map(|t| {
-            input.get(t.col).unwrap()
+            input.get(*t.col.start() as usize..=*t.col.end() as usize).unwrap()
         }).collect::<String>()
     }
 
@@ -236,12 +236,12 @@ mod lexer_test {
             .into_iter()
             .map(|p| {
                 match p {
-                Token {ty: super::SyntaxKind::KW_AND, ..} => format!("|and:{}|", input.get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::KW_OR, ..} => format!("|or:{}|", input.get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::WHITESPACE, ..} => format!("|whitespace:{}|", input.get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::IDENT, ..} => format!("|ident:{}|", input.get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::SOURCE_FILE, ..}  => format!("|src:{}|", input.get(p.col).unwrap()),
-                _ => format!("error:{}", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::KW_AND, ..} => format!("|and:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                Token {ty: super::SyntaxKind::KW_OR, ..} => format!("|or:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                Token {ty: super::SyntaxKind::WHITESPACE, ..} => format!("|whitespace:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                Token {ty: super::SyntaxKind::IDENT, ..} => format!("|ident:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                Token {ty: super::SyntaxKind::SOURCE_FILE, ..}  => format!("|src:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                _ => format!("error:{}", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
             }})
             .collect::<String>();
         insta::assert_snapshot!(output);
@@ -255,11 +255,11 @@ mod lexer_test {
         let output = tokens
             .into_iter()
             .map(|p| match p {
-                Token {ty: super::SyntaxKind::FLOAT, .. } => format!("|float:{}|", input.get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::INT, .. } => format!("|int:{}|", input.get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::WHITESPACE, .. } => format!("|whitespace:{}|", input.get(p.col).unwrap()),
-                Token {ty: super::SyntaxKind::SOURCE_FILE, .. }  => format!("|src:{}|", input.get(p.col).unwrap()),
-                _ => format!("error:{}", input.get(p.col).unwrap()),
+                Token {ty: super::SyntaxKind::FLOAT, .. } => format!("|float:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                Token {ty: super::SyntaxKind::INT, .. } => format!("|int:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                Token {ty: super::SyntaxKind::WHITESPACE, .. } => format!("|whitespace:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                Token {ty: super::SyntaxKind::SOURCE_FILE, .. }  => format!("|src:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                _ => format!("error:{}", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
             })
             .collect::<String>();
         insta::assert_snapshot!(output);

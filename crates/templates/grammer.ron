@@ -65,5 +65,6 @@ Grammer(
         "FUNC_PARAM",
         "FUNC_RETURN",
         "TYPE_BIND",
+        "PATH_TYPE",
     ]
 )

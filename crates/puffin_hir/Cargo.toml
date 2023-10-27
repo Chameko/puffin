@@ -10,6 +10,8 @@ relative-path = "1.8"
 salsa = "0.16"
 puffin_vfs = { path = "../puffin_vfs/" }
 puffin_ast = { path = "../puffin_ast/" }
+puffin_source = { path = "../puffin_source" }
+puffin_parser = { path = "../puffin_parser" }
 rowan = "0.15"
 fxhash = "0.2"
 smol_str = "0.2"

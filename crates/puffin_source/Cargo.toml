@@ -1,15 +1,12 @@
 [package]
-name = "puffin_error"
+name = "puffin_source"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-puffin_source = { path = "../puffin_source/" }
+relative-path = "1.8"
+salsa = "0.16"
 puffin_vfs = { path = "../puffin_vfs/" }
-thiserror = "1.0.43"
-colored = "2.0.4"
-
-[dev-dependencies]
-insta = "1.31"
+fxhash = "0.2"
