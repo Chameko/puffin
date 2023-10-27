@@ -19,6 +19,8 @@ pub enum Expr {
     Paren(ExprID),
     /// A pattern expression
     Pattern(PatID),
+    /// A missing expression
+    Missing,
 }
 
 /// A binary operation

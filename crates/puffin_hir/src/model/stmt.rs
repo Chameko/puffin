@@ -21,5 +21,7 @@ pub enum Stmt {
     },
     Block {
         stmts: Vec<StmtID>,
-    }
+    },
+    /// A missing stmt
+    Missing,
 }

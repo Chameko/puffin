@@ -6,7 +6,9 @@ use super::{HirNode, common::Ident};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Pattern {
     Literal(Literal),
-    Ident(Ident)
+    Ident(Ident),
+    /// Missing pattern
+    Missing,
 }
 
 impl HirNode for Pattern {

@@ -79,13 +79,13 @@ pub enum PathRel {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeBind {
     pat: PatID,
-    ty: ToResolve,
+    ty: Option<TypeID>,
 }
 
 impl TypeBind {
     pub fn from_ast(ast: ast::common::TypeBind, alloc_pat: &mut Arena<Pattern>, alloc_ty: &mut Arena<Type>) -> Self {
         let pat = alloc_pat.alloc(Pattern::from_ast(ast.name().last().unwrap()));
-        let ty = ToResolve::from_ast(ast.ty(), alloc_ty);
+        let ty = ast.ty().map(|t| alloc_ty.alloc(Type::from_ast(t)));
         Self {
             pat,
             ty
@@ -93,8 +93,9 @@ impl TypeBind {
     }
 }
 
-/// Describes a type binding that may be inferred later
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Describes a type binding that may be inferred later. Note that two unresolved types are NOT EQUAL.
+/// This is to prevent two function signatures with unresolved types from being seen as equal.
+#[derive(Debug, Clone, Hash, Eq)]
 pub enum ToResolve {
     /// The resolved type
     Resolved(TypeID),
@@ -109,6 +110,21 @@ impl ToResolve {
             Self::Resolved(id)
         } else {
             Self::Unresolved
+        }
+    }
+}
+
+impl PartialEq for ToResolve {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            ToResolve::Resolved(id) => {
+                if let ToResolve::Resolved(id2) = other {
+                    id == id2
+                } else {
+                    false
+                }
+            },
+            ToResolve::Unresolved => false
         }
     }
 }

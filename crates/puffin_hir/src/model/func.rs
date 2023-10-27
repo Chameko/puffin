@@ -32,13 +32,13 @@ impl FunctionSource {
 }
 
 impl Function {
-    pub fn func_item(item: FuncItem, data: &mut ItemTreeData, id: InFile<ID<FuncItem>>) -> ID<Self> {
+    pub fn func_item(item: FuncItem, data: &mut ItemTreeData, id: InFile<ID<FuncItem>>) -> Option<ID<Self>> {
         let mut type_alloc = Arena::new();
         let mut type_map =  AstMap::new();
         let mut func_param = vec![];
-        for param in item.param().next().unwrap().parameters() {
+        for param in item.param().next()?.parameters() {
             let res = ToResolve::from_ast(param.ty(), &mut type_alloc);
-            if let ToResolve::Resolved(id) = res  {
+            if let ToResolve::Resolved(id) = res {
                 let ptr = AstPtr::from_ast(&param.ty().unwrap()).in_file(data.file);
                 type_map.record(id, ptr);
             }
@@ -51,14 +51,14 @@ impl Function {
             type_map.record(id, ast_ptr);
             id
         });
-        let name = Ident::from_ast(item.name().unwrap());
+        let name = Ident::from_ast(item.name()?);
         let sig = FunctionSignature::new(name, func_param, rtrn, type_alloc);
         let source = FunctionSource::new(id, type_map);
         let func = Self {
             signature: sig,
             source,
         };
-        data.alloc_func(func)
+        Some(data.alloc_func(func))
     }
 
     pub fn function_source_query(db: &dyn DefDatabase, id: FunctionID) -> Arc<FunctionSource> {

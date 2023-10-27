@@ -28,9 +28,11 @@ impl ItemTree {
             match item.kind() {
                 ItemKind::FuncItem(func) => {
                     let ast_id = ast_map.ast_id(&func);
-                    let func = Function::func_item(func, &mut data, ast_id).in_file(file);
-                    db.intern_function(Function::to_sig_id(func));
-                    top_level.push(ModItem::from(func));
+                    if let Some(func) =Function::func_item(func, &mut data, ast_id) {
+                        let func = func.in_file(file);
+                        db.intern_function(Function::to_sig_id(func));
+                        top_level.push(ModItem::from(func));
+                    }
                 }
             }
         }

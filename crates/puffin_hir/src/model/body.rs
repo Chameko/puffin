@@ -70,7 +70,7 @@ impl Body {
             body_param.push(id);
             body_builder.src_map.pat_map.record(id, ast_ptr);
         }
-        let source = body_builder.stmt(func.block().next().unwrap().into());
+        let source = body_builder.stmt(func.block().next().map(|b| b.into()));
         let body = Body {
             stmt_alloc:  body_builder.stmt_alloc,
             expr_alloc: body_builder.expr_alloc,
@@ -105,76 +105,112 @@ impl BodyBuilder {
         }
     }
 
-    pub fn stmt(&mut self, stmt: ast::stmt::Stmt) -> StmtID {
-        let ptr = AstPtr::from_ast(&stmt).in_file(self.file);
-        let id = match stmt.kind() {
-            ast::stmt::StmtKind::ExprStmt(e) => {
-                let expr = self.expr(e.expr().last().unwrap());
+    pub fn stmt(&mut self, stmt: Option<ast::stmt::Stmt>) -> StmtID {
+        let ptr = if let Some(stmt) = &stmt {
+            Some(AstPtr::from_ast(stmt).in_file(self.file))
+        } else {
+            None
+        };
+        let id = match stmt.map(|s| s.kind()) {
+            Some(ast::stmt::StmtKind::ExprStmt(e)) => {
+                let expr = self.expr(e.expr().last());
                 self.stmt_alloc.alloc(Stmt::ExprStmt(expr))
             },
-            ast::stmt::StmtKind::LetStmt(l) => {
+            Some(ast::stmt::StmtKind::LetStmt(l)) => {
                 let bind = TypeBind::from_ast(l.bind().last().unwrap(), &mut self.pat_alloc, &mut self.type_alloc);
-                let expr = self.expr(l.expr().last().unwrap());
+                let expr = self.expr(l.expr().last());
                 self.stmt_alloc.alloc(Stmt::Let { ty: bind, expr })
             },
-            ast::stmt::StmtKind::BlockStmt(b) => {
+            Some(ast::stmt::StmtKind::BlockStmt(b)) => {
                 let mut ids = vec![];
                 for stmt in b.stmts() {
-                    ids.push(self.stmt(stmt));
+                    ids.push(self.stmt(Some(stmt)));
                 }
                 self.stmt_alloc.alloc(Stmt::Block { stmts: ids })
             },
-            ast::stmt::StmtKind::WhileStmt(w) => {
-                let cond = self.expr(w.condition().last().unwrap());
-                let exec = self.stmt(w.inner().last().unwrap().into());
+            Some(ast::stmt::StmtKind::WhileStmt(w)) => {
+                let cond = self.expr(w.condition().last());
+                let exec = self.stmt(w.inner().last().map(|s| s.into()));
                 self.stmt_alloc.alloc(Stmt::While { condition: cond, exec })
             },
-            ast::stmt::StmtKind::IfStmt(i) => {
-                let cond = self.expr(i.condition().last().unwrap());
-                let truthy = self.stmt(i.truthy().last().unwrap().into());
-                let falsey = i.falsy().map(|f| self.stmt(f.into()));
+            Some(ast::stmt::StmtKind::IfStmt(i)) => {
+                let cond = self.expr(i.condition().last());
+                let truthy = self.stmt(i.truthy().map(|t| t.into()).last());
+                let falsey = i.falsy().map(|f| self.stmt(Some(f.into())));
                 self.stmt_alloc.alloc(Stmt::If { condition: cond, truthy, falsey })
             },
-            ast::stmt::StmtKind::PrintStmt(p) => {
-                let expr = self.expr(p.output().last().unwrap());
+            Some(ast::stmt::StmtKind::PrintStmt(p)) => {
+                let expr = self.expr(p.output().last());
                 self.stmt_alloc.alloc(Stmt::Print(expr))
             },
+            None => {
+                self.stmt_alloc.alloc(Stmt::Missing)
+            }
         };
-        self.src_map.record_stmt(id, ptr);
+        if let Some(ptr) = ptr {
+            self.src_map.record_stmt(id, ptr);
+        }
         id
     }
 
-    fn expr(&mut self, expr: ast::expr::Expr) -> ExprID {
-        let ptr = AstPtr::from_ast(&expr).in_file(self.file);
-        let id = match expr.kind() {
-            ast::expr::ExprKind::BinExpr(b) => {
-                let lhs = self.expr(b.lhs().unwrap());
-                let rhs = self.expr(b.rhs().unwrap());
-                let op = b.bin_op_kind().unwrap();
-                self.expr_alloc.alloc(Expr::Binary { lhs, rhs, op: op.into() })
+    fn expr(&mut self, expr: Option<ast::expr::Expr>) -> ExprID {
+        let ptr = if let Some(expr) = &expr {
+            Some(AstPtr::from_ast(expr).in_file(self.file))
+        } else {
+            None
+        };
+        let id = match expr.map(|e| e.kind()) {
+            Some(ast::expr::ExprKind::BinExpr(b)) => {
+                let lhs = self.expr(b.lhs());
+                let rhs = self.expr(b.rhs());
+                let op = b.bin_op_kind();
+                if let Some(op) = op {
+                    self.expr_alloc.alloc(Expr::Binary { lhs, rhs, op: op.into() })
+                } else {
+                    self.expr_alloc.alloc(Expr::Missing)
+                }
             },
-            ast::expr::ExprKind::PatExpr(p) => {
-                let pat = self.pat(p.pat().last().unwrap());
+            Some(ast::expr::ExprKind::PatExpr(p)) => {
+                let pat = self.pat(p.pat().last());
                 self.expr_alloc.alloc(Expr::Pattern(pat))
             },
-            ast::expr::ExprKind::ParenExpr(p) => {
-                let expr_id = self.expr(p.expr().last().unwrap());
+            Some(ast::expr::ExprKind::ParenExpr(p)) => {
+                let expr_id = self.expr(p.expr().last());
                 self.expr_alloc.alloc(Expr::Paren(expr_id))
             },
-            ast::expr::ExprKind::PrefixExpr(p) => {
-                let expr_id = self.expr(p.expr().unwrap());
-                let op = p.prefix_op_kind().unwrap();
-                self.expr_alloc.alloc(Expr::Prefix { op: op.into(), expr: expr_id })
+            Some(ast::expr::ExprKind::PrefixExpr(p)) => {
+                let expr_id = self.expr(p.expr());
+                let op = p.prefix_op_kind();
+                if let Some(op) = op {
+                    self.expr_alloc.alloc(Expr::Prefix { op: op.into(), expr: expr_id })
+                } else {
+                    self.expr_alloc.alloc(Expr::Missing)
+                }
             },
+            None => {
+                self.expr_alloc.alloc(Expr::Missing)
+            }
         };
-        self.src_map.record_expr(id, ptr);
+        if let Some(ptr) = ptr {
+            self.src_map.record_expr(id, ptr);
+        }
         id
     }
 
-    fn pat(&mut self, pat: ast::pat::Pat) -> PatID {
-        let ptr = AstPtr::from_ast(&pat).in_file(self.file);
-        let id = self.pat_alloc.alloc(Pattern::from_ast(pat));
-        self.src_map.record_pat(id, ptr);
+    fn pat(&mut self, pat: Option<ast::pat::Pat>) -> PatID {
+        let ptr = if let Some(pat) = &pat {
+            Some(AstPtr::from_ast(pat).in_file(self.file))
+        } else {
+            None
+        };
+        let id = if let Some(pat) = pat {
+            self.pat_alloc.alloc(Pattern::from_ast(pat))
+        } else {
+            self.pat_alloc.alloc(Pattern::Missing)
+        };
+        if let Some(ptr) = ptr {
+            self.src_map.record_pat(id, ptr);
+        }
         id
     }
 }
