@@ -59,7 +59,7 @@ Grammer(
         "BLOCK_STMT",
         "LIT_PAT",
         "IDENT_PAT",
-        "ASSIGN_STMT",
+        "ASSIGN_EXPR",
         "IF_STMT",
         "WHILE_STMT",
         "BIN_EXPR",

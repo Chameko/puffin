@@ -187,6 +187,11 @@ impl BodyBuilder {
                     self.expr_alloc.alloc(Expr::Missing)
                 }
             },
+            Some(ast::expr::ExprKind::AssignExpr(a)) => {
+                let assignee = self.expr(a.assignee());
+                let assign_to = self.expr(a.assign_to());
+                self.expr_alloc.alloc(Expr::Assign { assignee, assign_to })
+            },
             None => {
                 self.expr_alloc.alloc(Expr::Missing)
             }

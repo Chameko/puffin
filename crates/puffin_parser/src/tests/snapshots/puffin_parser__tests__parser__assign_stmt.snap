@@ -4,7 +4,7 @@ expression: "standard_test(\"a = 4 + 3\")"
 ---
 SOURCE_FILE@0..=8
     EXPR_STMT@0..=8
-        ASSIGN_STMT@0..=8
+        ASSIGN_EXPR@0..=8
             PAT_EXPR@0..=0
                 IDENT_PAT@0..=0
                     a |IDENT@0..0

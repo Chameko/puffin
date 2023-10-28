@@ -1,0 +1,31 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"a = b = c = 1\")"
+---
+SOURCE_FILE@0..=12
+    EXPR_STMT@0..=12
+        ASSIGN_EXPR@0..=12
+            PAT_EXPR@0..=0
+                IDENT_PAT@0..=0
+                    a |IDENT@0..0
+              |WHITESPACE@1..1
+            = |EQ@2..2
+              |WHITESPACE@3..3
+            ASSIGN_EXPR@4..=12
+                PAT_EXPR@4..=4
+                    IDENT_PAT@4..=4
+                        b |IDENT@4..4
+                  |WHITESPACE@5..5
+                = |EQ@6..6
+                  |WHITESPACE@7..7
+                ASSIGN_EXPR@8..=12
+                    PAT_EXPR@8..=8
+                        IDENT_PAT@8..=8
+                            c |IDENT@8..8
+                      |WHITESPACE@9..9
+                    = |EQ@10..10
+                      |WHITESPACE@11..11
+                    PAT_EXPR@12..=12
+                        LIT_PAT@12..=12
+                            1 |INT@12..12
+

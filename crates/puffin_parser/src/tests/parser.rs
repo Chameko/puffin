@@ -138,3 +138,8 @@ fn basic_fn() {
 fn fn_with_param() {
     insta::assert_snapshot!(item_test("fun move(p1: Point, p2: Point) {}"));
 }
+
+#[test]
+fn multiple_assign() {
+    insta::assert_snapshot!(standard_test("a = b = c = 1"));
+}

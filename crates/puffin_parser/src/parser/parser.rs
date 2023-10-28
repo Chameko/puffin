@@ -456,7 +456,7 @@ impl<'a> Parser<'a> {
 
     pub(crate) fn assign(&mut self, cp: Checkpoint) {
         let tk = self.tokens.current().expect("checked before. Should not fail");
-        self.builder.start_node_at(cp, SyntaxKind::ASSIGN_STMT.into());
+        self.builder.start_node_at(cp, SyntaxKind::ASSIGN_EXPR.into());
         self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
         self.tokens.advance();
         self.expr(0);

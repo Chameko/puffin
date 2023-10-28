@@ -23,6 +23,11 @@ pub enum Expr {
     PrefixExpr {
         prefix_op: (Negate<SyntaxKind::MINUS>, Not<SyntaxKind::EXCLAMATION>),
         expr: Option<Expr>
+    },
+    #[valid_for(SyntaxKind::ASSIGN_EXPR)]
+    AssignExpr {
+        assignee: Expr,
+        assign_to: Expr,
     }
 }
 

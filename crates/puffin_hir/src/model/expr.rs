@@ -15,6 +15,11 @@ pub enum Expr {
         op: PrefixOp,
         expr: ExprID,
     },
+    /// An assignment expression
+    Assign {
+        assignee: ExprID,
+        assign_to: ExprID,
+    },
     /// A paren expression
     Paren(ExprID),
     /// A pattern expression
