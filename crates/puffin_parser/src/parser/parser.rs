@@ -481,9 +481,35 @@ impl<'a> Parser<'a> {
     /// Parses a type specification
     fn type_p(&mut self) {
         // TODO: Currently supports only identifiers and will be expanded for trait bounds etc.
-        self.builder.start_node(SyntaxKind::PATH_TYPE.into());
-        self.require_token(SyntaxKind::IDENT, CompilerErrorType::ExpectedIdent);
-        self.builder.finish_node();
+        self.skip_whitespace();
+        let cp = self.builder.checkpoint();
+        match self.tokens.current() {
+            Some(tk@Token {
+                ty: SyntaxKind::KW_FLOAT
+                    | SyntaxKind::KW_INT
+                    | SyntaxKind::KW_STRING
+                    | SyntaxKind::KW_BOOL,
+                    ..
+            }) => {
+                self.builder.start_node_at(cp, SyntaxKind::CONCRETE_TYPE.into());
+                self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
+                self.builder.finish_node();
+                self.tokens.advance();
+            },
+            Some(tk@Token{ ty: SyntaxKind::IDENT, ..}) => {
+                self.builder.start_node_at(cp, SyntaxKind::PATH_TYPE.into());
+                self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
+                self.builder.finish_node();
+                self.tokens.advance();
+            },
+            Some(tk) => {
+                self.builder.token(SyntaxKind::ERROR.into(), tk.get_text(&self.src.text));
+                self.report_error(self.generic_error(tk, CompilerErrorType::ExpectedTypeP, "not valid type parameter"));
+            },
+            None => {
+                self.report_error(self.eof_error(CompilerErrorType::ExpectedTypeP, "not valid type parameter"));
+            }
+        }
     }
 
     /// Parse a comma seperated list. Note that parse_fn is required to always advance the parser when it runs into an error

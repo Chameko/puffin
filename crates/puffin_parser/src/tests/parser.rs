@@ -125,6 +125,11 @@ fn assign_stmt() {
 }
 
 #[test]
+fn let_stmt_concrete_type() {
+    insta::assert_snapshot!(standard_test("let a: float = 2.0"));
+}
+
+#[test]
 fn basic_fn() {
     insta::assert_snapshot!(item_test("fun hello() {}"));
 

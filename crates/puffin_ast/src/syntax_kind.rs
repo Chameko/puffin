@@ -40,6 +40,10 @@ pub enum SyntaxKind {
     KW_IF,
     KW_WHILE,
     KW_FUN,
+    KW_INT,
+    KW_FLOAT,
+    KW_STRING,
+    KW_BOOL,
     INT,
     FLOAT,
     STRING,
@@ -65,7 +69,8 @@ pub enum SyntaxKind {
     FUNC_PARAM,
     FUNC_RETURN,
     TYPE_BIND,
-    PATH_TYPE,// Allows for casting from u16 safely
+    PATH_TYPE,
+    CONCRETE_TYPE,// Allows for casting from u16 safely
     __LAST,
 }
 
@@ -161,6 +166,18 @@ macro_rules! T {
     (fun) => {
         $crate::SyntaxKind::KW_FUN
     };
+    (int) => {
+        $crate::SyntaxKind::KW_INT
+    };
+    (float) => {
+        $crate::SyntaxKind::KW_FLOAT
+    };
+    (string) => {
+        $crate::SyntaxKind::KW_STRING
+    };
+    (bool) => {
+        $crate::SyntaxKind::KW_BOOL
+    };
 }
 
 impl SyntaxKind {
@@ -174,6 +191,10 @@ impl SyntaxKind {
         | KW_IF
         | KW_WHILE
         | KW_FUN
+        | KW_INT
+        | KW_FLOAT
+        | KW_STRING
+        | KW_BOOL
         )
     }
 
@@ -264,6 +285,10 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::KW_IF => write!(f, "if"),
             SyntaxKind::KW_WHILE => write!(f, "while"),
             SyntaxKind::KW_FUN => write!(f, "fun"),
+            SyntaxKind::KW_INT => write!(f, "int"),
+            SyntaxKind::KW_FLOAT => write!(f, "float"),
+            SyntaxKind::KW_STRING => write!(f, "string"),
+            SyntaxKind::KW_BOOL => write!(f, "bool"),
             SyntaxKind::INT => write!(f, "INT"),
             SyntaxKind::FLOAT => write!(f, "FLOAT"),
             SyntaxKind::STRING => write!(f, "STRING"),
@@ -290,6 +315,7 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::FUNC_RETURN => write!(f, "FUNC_RETURN"),
             SyntaxKind::TYPE_BIND => write!(f, "TYPE_BIND"),
             SyntaxKind::PATH_TYPE => write!(f, "PATH_TYPE"),
+            SyntaxKind::CONCRETE_TYPE => write!(f, "CONCRETE_TYPE"),
             SyntaxKind::EOF => write!(f, "EOF"),
             SyntaxKind::__LAST => write!(f, "__LAST")
         }

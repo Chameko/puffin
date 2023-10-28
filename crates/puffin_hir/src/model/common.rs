@@ -1,9 +1,9 @@
-use crate::id::{TypeID, PatID};
+use crate::{id::{TypeID, PatID}, resolver::ConcreteType};
 
 use super::{HirNode, Pattern};
 use puffin_source::id::Arena;
 use smol_str::SmolStr;
-use puffin_ast::ast::{self, AstToken, pat::Pat};
+use puffin_ast::ast::{self, AstToken};
 
 /// Describes the visibility of an item
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,14 +34,25 @@ impl Ident {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     /// Path to a type
-    Path(Path)
+    Path(Path),
+    /// A concrete type
+    Concrete(ConcreteType),
+    /// An unknown type
+    Unknown,
 }
 
-impl HirNode for Type {
-    type AstSource = ast::common::Type;
-    fn from_ast(ty: Self::AstSource) -> Self {
+impl Type {
+    pub fn from_ast(ty: Option<ast::common::Type>) -> Self {
+        match ty {
+            Some(ty) => Self::from_ast_certain(ty) ,
+            None => Type::Unknown
+        }
+    }
+
+    pub fn from_ast_certain(ty: ast::common::Type) -> Self  {
         match ty.kind() {
             ast::common::TypeKind::Path(path) => Type::Path(Path::from_ast(path)),
+            ast::common::TypeKind::Concrete(c) => Type::Concrete(ConcreteType::from(c.concrete_kind().unwrap()))
         }
     }
 }
@@ -79,13 +90,13 @@ pub enum PathRel {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeBind {
     pat: PatID,
-    ty: Option<TypeID>,
+    ty: TypeID,
 }
 
 impl TypeBind {
     pub fn from_ast(ast: ast::common::TypeBind, alloc_pat: &mut Arena<Pattern>, alloc_ty: &mut Arena<Type>) -> Self {
         let pat = alloc_pat.alloc(Pattern::from_ast(ast.name().last().unwrap()));
-        let ty = ast.ty().map(|t| alloc_ty.alloc(Type::from_ast(t)));
+        let ty = alloc_ty.alloc(Type::from_ast(ast.ty()));
         Self {
             pat,
             ty
@@ -93,38 +104,3 @@ impl TypeBind {
     }
 }
 
-/// Describes a type binding that may be inferred later. Note that two unresolved types are NOT EQUAL.
-/// This is to prevent two function signatures with unresolved types from being seen as equal.
-#[derive(Debug, Clone, Hash, Eq)]
-pub enum ToResolve {
-    /// The resolved type
-    Resolved(TypeID),
-    /// The unresolved type
-    Unresolved
-}
-
-impl ToResolve {
-    pub fn from_ast(ast: Option<ast::common::Type>, alloc: &mut Arena<Type>) -> Self {
-        if let Some(ty) = ast {
-            let id = alloc.alloc(Type::from_ast(ty));
-            Self::Resolved(id)
-        } else {
-            Self::Unresolved
-        }
-    }
-}
-
-impl PartialEq for ToResolve {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            ToResolve::Resolved(id) => {
-                if let ToResolve::Resolved(id2) = other {
-                    id == id2
-                } else {
-                    false
-                }
-            },
-            ToResolve::Unresolved => false
-        }
-    }
-}

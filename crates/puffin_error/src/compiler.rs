@@ -85,6 +85,8 @@ pub enum CompilerErrorType {
     ExpectedBlock,
     /// When an identifier is expected and not found
     ExpectedIdent,
+    /// When a valid type parameter is expected and not found
+    ExpectedTypeP,
     /// When a Left paren `(` is expected and not found
     ExpectedLParen,
     /// When a right paren `)` is expected and not found
@@ -101,6 +103,8 @@ pub enum CompilerErrorType {
     ForgotRBrace,
     /// When you cannot assign to a value
     UnassignableValue,
+    /// When an error has to be reported but no information should be printed out
+    Null
 }
 
 impl Display for CompilerErrorType {
@@ -111,6 +115,7 @@ impl Display for CompilerErrorType {
             CompilerErrorType::UnexpectedSymbol => write!(f, "unexpected symbol"),
             CompilerErrorType::ExpectedIdent => write!(f, "expected identifier"),
             CompilerErrorType::ExpectedComma => write!(f, "expected symbol `,`"),
+            CompilerErrorType::ExpectedTypeP => write!(f, "expected valid type parameter"),
             CompilerErrorType::ExpectedLParen => write!(f, "expected symbol `(`"),
             CompilerErrorType::ExpectedRParen => write!(f, "expected symbol `)`"),
             CompilerErrorType::ForgotNewline => write!(f, "forgot newline (`\\n`)"),
@@ -119,6 +124,7 @@ impl Display for CompilerErrorType {
             CompilerErrorType::UnusedVariable=> write!(f, "unused variable"),
             CompilerErrorType::ForgotRBrace => write!(f, "missing `}}`"),
             CompilerErrorType::UnassignableValue => write!(f, "unassignable value"),
+            CompilerErrorType::Null => write!(f, "[ERROR] should now be printed"),
         }
     }
 }

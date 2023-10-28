@@ -8,17 +8,17 @@ use super::{Pattern, FunctionID, Stmt, Expr, common::{Type, TypeBind}};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Body {
     /// The source for the block in the AST
-    source: StmtID,
+    pub source: StmtID,
     /// The parameters in a function
-    param: Vec<PatID>,
+    pub param: Vec<PatID>,
     /// The [Arena] used to allocate various expression [crate::id::ID]s
-    expr_alloc: Arena<Expr>,
+    pub expr_alloc: Arena<Expr>,
     /// The [Arena] used to allocate various pattern [crate::id::ID]s
-    pat_alloc: Arena<Pattern>,
+    pub pat_alloc: Arena<Pattern>,
     /// The [Arena] used to allocate various type [crate::id::ID]s
-    type_alloc: Arena<Type>,
+    pub type_alloc: Arena<Type>,
     /// The [Arena] used to allocate various statement [crate::id::ID]s
-    stmt_alloc:  Arena<Stmt>,
+    pub stmt_alloc:  Arena<Stmt>,
 }
 
 /// Maps the various [crate::id::ID]s in [Body] to their [AstPtr]

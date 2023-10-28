@@ -34,6 +34,10 @@ Grammer(
         "if",
         "while",
         "fun",
+        "int",
+        "float",
+        "string",
+        "bool"
     ],
     literals: [
         "INT",
@@ -66,5 +70,6 @@ Grammer(
         "FUNC_RETURN",
         "TYPE_BIND",
         "PATH_TYPE",
+        "CONCRETE_TYPE",
     ]
 )

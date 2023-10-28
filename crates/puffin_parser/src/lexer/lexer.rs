@@ -58,6 +58,10 @@ impl<'a> Lexer<'a> {
             "print" => Some(SyntaxKind::KW_PRINT),
             "let" => Some(SyntaxKind::KW_LET),
             "fun" => Some(SyntaxKind::KW_FUN),
+            "int" => Some(SyntaxKind::KW_INT),
+            "float" => Some(SyntaxKind::KW_FLOAT),
+            "bool" => Some(SyntaxKind::KW_BOOL),
+            "string" => Some(SyntaxKind::KW_STRING),
             s => {
                 if let Some(char) = s.chars().next() {
                     if char.is_numeric() {

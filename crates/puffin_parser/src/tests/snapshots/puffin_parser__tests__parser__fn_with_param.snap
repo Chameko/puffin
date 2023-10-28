@@ -14,7 +14,7 @@ FUNC_ITEM@0..=32
                     p1 |IDENT@9..10
             : |COLON@11..11
               |WHITESPACE@12..12
-            TYPE_TYPE@13..=17
+            PATH_TYPE@13..=17
                 Point |IDENT@13..17
         , |COMMA@18..18
           |WHITESPACE@19..19
@@ -24,7 +24,7 @@ FUNC_ITEM@0..=32
                     p2 |IDENT@20..21
             : |COLON@22..22
               |WHITESPACE@23..23
-            TYPE_TYPE@24..=28
+            PATH_TYPE@24..=28
                 Point |IDENT@24..28
         ) |R_PAREN@29..29
       |WHITESPACE@30..30

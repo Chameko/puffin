@@ -126,8 +126,8 @@ impl<T: AstNode> Eq for AstPtr<T> {}
 /// Maps between HIR types to [AstPtr]s and vice versa
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AstMap<T: Clone + Eq, B: AstNode> {
-    to_node: FxHashMap<AstPtr<B>, ID<T>>,
-    from_node: FxHashMap<ID<T>, InFile<AstPtr<B>>>,
+    from_node: FxHashMap<AstPtr<B>, ID<T>>,
+    to_node: FxHashMap<ID<T>, InFile<AstPtr<B>>>,
 }
 
 impl<T: Clone + Eq, B: AstNode> AstMap<T, B> {
@@ -139,14 +139,35 @@ impl<T: Clone + Eq, B: AstNode> AstMap<T, B> {
     }
 
     pub fn record(&mut self, id: ID<T>, ast_ptr: InFile<AstPtr<B>>) {
-        self.to_node.insert(ast_ptr.element.clone(), id);
-        self.from_node.insert(id, ast_ptr);
+        self.from_node.insert(ast_ptr.element.clone(), id);
+        self.to_node.insert(id, ast_ptr);
     }
 }
 
 impl<T: Clone + Eq, B: AstNode> Default for AstMap<T, B> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T: Clone + Eq, B: AstNode> Index<ID<T>> for AstMap<T, B> {
+    type Output = InFile<AstPtr<B>>;
+    fn index(&self, index: ID<T>) -> &Self::Output {
+        &self.to_node.get(&index).expect("could not find id in AstMap")
+    }
+}
+
+impl<T: Clone + Eq, B: AstNode> Index<AstPtr<B>> for AstMap<T, B> {
+    type Output = ID<T>;
+    fn index(&self, index: AstPtr<B>) -> &Self::Output {
+        &self.from_node.get(&index).expect("could not find pointer in AstMap")
+    }
+}
+
+impl<T: Clone + Eq, B: AstNode> Index<InFile<AstPtr<B>>> for AstMap<T, B> {
+    type Output = ID<T>;
+    fn index(&self, index: InFile<AstPtr<B>>) -> &Self::Output {
+        &self.from_node.get(&index.element).expect("could not find pointer in AstMap")
     }
 }
 

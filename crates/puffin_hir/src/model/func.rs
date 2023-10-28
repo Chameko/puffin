@@ -7,8 +7,8 @@ use crate::def::DefDatabase;
 use crate::item_tree::SplitItemTreeNode;
 use crate::{signature::FunctionSignature, item_tree::ItemTreeData};
 
-use super::{HirNode, FunctionID};
-use super::common::{Type, ToResolve, Ident};
+use super:: FunctionID;
+use super::common::{Type, Ident};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
@@ -37,16 +37,16 @@ impl Function {
         let mut type_map =  AstMap::new();
         let mut func_param = vec![];
         for param in item.param().next()?.parameters() {
-            let res = ToResolve::from_ast(param.ty(), &mut type_alloc);
-            if let ToResolve::Resolved(id) = res {
-                let ptr = AstPtr::from_ast(&param.ty().unwrap()).in_file(data.file);
+            let id = type_alloc.alloc(Type::from_ast(param.ty()));
+            if let Some(ty) = &param.ty() {
+                let ptr = AstPtr::from_ast(ty).in_file(data.file);
                 type_map.record(id, ptr);
             }
-            func_param.push(res);
+            func_param.push(id);
         }
         let rtrn = item.rtrn().map(|ast_ty| {
             let ast_ptr = AstPtr::from_ast(&ast_ty).in_file(data.file);
-            let ty = Type::from_ast(ast_ty);
+            let ty = Type::from_ast_certain(ast_ty);
             let id = type_alloc.alloc(ty);
             type_map.record(id, ast_ptr);
             id

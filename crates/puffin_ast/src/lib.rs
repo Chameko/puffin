@@ -13,3 +13,8 @@ pub use ast::{AstPtr, SyntaxNodePtr, AstMap};
 pub fn text_range(slice: TextSlice) -> TextRange {
     TextRange::new((*slice.start()).into(), (*slice.end() + 1).into())
 }
+
+/// Converts between a [TextRange] and a [TextSlice]
+pub fn text_slice(range: TextRange) -> TextSlice {
+    range.start().into()..=u32::from(range.end()) - 1
+}
