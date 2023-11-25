@@ -1,6 +1,6 @@
-use crate::{id::{TypeID, PatID}, resolver::ConcreteType};
+use crate::{id::{TypeID, PatID}, resolver::{ConcreteType, inferer::TypeVar}};
 
-use super::{HirNode, Pattern};
+use super::HirNode;
 use puffin_source::id::Arena;
 use smol_str::SmolStr;
 use puffin_ast::ast::{self, AstToken};
@@ -19,7 +19,7 @@ pub enum Visibility {
 /// An identifier
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ident {
-    name: SmolStr,
+    pub name: SmolStr,
 }
 
 impl Ident {
@@ -30,6 +30,18 @@ impl Ident {
     }
 }
 
+impl PartialEq<String> for Ident {
+    fn eq(&self, other: &String) -> bool {
+        other == self.name
+    }
+}
+
+impl PartialEq<&str> for Ident {
+    fn eq(&self, other: &&str) -> bool {
+        *other == self.name
+    }
+}
+
 /// The type of something
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -37,8 +49,49 @@ pub enum Type {
     Path(Path),
     /// A concrete type
     Concrete(ConcreteType),
+    /// A function type
+    Func(FunctionType),
+    /// A generic
+    Generic(usize),
     /// An unknown type
     Unknown,
+}
+
+impl Type {
+    #[cfg(test)]
+    pub fn display(&self, alloc: &Arena<Type>) -> String {
+        match self {
+            Type::Func(f) => f.display(alloc),
+            _ => format!("{:?}", self)
+        }
+    }
+}
+
+/// The type of a function
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FunctionType {
+    pub param: Vec<TypeID>,
+    pub ret: TypeID,
+}
+
+impl FunctionType {
+    pub fn new(param: Vec<TypeID>, ret: TypeID) -> Self {
+        Self {
+            param,
+            ret,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn display(&self, alloc: &Arena<Type>) -> String {
+        let mut output = format!("FunctionType {{ ");
+        for param in &self.param {
+            output.push_str(&format!("{:?}, ", alloc[*param]));
+        }
+        output.push_str(&format!("ret: {:?}", alloc[self.ret]));
+        output.push_str(" }");
+        output
+    }
 }
 
 impl Type {
@@ -89,18 +142,10 @@ pub enum PathRel {
 /// A type binding
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeBind {
-    pat: PatID,
-    ty: TypeID,
+    pub pat: PatID,
+    pub ty: TypeID,
 }
 
 impl TypeBind {
-    pub fn from_ast(ast: ast::common::TypeBind, alloc_pat: &mut Arena<Pattern>, alloc_ty: &mut Arena<Type>) -> Self {
-        let pat = alloc_pat.alloc(Pattern::from_ast(ast.name().last().unwrap()));
-        let ty = alloc_ty.alloc(Type::from_ast(ast.ty()));
-        Self {
-            pat,
-            ty
-        }
-    }
+    pub fn new(pat: PatID, ty: TypeID) -> Self { Self { pat, ty } }
 }
-

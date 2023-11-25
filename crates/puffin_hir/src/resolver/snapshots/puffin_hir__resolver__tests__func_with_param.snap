@@ -1,0 +1,14 @@
+---
+source: crates/puffin_hir/src/resolver/tests.rs
+expression: standard_test(src)
+---
+[[ {
+let c = a + b
+} ]]
+    [[ let c = a + b ]]
+    c => "Concrete(Int)" from {
+      { a + b } => "FunctionType { Concrete(Int), Concrete(Int), ret: Concrete(Int) }"
+        { a } => Ident(Ident { name: "a" })
+        { b } => Ident(Ident { name: "b" })
+    }
+

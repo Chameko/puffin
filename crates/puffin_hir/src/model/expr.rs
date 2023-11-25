@@ -1,4 +1,4 @@
-use crate::id::{ExprID, PatID};
+use crate::id::{ExprID, PatID, TypeID};
 use puffin_ast::ast;
 
 /// An expression
@@ -9,16 +9,19 @@ pub enum Expr {
         lhs: ExprID,
         rhs: ExprID,
         op: BinOp,
+        ty: TypeID,
     },
     /// A prefix expression
     Prefix {
         op: PrefixOp,
         expr: ExprID,
+        ty: TypeID,
     },
     /// An assignment expression
     Assign {
         assignee: ExprID,
         assign_to: ExprID,
+        ty: TypeID,
     },
     /// A paren expression
     Paren(ExprID),

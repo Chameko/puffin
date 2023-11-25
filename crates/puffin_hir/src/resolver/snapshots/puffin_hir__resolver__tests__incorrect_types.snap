@@ -1,0 +1,24 @@
+---
+source: crates/puffin_hir/src/resolver/tests.rs
+expression: standard_test(src)
+---
+[[ {
+let a = 1
+let b = 2.0
+let c = a + b
+} ]]
+    [[ let a = 1 ]]
+    a => "Unknown" from {
+      { 1 } => Literal(Int(1))
+    }
+    [[ let b = 2.0 ]]
+    b => "Unknown" from {
+      { 2.0 } => Literal(Float(2.0))
+    }
+    [[ let c = a + b ]]
+    c => "Unknown" from {
+      { a + b } => "FunctionType { Unknown, Unknown, ret: Unknown }"
+        { a } => Ident(Ident { name: "a" })
+        { b } => Ident(Ident { name: "b" })
+    }
+

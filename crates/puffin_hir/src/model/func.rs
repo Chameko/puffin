@@ -5,6 +5,7 @@ use puffin_source::id::{ID, InFile, Arena};
 
 use crate::def::DefDatabase;
 use crate::item_tree::SplitItemTreeNode;
+use crate::resolver::ConcreteType;
 use crate::{signature::FunctionSignature, item_tree::ItemTreeData};
 
 use super:: FunctionID;
@@ -44,13 +45,15 @@ impl Function {
             }
             func_param.push(id);
         }
-        let rtrn = item.rtrn().map(|ast_ty| {
+        let rtrn = if let Some(ast_ty) = item.rtrn() {
             let ast_ptr = AstPtr::from_ast(&ast_ty).in_file(data.file);
             let ty = Type::from_ast_certain(ast_ty);
             let id = type_alloc.alloc(ty);
             type_map.record(id, ast_ptr);
             id
-        });
+        } else {
+            type_alloc.alloc(Type::Concrete(ConcreteType::Empty))
+        };
         let name = Ident::from_ast(item.name()?);
         let sig = FunctionSignature::new(name, func_param, rtrn, type_alloc);
         let source = FunctionSource::new(id, type_map);

@@ -104,7 +104,9 @@ pub enum CompilerErrorType {
     /// When you cannot assign to a value
     UnassignableValue,
     /// When an error has to be reported but no information should be printed out
-    Null
+    Null,
+    /// When two types mismatch
+    TypeMismatch,
 }
 
 impl Display for CompilerErrorType {
@@ -125,6 +127,7 @@ impl Display for CompilerErrorType {
             CompilerErrorType::ForgotRBrace => write!(f, "missing `}}`"),
             CompilerErrorType::UnassignableValue => write!(f, "unassignable value"),
             CompilerErrorType::Null => write!(f, "[ERROR] should now be printed"),
+            CompilerErrorType::TypeMismatch => write!(f, "type mismatch"),
         }
     }
 }
@@ -310,7 +313,7 @@ impl<'a> Output<'a> {
         let mut prev_line = highlight.first().map(|hl| hl.line).unwrap_or(0);
         for mut hl in highlight {
             // Add '...' if we skip a line
-            // The and is to prevent an integer underflow
+            // Uses short circuit evaluation to skip and prevent an integer underflow
             if hl.line > prev_line && hl.line - prev_line > 1 {
                 output.push_str(&format!("{} {} ...\n", " ".repeat(max_digit_size), "|".bold().bright_blue()));
             }

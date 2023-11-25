@@ -2,7 +2,7 @@ use puffin_vfs::FileID;
 use std::sync::Arc;
 use crate::{item_tree::ItemTree, model::{InternDatabase, FunctionID, FunctionSource, Function, Body, body::BodySourceMap}};
 
-#[salsa::query_group(DefDatabaseStorage)]
+#[salsa::query_group(DefStorage)]
 pub trait DefDatabase : InternDatabase {
 
     #[salsa::invoke(ItemTree::item_tree_query)]

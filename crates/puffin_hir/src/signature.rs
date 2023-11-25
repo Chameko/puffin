@@ -6,17 +6,17 @@ use crate::{model::common::{Ident, Type}, id::TypeID};
 pub struct FunctionSignature {
     pub name: Ident,
     pub param: Vec<TypeID>,
-    pub rtrn: Option<TypeID>,
-    pub type_alloc: Arena<Type>
+    pub rtrn: TypeID,
+    pub type_alloc: Arena<Type>,
 }
 
 impl FunctionSignature  {
-    pub fn new(name: Ident, param: Vec<TypeID>, rtrn: Option<TypeID>, type_alloc: Arena<Type>) -> Self {
+    pub fn new(name: Ident, param: Vec<TypeID>, rtrn: TypeID, type_alloc: Arena<Type>) -> Self {
         Self {
             name,
             param,
             rtrn,
-            type_alloc
+            type_alloc,
         }
     }
 }

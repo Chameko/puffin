@@ -1,0 +1,24 @@
+---
+source: crates/puffin_hir/src/resolver/tests.rs
+expression: standard_test(src)
+---
+[[ {
+let a = 1
+let b = 2
+let c = a + b
+} ]]
+    [[ let a = 1 ]]
+    a => "Concrete(Int)" from {
+      { 1 } => Literal(Int(1))
+    }
+    [[ let b = 2 ]]
+    b => "Concrete(Int)" from {
+      { 2 } => Literal(Int(2))
+    }
+    [[ let c = a + b ]]
+    c => "Concrete(Int)" from {
+      { a + b } => "FunctionType { Concrete(Int), Concrete(Int), ret: Concrete(Int) }"
+        { a } => Ident(Ident { name: "a" })
+        { b } => Ident(Ident { name: "b" })
+    }
+

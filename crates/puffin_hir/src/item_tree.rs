@@ -41,6 +41,16 @@ impl ItemTree {
             data,
         })
     }
+
+    pub fn functions(&self) -> Vec<ItemID<Function>> {
+        self.top_level.iter().filter_map(|i| {
+            if let ModItem::Function(f) = i {
+                Some(*f)
+            } else {
+                None
+            }
+        }).collect()
+    }
 }
 
 impl ItemTreeData {

@@ -8,7 +8,7 @@ pub enum Stmt {
     Print(ExprID),
     Let {
         ty: TypeBind,
-        expr: ExprID,
+        expr: Option<ExprID>,
     },
     While {
         condition: ExprID,

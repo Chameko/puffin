@@ -29,7 +29,7 @@ impl salsa::InternKey for FunctionID {
 }
 
 /// Used to intern the top level items of puffin
-#[salsa::query_group(InternDatabaseStorage)]
+#[salsa::query_group(InternStorage)]
 pub trait InternDatabase: ParserDatabase {
     #[salsa::interned]
     fn intern_function(&self, func: ItemID<FunctionSignature>) -> FunctionID;

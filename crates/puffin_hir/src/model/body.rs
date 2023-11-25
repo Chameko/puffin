@@ -2,7 +2,7 @@ use crate::{id::{Arena, ExprID, PatID, TypeID, StmtID}, def::DefDatabase, model:
 use puffin_ast::{AstMap, ast::{self, AstNode}, AstPtr};
 use puffin_source::id::InFile;
 use puffin_vfs::FileID;
-use super::{Pattern, FunctionID, Stmt, Expr, common::{Type, TypeBind}};
+use super::{Pattern, FunctionID, Stmt, Expr, common::{Type, TypeBind, FunctionType}};
 
 /// The body of a function. Contains the mappings to convert from [crate::id::ID] to statements and expressions and pointers back to the AST
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,15 +55,18 @@ impl BodySourceMap {
 impl Body {
     pub fn body_and_source_query(db: &dyn DefDatabase, id: FunctionID) -> (Body, BodySourceMap) {
         let file = db.lookup_intern_function(id).file;
-        let mut body_builder = BodyBuilder::new(file);
+        let func_sig = &db.item_tree(file)[db.lookup_intern_function(id)];
+        // We ensure that body uses the same type alloc so we can look up param ident types in the body
+        let mut body_builder = BodyBuilder::new(file, func_sig.type_alloc.clone());
         let mut body_param =  vec![];
 
         let func_src = db.function_source(id);
         let func_ast_id = db.ast_map(file).get(func_src.ast_id);
         let func = func_ast_id.as_node(&db.ast(file)).unwrap();
 
-        for param in func.param() {
-            let ident = param.parameters().next().unwrap().name().next().unwrap();
+        let parameters = func.param().next().unwrap().parameters();
+        for param in parameters {
+            let ident = param.name().next().unwrap();
             let ast_ptr = AstPtr::new(&ident.syntax()).in_file(file);
             let pat = Pattern::from_ast(ident);
             let id = body_builder.pat_alloc.alloc(pat);
@@ -94,12 +97,12 @@ struct BodyBuilder {
 }
 
 impl BodyBuilder {
-    pub fn new(file: FileID) -> Self {
+    pub fn new(file: FileID, type_alloc: Arena<Type>) -> Self {
         Self {
             file,
             expr_alloc: Arena::default(),
             pat_alloc: Arena::default(),
-            type_alloc: Arena::default(),
+            type_alloc,
             stmt_alloc: Arena::default(),
             src_map: BodySourceMap::default(),
         }
@@ -117,8 +120,17 @@ impl BodyBuilder {
                 self.stmt_alloc.alloc(Stmt::ExprStmt(expr))
             },
             Some(ast::stmt::StmtKind::LetStmt(l)) => {
-                let bind = TypeBind::from_ast(l.bind().last().unwrap(), &mut self.pat_alloc, &mut self.type_alloc);
-                let expr = self.expr(l.expr().last());
+                let bind =l.bind().next().unwrap();
+                let pat = self.pat_alloc.alloc(Pattern::from_ast(bind.name().next().unwrap()));
+                let pat_ptr = AstPtr::new(bind.name().next().unwrap().syntax()).in_file(self.file);
+                let ty_id = self.type_alloc.alloc(Type::from_ast(bind.ty()));
+                if let Some(ty) = bind.ty() {
+                    let ty_ptr = AstPtr::new(ty.syntax()).in_file(self.file);
+                    self.src_map.type_map.record(ty_id, ty_ptr);
+                }
+                let bind = TypeBind::new(pat, ty_id);
+                self.src_map.pat_map.record(pat, pat_ptr);
+                let expr = l.expr().map(|e| self.expr(Some(e)));
                 self.stmt_alloc.alloc(Stmt::Let { ty: bind, expr })
             },
             Some(ast::stmt::StmtKind::BlockStmt(b)) => {
@@ -165,7 +177,9 @@ impl BodyBuilder {
                 let rhs = self.expr(b.rhs());
                 let op = b.bin_op_kind();
                 if let Some(op) = op {
-                    self.expr_alloc.alloc(Expr::Binary { lhs, rhs, op: op.into() })
+                    let generic = self.type_alloc.alloc(Type::Unknown);
+                    let ty = self.type_alloc.alloc(Type::Func(FunctionType::new(vec![generic, generic], generic)));
+                    self.expr_alloc.alloc(Expr::Binary { lhs, rhs, op: op.into(), ty })
                 } else {
                     self.expr_alloc.alloc(Expr::Missing)
                 }
@@ -182,7 +196,9 @@ impl BodyBuilder {
                 let expr_id = self.expr(p.expr());
                 let op = p.prefix_op_kind();
                 if let Some(op) = op {
-                    self.expr_alloc.alloc(Expr::Prefix { op: op.into(), expr: expr_id })
+                    let generic = self.type_alloc.alloc(Type::Unknown);
+                    let ty = self.type_alloc.alloc(Type::Func(FunctionType::new(vec![generic], generic)));
+                    self.expr_alloc.alloc(Expr::Prefix { op: op.into(), expr: expr_id, ty })
                 } else {
                     self.expr_alloc.alloc(Expr::Missing)
                 }
@@ -190,7 +206,9 @@ impl BodyBuilder {
             Some(ast::expr::ExprKind::AssignExpr(a)) => {
                 let assignee = self.expr(a.assignee());
                 let assign_to = self.expr(a.assign_to());
-                self.expr_alloc.alloc(Expr::Assign { assignee, assign_to })
+                let generic = self.type_alloc.alloc(Type::Unknown);
+                let ty = self.type_alloc.alloc(Type::Func(FunctionType::new(vec![generic, generic], generic)));
+                self.expr_alloc.alloc(Expr::Assign { assignee, assign_to, ty })
             },
             None => {
                 self.expr_alloc.alloc(Expr::Missing)
