@@ -45,6 +45,13 @@ pub struct SourceTree {
 }
 
 impl SourceTree {
+    pub fn new(dir: FileID, sources: Vec<Source>) -> Self {
+        Self {
+            dir,
+            sources,
+        }
+    }
+
     /// Find a source in the source tree
     pub fn find_source(&self, file_id: FileID) -> Option<&Source> {
         for source in &self.sources {

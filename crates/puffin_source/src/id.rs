@@ -95,6 +95,13 @@ impl<T: Clone> Arena<T> {
             .enumerate()
             .map(|(idx, value)| (idx.into(), value))
     }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (ID<T>, &mut T)> + ExactSizeIterator + DoubleEndedIterator {
+        self.inner
+            .iter_mut()
+            .enumerate()
+            .map(|(idx, value)| (idx.into(), value))
+    }
 }
 
 impl<T: Clone> std::ops::Index<ID<T>> for Arena<T> {
