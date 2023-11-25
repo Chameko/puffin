@@ -6,13 +6,13 @@ SOURCE_FILE@0..=17
     LET_STMT@0..=17
         let |KW_LET@0..2
           |WHITESPACE@3..3
-        PAT_EXPR@4..=4
+        TYPE_BIND@4..=11
             IDENT_PAT@4..=4
                 a |IDENT@4..4
-        : |COLON@5..5
-          |WHITESPACE@6..6
-        CONCRETE_TYPE@7..=11
-            float |KW_FLOAT@7..11
+            : |COLON@5..5
+              |WHITESPACE@6..6
+            CONCRETE_TYPE@7..=11
+                float |KW_FLOAT@7..11
           |WHITESPACE@12..12
         = |EQ@13..13
           |WHITESPACE@14..14

@@ -2,15 +2,16 @@
 source: crates/puffin_parser/src/tests/parser.rs
 expression: "item_test(\"fun hello() {}\")"
 ---
-FUNC_ITEM@0..=13
-    fun |KW_FUN@0..2
-      |WHITESPACE@3..3
-    hello |IDENT@4..8
-    FUNC_PARAM@9..=10
-        ( |L_PAREN@9..9
-        ) |R_PAREN@10..10
-      |WHITESPACE@11..11
-    BLOCK_STMT@12..=13
-        { |L_BRACE@12..12
-        } |R_BRACE@13..13
+SOURCE_FILE@0..=13
+    FUNC_ITEM@0..=13
+        fun |KW_FUN@0..2
+          |WHITESPACE@3..3
+        hello |IDENT@4..8
+        FUNC_PARAM@9..=10
+            ( |L_PAREN@9..9
+            ) |R_PAREN@10..10
+          |WHITESPACE@11..11
+        BLOCK_STMT@12..=13
+            { |L_BRACE@12..12
+            } |R_BRACE@13..13
 

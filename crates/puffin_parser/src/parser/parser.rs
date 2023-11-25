@@ -46,11 +46,11 @@ fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
         SyntaxKind::MINUS => ParseRule { prefix: Some(Parser::prefix), infix: Some(Parser::binary), binding_power: BindingPower::Term as u8 },
         SyntaxKind::PLUS => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Term as u8 },
         SyntaxKind::STAR | SyntaxKind::SLASH => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Factor as u8},
-        SyntaxKind::L_PAREN => ParseRule { prefix: Some(Parser::pattern), infix: None, binding_power: BindingPower::None as u8 },
+        SyntaxKind::L_PAREN => ParseRule { prefix: Some(Parser::pattern_expr), infix: None, binding_power: BindingPower::None as u8 },
         SyntaxKind::FLOAT
             | SyntaxKind::INT
             | SyntaxKind::IDENT
-            | SyntaxKind::STRING => ParseRule { prefix: Some(Parser::pattern), infix: None, binding_power: BindingPower::Primary as u8 },
+            | SyntaxKind::STRING => ParseRule { prefix: Some(Parser::pattern_expr), infix: None, binding_power: BindingPower::Primary as u8 },
         SyntaxKind::EQ => ParseRule {prefix: None, infix: Some(Parser::assign), binding_power: BindingPower::Assign as u8},
         _ => ParseRule { prefix: None, infix: None, binding_power: BindingPower::None as u8  },
     }
@@ -99,7 +99,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parses the token stream [`Parse`] but uses statements at the top level for easier testing
-    pub(crate) fn parse_test(mut self) -> Parse {
+    pub fn parse_test(mut self) -> Parse {
         self.builder.start_node(SyntaxKind::SOURCE_FILE.into());
 
         // Parse until end of fule
@@ -209,6 +209,7 @@ impl<'a> Parser<'a> {
         self.comma_seperated_list(SyntaxKind::R_PAREN, &Parser::type_bounds);
         self.builder.finish_node();
         self.skip_whitespace();
+
         // Get possible return type
         if let Some(tk@Token{ ty: SyntaxKind::GT, ..}) = self.tokens.current() {
             self.builder.start_node(SyntaxKind::FUNC_RETURN.into());
@@ -222,6 +223,7 @@ impl<'a> Parser<'a> {
         if let Some(tk) = self.tokens.current() {
             if tk.ty == SyntaxKind::L_BRACE {
                 self.block_stmt();
+                self.builder.finish_node()
             } else {
                 let error = self.generic_error(
                     tk,
@@ -297,16 +299,11 @@ impl<'a> Parser<'a> {
         let tk = self.tokens.current().expect("checked before. Should not fail");
         self.builder.token(SyntaxKind::KW_LET.into(), tk.get_text(&self.src.text));
         self.tokens.advance();
-        // Get the ident
         self.skip_whitespace();
-        self.pattern(self.builder.checkpoint());
-        self.skip_whitespace();
-        // Get optional type
-        if let Some(tk@Token{ ty: SyntaxKind::COLON, ..}) = self.tokens.current() {
-            self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
-            self.tokens.advance();
-            self.type_p();
-        }
+
+        // Parse the type bound
+        self.type_bounds();
+
         self.skip_whitespace();
         match self.tokens.current() {
             // Variable declarations with initialisation
@@ -329,7 +326,7 @@ impl<'a> Parser<'a> {
 
     /// Parse a pattern. Also handles the parsing of the grouping operator `()` as they can be interpreted as a tuple if they have
     /// a comma
-    pub(crate) fn pattern(&mut self, cp: Checkpoint) {
+    pub(crate) fn pattern_expr(&mut self, cp: Checkpoint) {
         match self.tokens.current() {
             // Identifier pattern
             Some(tk@Token { ty: SyntaxKind::IDENT, ..}) => {
@@ -350,6 +347,32 @@ impl<'a> Parser<'a> {
                 self.builder.start_node(SyntaxKind::LIT_PAT.into());
                 self.builder.token((*ty).into(), tk.get_text(&self.src.text));
                 self.builder.finish_node();
+                self.builder.finish_node();
+                self.tokens.advance();
+            }
+            // Invalid pattern
+            Some(tk) => {
+                self.report_error(self.generic_error(&tk, CompilerErrorType::UnexpectedSymbol, "invalid pattern"));
+            },
+            None => {
+                self.report_error(self.eof_error(CompilerErrorType::UnexpectedSymbol, "expected pattern found end of file"));
+            }
+        }
+    }
+
+    pub(crate) fn pattern(&mut self) {
+        match self.tokens.current() {
+            // Identifier pattern
+            Some(tk@Token { ty: SyntaxKind::IDENT, ..}) => {
+                self.builder.start_node(SyntaxKind::IDENT_PAT.into());
+                self.builder.token(SyntaxKind::IDENT.into(), tk.get_text(&self.src.text));
+                self.builder.finish_node();
+                self.tokens.advance();
+            },
+            // Literal patern
+            Some(tk@Token { ty, ..}) if ty.is_literal() => {
+                self.builder.start_node(SyntaxKind::LIT_PAT.into());
+                self.builder.token((*ty).into(), tk.get_text(&self.src.text));
                 self.builder.finish_node();
                 self.tokens.advance();
             }
@@ -466,8 +489,7 @@ impl<'a> Parser<'a> {
     /// Parses an identifier with type bounds
     fn type_bounds(&mut self) {
         self.builder.start_node(SyntaxKind::TYPE_BIND.into());
-        let cp = self.builder.checkpoint();
-        self.pattern(cp);
+        self.pattern();
         self.skip_whitespace();
         if let Some(tk@Token { ty: SyntaxKind::COLON, .. }) = self.tokens.current() {
             self.builder.token(tk.ty.into(), tk.get_text(&self.src.text));
