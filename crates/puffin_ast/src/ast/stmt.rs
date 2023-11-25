@@ -13,7 +13,7 @@ enum Stmt {
     #[valid_for(SyntaxKind::LET_STMT)]
     LetStmt {
         bind: TypeBind,
-        expr: Expr,
+        expr: Option<Expr>,
     },
     #[valid_for(SyntaxKind::BLOCK_STMT)]
     BlockStmt {
