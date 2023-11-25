@@ -26,7 +26,7 @@ use syn::{
 ///
 /// ## Example
 /// This is an example of a simplified Stmt AST Node tree
-/// ```rust
+/// ```ignore
 /// #[ast_enum]
 /// enum Stmt {
 ///     #[valid_for(SyntaxKind::WHILE_STMT)]
@@ -42,7 +42,7 @@ use syn::{
 /// This creates the BlockStmt and WhileNode wrapper structs which you can read more about in the [`ast_node`] macro. It also generates a struct for the enum
 /// that looks like this
 ///
-/// ```rust
+/// ```ignore
 /// /// This is the struct generated from the enum. Think of it representing an overarching syntax node category, such as statements in this case
 /// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// pub struct Stmt {
@@ -258,14 +258,15 @@ pub fn ast_enum(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// This means that each field's type must implement [`AstNode`]. There is also some additional special syntax for special cases.
 ///
 /// ## Usage
-/// ```rust
+/// ```ignore
+/// #[ast_node]
 /// #[valid_for(SyntaxKind::WHILE_STMT)]
 /// struct WhileStmt {
 ///     block: BlockStmt
 /// }
 /// ```
 /// becomes
-/// ```rust
+/// ```ignore
 /// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// pub struct WhileStmt {
 ///     syntax: crate::SyntaxNode
@@ -305,7 +306,7 @@ pub fn ast_enum(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ## Significant tokens
 /// If the node has significant tokens that affect how the node is interpreted, for example, the operand in a binary expression, then you can express it through
 /// this syntax
-/// ```rust
+/// ```ignore
 /// #[ast_node]
 /// #[valid_for(SynaxKind::BIN_EXPR)]
 /// struct BinExpr {
