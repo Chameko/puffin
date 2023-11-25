@@ -12,7 +12,7 @@ use std::{marker::PhantomData, hash::Hash, ops::Index};
 use crate::{SyntaxKind, SyntaxNode, SyntaxToken, SyntaxNodeChildren};
 use fxhash::FxHashMap;
 use item::Item;
-use rowan::GreenNode;
+use rowan::{GreenNode, Direction, TextRange};
 use puffin_source::{TextSlice, id::{InFile, ID, Arena}, FileID};
 
 /// The root of the Abstract Syntax Tree
@@ -24,7 +24,7 @@ pub struct Root {
 impl Root {
     pub fn new(green: GreenNode) -> Self {
         Self {
-            contents: SyntaxNode::new_root(green) ,
+            contents: SyntaxNode::new_root(green),
         }
     }
 
@@ -47,16 +47,19 @@ impl Root {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SyntaxNodePtr {
     kind: SyntaxKind,
-    location: TextSlice,
+    location: TextRange,
 }
 
 impl SyntaxNodePtr {
     pub fn new(item: &SyntaxNode) -> Self {
-        let range = item.text_range();
         Self {
             kind: item.kind(),
-            location: range.start().into()..=(u32::from(range.end()) - 1),
+            location: item.text_range(),
         }
+    }
+
+    pub fn text_slice(&self) -> TextSlice {
+        u32::from(self.location.start())..=u32::from(self.location.end()) - 1
     }
 }
 
@@ -85,7 +88,7 @@ impl<T: AstNode> AstPtr<T>  {
     }
 
     pub fn as_node(&self, root: &Root) -> Option<T> {
-        let node = root.contents.child_or_token_at_range(crate::text_range(self.raw.location.clone()));
+        let node = root.contents.child_or_token_at_range(self.raw.location);
         match node {
             Some(rowan::NodeOrToken::Node(n)) => {
                 if T::can_cast(n.kind()) {
@@ -94,8 +97,15 @@ impl<T: AstNode> AstPtr<T>  {
                     None
                 }
             }
-            _ => None
+            _ => {
+                println!("Range: {:?}", self.raw.location);
+                None
+            }
         }
+    }
+
+    pub fn text_slice(&self) -> TextSlice {
+        self.raw.text_slice()
     }
 }
 
