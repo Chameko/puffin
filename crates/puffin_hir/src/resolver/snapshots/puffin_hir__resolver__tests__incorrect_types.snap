@@ -21,4 +21,10 @@ let c = a + b
         { a } => Ident(Ident { name: "a" })
         { b } => Ident(Ident { name: "b" })
     }
+ERROR[0015]: type mismatch
+--> test.pf:4:9
+4 | let c = a + b
+  |         |   ^ has type of float
+  |         | has type of int
+  | 
 

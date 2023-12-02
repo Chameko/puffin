@@ -35,10 +35,12 @@ fn standard_test(src: &str) -> String {
     }
     if let Some(main) = main {
         let mut resolved = hir_test.resolve_query(main);
+        let mut output = String::new();
         for error in resolved.diagnostics {
-            println!("{}", error.display(&hir_test.source_tree(), &hir_test.vfs()));
+            output.push_str(&format!("{}\n", error.display(&hir_test.source_tree(), &hir_test.vfs())));
         }
-        output_types(resolved.resolved.pop().unwrap(), src, hir_test)
+        output.push_str(&output_types(resolved.resolved.pop().unwrap(), src, hir_test));
+        output
     } else {
         panic!("No main function")
     }
@@ -46,9 +48,12 @@ fn standard_test(src: &str) -> String {
 
 /// Outputs the types of various statements and expressions
 fn output_types(res: Resolved, src: &str, hir_test: HirTest) -> String {
-    let output = output_stmt(res.resolved_body.source, &res, src, 0);
+    let mut output = output_stmt(res.resolved_body.source, &res, src, 0);
     for error in res.diagnostics {
-        println!("{}", error.display(&hir_test.source_tree(), &hir_test.vfs()));
+        std::env::set_var("NO_COLOR", "true");
+        let error_string = error.display(&hir_test.source_tree(), &hir_test.vfs());
+        println!("{}", error_string);
+        output.push_str(&error_string);
     }
     output
 }
