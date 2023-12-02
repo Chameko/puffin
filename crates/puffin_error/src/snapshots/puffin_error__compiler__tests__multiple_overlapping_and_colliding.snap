@@ -1,0 +1,15 @@
+---
+source: crates/puffin_error/src/compiler.rs
+expression: "error.debug_display(\"test\",\n    src.split_inclusive('\\n').enumerate().map(|l| (l.0 + 1, l.1)).collect())"
+---
+ERROR[0001]: unexpected symbol
+--> test:1:6
+1 | This word nay, this entire sentence si an mistake!
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ oh no
+  | 
+  |      ^^^^^^^^^ this part too.       |^ ^^ An extra n?
+  |                                     | this too?
+  | 
+  |      ^^^^ this word.
+  | 
+

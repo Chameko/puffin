@@ -6,8 +6,11 @@ ERROR[0001]: unexpected symbol
 --> test:3:44
 3 | i am an error thats across multiple lines. haha
   |                                            ^^^^^ 
+  | 
 4 | hahaha
   | ^^^^^^^ 
+  | 
 5 | hahaha oh you got me
   | ^^^^^^ caught you
+  | 
 

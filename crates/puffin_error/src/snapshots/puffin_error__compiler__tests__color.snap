@@ -1,0 +1,11 @@
+---
+source: crates/puffin_error/src/compiler.rs
+expression: message
+---
+[1;91mERROR[0m[1;91m[0001]: unexpected symbol[0m
+[1;94m--> test:1:1
+[0m1 [1;94m|[0m this is a very colourfull sentence!
+  [1;34m|[0m [1;91m|[0m[1;91m^^^[0m [1;93m~~[0m [1;93mwarn[0m   [1;94m----------[0m [1;94minfo[0m
+  [1;34m|[0m [1;91m|[0m [1;91merror?[0m
+  [1;34m|[0m 
+

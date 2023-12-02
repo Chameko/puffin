@@ -1,5 +1,6 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::RangeInclusive};
 use colored::*;
+use itertools::Itertools;
 use puffin_source::{SourceTree, TextSlice};
 use puffin_vfs::{VFS, FileID};
 
@@ -133,7 +134,7 @@ impl Display for CompilerErrorType {
 }
 
 /// A highlight for a code segment
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Highlight {
     /// The line the highlight is on
     pub line: usize,
@@ -154,6 +155,17 @@ impl Highlight {
             msg: msg.to_string(),
             level,
         }
+    }
+
+    pub(super) fn localise(&mut self, len: usize) -> LocalHighlight {
+        let local_area = *self.area.start()..=*(self.area.end().min(&(len as u32 - 1)));
+        let mut clone = self.clone();
+        clone.area = local_area;
+        if *self.area.end() > len as u32 {
+            self.area = 0..=(self.area.end() - len as u32);
+            clone.msg = String::new();
+        }
+        LocalHighlight(clone)
     }
 }
 
@@ -278,6 +290,17 @@ pub enum Output<'a> {
     Msg(String),
 }
 
+#[derive(Debug, Clone)]
+struct Line<'a> {
+    line_no: usize,
+    line: &'a str,
+    highlights: Vec<LocalHighlight>,
+}
+
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub(super) struct LocalHighlight(Highlight);
+
 impl<'a> Output<'a> {
     /// Converts the output to a readable [`String`]
     pub fn display(self) -> String {
@@ -290,7 +313,7 @@ impl<'a> Output<'a> {
         }
     }
 
-    /// Formats the code block to look pretty. Uses the first highlight as the error's soruce line and column
+    /// Formats the code block to look pretty. Uses the first highlight as the error's source line and column
     fn format_code(lines: Vec<(usize, &str)>, highlight: Vec<Highlight>, src: &str) -> String {
         // Count the amount of digits in the last line
         let max_digit_size = lines.last().get_or_insert(&(0, "")).0.to_string().len();
@@ -310,14 +333,9 @@ impl<'a> Output<'a> {
                 )
             ).bright_blue().bold()
         ));
-        let mut prev_line = highlight.first().map(|hl| hl.line).unwrap_or(0);
-        for mut hl in highlight {
-            // Add '...' if we skip a line
-            // Uses short circuit evaluation to skip and prevent an integer underflow
-            if hl.line > prev_line && hl.line - prev_line > 1 {
-                output.push_str(&format!("{} {} ...\n", " ".repeat(max_digit_size), "|".bold().bright_blue()));
-            }
+        let mut output_lines: Vec<Line> = vec![];
 
+        for mut hl in highlight {
             // Figure out how many lines the highlight covers
             let mut offset = lines[hl.line].1.len() as u32;
             let mut max_line_offset = 0;
@@ -328,65 +346,217 @@ impl<'a> Output<'a> {
 
             for line_offset in 0..=max_line_offset {
                 let line = lines[hl.line + line_offset];
-                // Add the line to the output
-                output.push_str(&format!(
-                    "{:<max_digit_size$} {} {}\n",
-                    line.0.to_string().bold().bright_blue(),
-                    "|".bold().bright_blue(),
-                    line.1.trim_end()
-                ));
-
-                // Add the highlight. Note we clamp then end to a maximum of the line length
-                let (cursor, mut msg) = match hl.level {
-                    Level::Error => (
-                        "^"
-                            .repeat((hl.area.end().min(&(line.1.len() as u32 - 1)) + 1 - hl.area.start()) as usize)
-                            .bold()
-                            .bright_red(),
-                        hl.msg.bold().bright_red()),
-                    Level::Warn => (
-                        "~"
-                            .repeat((hl.area.end().min(&(line.1.len()  as u32 - 1)) + 1 - hl.area.start()) as usize)
-                            .bold()
-                            .bright_yellow(),
-                        hl.msg.bold().bright_yellow()),
-                    Level::Info => (
-                        "-"
-                            .repeat((hl.area.end().min(&(line.1.len()  as u32 - 1)) + 1 - hl.area.start()) as usize)
-                            .bold()
-                            .bright_blue(),
-                        hl.msg.bold().bright_blue()),
-                };
-                // Don't display a message if this isn't the last line of a highlight being outputed
-                if line_offset != max_line_offset {
-                    msg = String::new().white();
+                let local = hl.localise(line.1.len());
+                if let Some(l) = output_lines.iter_mut().find(|l| l.line_no == line.0) {
+                    l.highlights.push(local);
+                } else {
+                    output_lines.push(Line{highlights: vec![local], line_no: line.0, line: line.1})
                 }
-                output.push_str(&format!(
-                    "{} {} {}{} {}\n",
-                    " ".repeat(max_digit_size),
-                    "|".bold().bright_blue(),
-                    " ".repeat(*hl.area.start() as usize),
-                    cursor,
-                    msg
-                ));
 
-                // This makes so that any highlights past the initial one work
-                if line_offset != max_line_offset {
-                    hl.area = 0..=(hl.area.end() - line.1.len() as u32);
-                }
             }
 
-            prev_line = hl.line + max_line_offset;
         }
+        output_lines.sort_by(|l1, l2| l1.line_no.cmp(&l2.line_no));
+        let mut prev_line = output_lines.first().map_or(0, |l| l.line_no);
+        for line in output_lines {
+            if prev_line < line.line_no && line.line_no - prev_line > 1 {
+                output.push_str(&format!("{:<max_digit_size$} {} ...\n", " ", "|".bold().bright_blue()));
+            }
+            output.push_str(&format!("{:<max_digit_size$} {} {}\n", line.line_no.to_string(), "|".bold().bright_blue(), line.line.trim_end()));
+
+            // Sorts the hilights by priority where the largest ones are the highest priority
+            let sorted_hl = line.highlights
+                .into_iter()
+                .sorted_by(|hl1, hl2| {
+                    (hl1.0.area.end() + 1 - hl1.0.area.start()).cmp(&(hl2.0.area.end() + 1 - hl2.0.area.start()))
+                })
+                .rev()
+                .collect_vec();
+            output.push_str(&Self::format_highlights(max_digit_size, sorted_hl));
+            prev_line = line.line_no;
+        }
+
+        output
+    }
+
+    fn format_highlights(max_digit_size: usize, sorted_hl: Vec<LocalHighlight>) -> String {
+        let mut hl_lines = vec![(0..sorted_hl.len()).into_iter().collect_vec()];
+        let mut line_offset = 0;
+        for (hl_index, _) in sorted_hl.iter().enumerate() {
+            // This moves the highlight up a line if it collides with a higher priority highlight
+            // The longer the highlight the higher priority it is (this is so the longest highlights are closest to the actual line)
+            while (0..hl_index).into_iter().find(|a| {
+                if let Some(line) = hl_lines.get(line_offset) {
+                    if line.contains(a) {
+                        let priority_area = &sorted_hl[*a].0.area;
+                        let hl_area = &sorted_hl[hl_index].0.area;
+                        // Determines if they are overlapping
+                        !(hl_area.end() + 1 < *priority_area.start()
+                            || hl_area.start() - 1 > *priority_area.end())
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }).is_some() {
+                line_offset += 1;
+            }
+            // Moves the highlight to its new line if applicable
+            if line_offset > 0 {
+                if let Some(hl_index_index) = hl_lines[0].iter().position(|a| *a == hl_index) {
+                    hl_lines[0].remove(hl_index_index);
+                }
+                if let Some(hl_line) = hl_lines.get_mut(line_offset) {
+                    hl_line.push(hl_index);
+                } else {
+                    hl_lines.push(vec![hl_index]);
+                }
+            }
+            line_offset = 0;
+        }
+        // Map the Highlight lines to the actual lines rather from the index into sorted_hl
+        let mut hl_lines = hl_lines.into_iter().map(|hl_line| {
+            hl_line.into_iter().map(|hl_index| sorted_hl[hl_index].clone()).collect_vec()
+        }).collect_vec();
+        // Sort the lines so the right most is first and the left most is last
+        for hl_line in &mut hl_lines {
+            hl_line.sort_by(|a, b| a.0.area.end().cmp(&b.0.area.end()));
+            hl_line.reverse();
+        }
+        // Get the lines the message for the highlights will be on
+        let mut message_lines = vec![];
+        for hl_line in &hl_lines {
+            let mut message_line = vec![vec![0]];
+            // The first message will always be the right most and therefor fit on the line.
+            // From there we then check if the message collides with the highlight and if it does, move it up a line
+            for (hl_index, hl) in hl_line.iter().enumerate().skip(1) {
+                if hl.0.area.end() + hl.0.msg.len() as u32 + 2 >= *hl_line[hl_index - 1].0.area.start() {
+                    message_line.push(vec![hl_index]);
+                } else {
+                    message_line[0].push(hl_index);
+                }
+            }
+            message_lines.push(message_line);
+        }
+        // Map the highlight information into a string
+        let output = hl_lines
+            .into_iter()
+            .zip(message_lines)
+            .map(|line| {
+                // Because colorised strings use ascii escapes to add the color and cannot replace ranges,we have to keep track of a
+                // cursor ourselves and push the text into the strings
+
+                let mut output = String::new();
+                // Replace the whitespace with the highlight characters
+                let mut cursor = 0;
+                for (hl_index, hl) in line.0.iter().enumerate().rev() {
+                    output.push_str(&" ".repeat(*hl.0.area.start() as usize - cursor));
+                    cursor += *hl.0.area.start() as usize - cursor;
+                    // Checks if we have a message on the same line as the highlights. We need to know this so we can add the length of the message
+                    // to the cursor and add the message in-line
+                    if line.1.first().map_or(false, |msg| msg.contains(&hl_index)) {
+                        let colored_string = match hl.0.level {
+                            Level::Error =>
+                                (
+                                    "^".repeat((hl.0.area.end() + 1 - hl.0.area.start()) as usize).bold().bright_red(),
+                                    hl.0.msg.bright_red().bold()
+                                ),
+                            Level::Warn =>
+                                (
+                                    "~".repeat((hl.0.area.end() + 1 - hl.0.area.start()) as usize).bold().bright_yellow(),
+                                    hl.0.msg.bright_yellow().bold()
+                                ),
+                            Level::Info =>
+                                (
+                                    "-".repeat((hl.0.area.end() + 1 - hl.0.area.start()) as usize).bold().bright_blue(),
+                                    hl.0.msg.bright_blue().bold()
+                                ),
+                        };
+                        cursor += *hl.0.area.end() as usize + 1 - *hl.0.area.start() as usize + 1 + hl.0.msg.len();
+                        output.push_str(&format!("{} {}", &colored_string.0, &colored_string.1));
+                    } else {
+                        let colored_string = match hl.0.level {
+                            Level::Error =>
+                                    format!(
+                                        "{}{}",
+                                        "|".bold().bright_red(),
+                                        "^".repeat((hl.0.area.end() - hl.0.area.start()) as usize).bold().bright_red()
+                                    ),
+                            Level::Warn =>
+                                    format!(
+                                        "{}{}",
+                                        "|".bold().bright_red(),
+                                        "~".repeat((hl.0.area.end() - hl.0.area.start()) as usize).bold().bright_yellow()
+                                    ),
+                            Level::Info =>
+                                    format!(
+                                        "{}{}",
+                                        "|".bold().bright_red(),
+                                        "-".repeat((hl.0.area.end() - hl.0.area.start()) as usize).bold().bright_blue()
+                                    ),
+                        };
+                        cursor += *hl.0.area.end() as usize + 1 - *hl.0.area.start() as usize;
+                        output.push_str(&colored_string);
+                    }
+                }
+                // Add the additional message lines and their corresponding messages
+                let mut output = vec![output];
+                // Each of our message lines must keep track of a cursor
+                let mut message_lines = vec![];
+                for _ in 0..line.1.len() {
+                    message_lines.push((0, String::new()));
+                }
+                // We go from bottom to top as the bottom most message is the left most
+                for (offset, messages) in line.1.into_iter().skip(1).enumerate().rev() {
+                    for message in messages {
+                        let hl = &line.0[message].0;
+                        for msg_line_index in 0..offset {
+                            let cursor = message_lines[msg_line_index].0;
+                            message_lines[msg_line_index].1.push_str(
+                                &" ".repeat(*hl.area.start() as usize - cursor)
+                            );
+                            message_lines[msg_line_index].1.push_str(&match hl.level {
+                                Level::Warn => format!("{}", "|".bold().bright_yellow()),
+                                Level::Error => format!("{}", "|".bold().bright_red()),
+                                Level::Info => format!("{}", "|".bold().bright_blue()),
+                            });
+                            message_lines[msg_line_index].0 += *hl.area.start() as usize - message_lines[msg_line_index].0 + 1;
+                        }
+                        let cursor = message_lines[offset].0;
+                        message_lines[offset].1.push_str(&" ".repeat(*hl.area.start() as usize - cursor));
+                        message_lines[offset].1.push_str(&match hl.level {
+                            Level::Warn => format!("{} {}", "|".bold().bright_yellow(), hl.msg.bold().bright_yellow()),
+                            Level::Error => format!("{} {}", "|".bold().bright_red(), hl.msg.bold().bright_red()),
+                            Level::Info => format!("{} {}", "|".bold().bright_blue(), hl.msg.bold().bright_blue()),
+                        });
+                    }
+                }
+                for line in message_lines {
+                    output.push(line.1);
+                }
+                output
+            })
+            .flatten()
+            .map(|mut s| {
+                // Map to the standard display format
+                s.insert_str(0, &format!("{:<max_digit_size$} {} ", " ", "|".bold().blue()));
+                s.push('\n');
+                s
+            })
+            .collect::<String>();
         output
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
 
     #[test]
+    #[serial]
     fn multiple_highlights() {
         colored::control::set_override(false);
         let src = "This shouldn't have the word potato\npotato\noops";
@@ -398,6 +568,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn multiline_highlights() {
         colored::control::set_override(false);
         let src = "this is a line\nthis is also a line\ni am an error thats across multiple lines. haha\nhahaha\nhahaha oh you got me\nI'm sad";
@@ -408,6 +579,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn skip() {
         colored::control::set_override(false);
         let src = "a skip here\nnot here\nand a skip there";
@@ -416,5 +588,73 @@ mod tests {
         let out = DeferredOutput::Code{ highlight: vec![hl, hl2], src: FileID(0)};
         let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
         insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect()));
+    }
+
+    #[test]
+    #[serial]
+    fn same_line_message_colliding() {
+        colored::control::set_override(false);
+        let src = "a platypus? PERRY THE PLATYPUS?!";
+        let hl = DeferredHighlight::new(2..=9, "gasp", Level::Error);
+        let hl2 = DeferredHighlight::new(12..=16, "bigger gasp", Level::Error);
+        let out = DeferredOutput::Code{ highlight: vec![hl, hl2], src: FileID(0)};
+        let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect()));
+    }
+
+    #[test]
+    #[serial]
+    fn same_line_message_not_colliding() {
+        colored::control::set_override(false);
+        let src = "a platypus? PERRY THE PLATYPUS?!";
+        let hl = DeferredHighlight::new(2..=9, "gasp", Level::Error);
+        let hl2 = DeferredHighlight::new(23..=30, "bigger gasp", Level::Error);
+        let out = DeferredOutput::Code{ highlight: vec![hl, hl2], src: FileID(0)};
+        let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect()));
+    }
+
+    #[test]
+    #[serial]
+    fn multiple_overlapping() {
+        colored::control::set_override(false);
+        let src = "This word nay, this entire sentence si a mistake!";
+        let hl = DeferredHighlight::new(5..=8, "only this?", Level::Error);
+        let hl2 = DeferredHighlight::new(0..=48, "oh no", Level::Error);
+        let hl3 = DeferredHighlight::new(37..=38, "this too?", Level::Error);
+        let out = DeferredOutput::Code{ highlight: vec![hl, hl2, hl3], src: FileID(0)};
+        let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect()));
+    }
+
+    #[test]
+    #[serial]
+    fn multiple_overlapping_and_colliding() {
+        colored::control::set_override(false);
+        let src = "This word nay, this entire sentence si an mistake!";
+        let hl = DeferredHighlight::new(5..=13, "this part too.", Level::Error);
+        let hl4 = DeferredHighlight::new(5..=8, "this word.", Level::Error);
+        let hl2 = DeferredHighlight::new(0..=48, "oh no", Level::Error);
+        let hl3 = DeferredHighlight::new(36..=37, "this too?", Level::Error);
+        let hl5 = DeferredHighlight::new(39..=40, "An extra n?", Level::Error);
+        let out = DeferredOutput::Code{ highlight: vec![hl, hl2, hl3, hl4, hl5], src: FileID(0)};
+        let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
+        insta::assert_snapshot!(error.debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect()));
+    }
+
+    #[test]
+    #[serial]
+    fn test_color() {
+        colored::control::set_override(true);
+        let src = "this is a very colourfull sentence!";
+        let hl = DeferredHighlight::new(0..=3, "error?", Level::Error);
+        let hl2 = DeferredHighlight::new(5..=6, "warn", Level::Warn);
+        let hl3 = DeferredHighlight::new(15..=24, "info", Level::Info);
+        let out = DeferredOutput::Code{ highlight: vec![hl, hl2, hl3], src: FileID(0)};
+        let error = CompilerError::new(CompilerErrorType::UnexpectedSymbol, Level::Error, vec![out]);
+        let message = error
+            .debug_display("test", src.split_inclusive('\n').enumerate().map(|l| (l.0 + 1, l.1)).collect());
+        println!("{}", message);
+        insta::assert_snapshot!(message);
     }
 }
