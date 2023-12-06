@@ -67,13 +67,13 @@ fn output_stmt(stmt: StmtID, res: &Resolved, src: &str, mut indent: usize) -> St
         Stmt::ExprStmt(e) => {
             output_expr(*e, res, src, indent)
         },
-        Stmt::Let { ty, expr } => {
-            let pat_name = match &res.resolved_body.pat_alloc[ty.pat] {
+        Stmt::Let { bind, expr } => {
+            let pat_name = match &res.resolved_body.pat_alloc[bind.pat] {
                 crate::model::Pattern::Ident(i) => i.name.to_string(),
                 _ => String::new(),
             };
             output.push_str(&" ".repeat(2 * indent));
-            output.push_str(&format!("{} => {:?}", pat_name, res.resolved_body.type_alloc[ty.ty].display(&res.resolved_body.type_alloc)));
+            output.push_str(&format!("{} => {:?}", pat_name, res.resolved_body.type_alloc[bind.ty].display(&res.resolved_body.type_alloc)));
             if let Some(expr) = expr {
                 output.push_str(&format!(" from {{\n{}{}}}\n", output_expr(*expr, res, src, indent), " ".repeat(2*indent)))
             }

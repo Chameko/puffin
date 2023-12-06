@@ -1,7 +1,6 @@
-use crate::{id::{TypeID, PatID}, resolver::{ConcreteType, inferer::TypeVar}};
+use crate::{id::{TypeID, PatID, Arena}, resolver::ConcreteType};
 
 use super::HirNode;
-use puffin_source::id::Arena;
 use smol_str::SmolStr;
 use puffin_ast::ast::{self, AstToken};
 
@@ -23,7 +22,7 @@ pub struct Ident {
 }
 
 impl Ident {
-    pub fn from_ast(ty: ast::pat::Ident) -> Self {
+    pub fn from_ast(ty: &ast::pat::Ident) -> Self {
         Self {
             name: SmolStr::new(ty.syntax().text())
         }
@@ -60,6 +59,7 @@ pub enum Type {
 impl Type {
     #[cfg(test)]
     pub fn display(&self, alloc: &Arena<Type>) -> String {
+
         match self {
             Type::Func(f) => f.display(alloc),
             _ => format!("{:?}", self)
@@ -95,16 +95,20 @@ impl FunctionType {
 }
 
 impl Type {
-    pub fn from_ast(ty: Option<ast::common::Type>) -> Self {
+    pub fn optional_from_ast(ty: &Option<ast::common::Type>) -> Self {
         match ty {
-            Some(ty) => Self::from_ast_certain(ty) ,
+            Some(ty) => Self::from_ast(ty) ,
             None => Type::Unknown
         }
     }
+}
 
-    pub fn from_ast_certain(ty: ast::common::Type) -> Self  {
-        match ty.kind() {
-            ast::common::TypeKind::Path(path) => Type::Path(Path::from_ast(path)),
+impl HirNode for Type {
+    type AstSource = ast::common::Type;
+
+    fn from_ast(ast: &Self::AstSource) -> Self {
+        match ast.kind() {
+            ast::common::TypeKind::Path(path) => Type::Path(Path::from_ast(&path)),
             ast::common::TypeKind::Concrete(c) => Type::Concrete(ConcreteType::from(c.concrete_kind().unwrap()))
         }
     }
@@ -121,15 +125,16 @@ pub struct Path {
 
 impl HirNode for Path {
     type AstSource = ast::common::Path;
-    fn from_ast(ast: Self::AstSource) -> Self {
+
+    fn from_ast(ast: &Self::AstSource) -> Self {
         Path {
             relative: PathRel::Plain,
-            elements: vec![Ident::from_ast(ast.single().expect("expected ident"))],
+            elements: vec![Ident::from_ast(&ast.single().expect("expected ident"))],
         }
     }
 }
 
-/// Describes what the path is relative to. Note that this is only used because Self is a
+/// Describes what the path is relative to. Note that "This" is only used because "Self" is a
 /// reserved word in rust
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PathRel {

@@ -21,7 +21,7 @@ pub trait ResolveDatabase : DefDatabase {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Resolved {
-    resolved_func: Function,
+    resolved_func: FunctionID,
     resolved_body: Body,
     resolved_body_src: BodySourceMap,
     type_var: Arena<TypeBacking>,
@@ -30,7 +30,7 @@ pub struct Resolved {
 
 impl Resolved {
     pub fn new(
-        resolved_func: Function,
+        resolved_func: FunctionID,
         resolved_body: Body,
         resolved_body_src: BodySourceMap,
         type_var: Arena<TypeBacking>,

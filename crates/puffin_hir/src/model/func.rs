@@ -20,43 +20,23 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionSource {
     pub ast_id: InFile<ID<ast::item::FuncItem>>,
-    pub type_map: AstMap<Type, ast::common::Type>,
 }
 
 impl FunctionSource {
-    pub fn new(ast_id: InFile<ID<ast::item::FuncItem>>, type_map: AstMap<Type, ast::common::Type>) -> Self {
+    pub fn new(ast_id: InFile<ID<ast::item::FuncItem>>) -> Self {
         Self {
             ast_id,
-            type_map,
         }
     }
 }
 
 impl Function {
     pub fn func_item(item: FuncItem, data: &mut ItemTreeData, id: InFile<ID<FuncItem>>) -> Option<ID<Self>> {
-        let mut type_alloc = Arena::new();
-        let mut type_map =  AstMap::new();
-        let mut func_param = vec![];
-        for param in item.param().next()?.parameters() {
-            let id = type_alloc.alloc(Type::from_ast(param.ty()));
-            if let Some(ty) = &param.ty() {
-                let ptr = AstPtr::from_ast(ty).in_file(data.file);
-                type_map.record(id, ptr);
-            }
-            func_param.push(id);
-        }
-        let rtrn = if let Some(ast_ty) = item.rtrn() {
-            let ast_ptr = AstPtr::from_ast(&ast_ty).in_file(data.file);
-            let ty = Type::from_ast_certain(ast_ty);
-            let id = type_alloc.alloc(ty);
-            type_map.record(id, ast_ptr);
-            id
-        } else {
-            type_alloc.alloc(Type::Concrete(ConcreteType::Empty))
-        };
-        let name = Ident::from_ast(item.name()?);
-        let sig = FunctionSignature::new(name, func_param, rtrn, type_alloc);
-        let source = FunctionSource::new(id, type_map);
+        let rtrn = item.rtrn().is_some();
+        let arity = item.param().count();
+        let name = Ident::from_ast(&item.name()?);
+        let sig = FunctionSignature::new(name, arity as u32, rtrn);
+        let source = FunctionSource::new(id);
         let func = Self {
             signature: sig,
             source,

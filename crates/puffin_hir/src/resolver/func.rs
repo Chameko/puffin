@@ -6,7 +6,7 @@ use puffin_error::{CompilerError, CompilerErrorType, DeferredOutput, DeferredHig
 use puffin_source::{id::InFile, TextSlice};
 use puffin_vfs::FileID;
 
-use crate::{model::{FunctionID, common::{Ident, Type, FunctionType}, Pattern, body::BodySourceMap, Body, Function}, id::{PatID, TypeID, StmtID, ExprID, ConstrID}, resolver::inferer::TypeBacking, signature::FunctionSignature, item_tree::SplitItemTreeNode};
+use crate::{model::{FunctionID, common::{Ident, Type, FunctionType}, Pattern, body::BodySourceMap, Body}, id::{PatID, TypeID, StmtID, ExprID, ConstrID}, resolver::inferer::TypeBacking};
 
 use super::{ResolveDatabase, Resolved, typemap::{Constraint, TypeMap}, ResolveRequest, ResolveRequestType, ConcreteType, inferer::{Inferer, TypeVar}, scope::Scope};
 
@@ -25,7 +25,7 @@ impl FunctionResolver {
     pub fn func_resolver(db: &dyn ResolveDatabase, id: FunctionID) -> Resolved {
         let func_id = db.lookup_intern_function(id);
         let item_tree = db.item_tree(func_id.file);
-        let mut func = &item_tree[func_id];
+        let  func = &item_tree[func_id];
         let root = db.ast(func_id.file);
         let inferer = Inferer::new();
         let mut scope = Scope::new();
@@ -36,15 +36,10 @@ impl FunctionResolver {
         scope.new_scope();
         let mut func_resolver = Self {body, body_src, root, inferer, scope, type_map, diagnostics, requests };
 
-        func_resolver.resolve(&mut func, func_id.file);
+        func_resolver.resolve(func_id.file);
 
-        // Update function parameters with resolved types
-        let mut resolved_func = item_tree[Function::from_sig_id(func_id)].clone();
-        for (func_ty, body_ty) in resolved_func.signature.type_alloc.iter_mut().zip(func_resolver.body.type_alloc.iter()) {
-            *func_ty.1 = body_ty.1.clone();
-        }
         Resolved::new(
-            resolved_func,
+            id,
             func_resolver.body,
             func_resolver.body_src,
             func_resolver.inferer.type_var,
@@ -52,13 +47,12 @@ impl FunctionResolver {
         )
     }
 
-    pub fn resolve(&mut self, func: &FunctionSignature, file: FileID) {
+    pub fn resolve(&mut self, file: FileID) {
         // This flattens the parameters of the functions and reports any invalid patterns as errors
-        let param: Vec<Result<Vec<(Ident, TypeID, PatID)>, Vec<CompilerError>>> = func.param
+        let param: Vec<Result<Vec<(Ident, TypeID, PatID)>, Vec<CompilerError>>> = self.body.param
             .iter()
-            .zip(self.body.param.iter())
             .map(|p| {
-                self.pattern_deconstructor(*p.1, *p.0)
+                self.pattern_deconstructor(p.0, p.1)
             })
             .collect();
 
@@ -116,9 +110,9 @@ impl FunctionResolver {
             crate::model::Stmt::ExprStmt(e) => {
                 self.infer_expr(e);
             },
-            crate::model::Stmt::Let{ ty, expr } => {
+            crate::model::Stmt::Let{ bind, expr } => {
                 // Unpack the let assignment
-                match self.pattern_deconstructor(ty.pat, ty.ty) {
+                match self.pattern_deconstructor(bind.pat, bind.ty) {
                     Ok(idents) => {
                         for (i, ty, pat) in idents {
                             let var = self.add_type_var(ty);

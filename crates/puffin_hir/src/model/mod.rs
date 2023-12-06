@@ -35,7 +35,9 @@ pub trait InternDatabase: ParserDatabase {
     fn intern_function(&self, func: ItemID<FunctionSignature>) -> FunctionID;
 }
 
+/// A trait for converting between the model types and the CST types
 pub trait HirNode: Clone {
     type AstSource: AstNode;
-    fn from_ast(ast: Self::AstSource) -> Self;
+
+    fn from_ast(ast: &Self::AstSource) -> Self;
 }
