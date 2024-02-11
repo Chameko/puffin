@@ -12,6 +12,15 @@ pub enum Item {
         rtrn: Option<Type>,
         block: BlockStmt,
     },
+    #[valid_for(SyntaxKind::TRAIT_ITEM)]
+    TraitItem {
+        name: (Ident),
+        funcs: FuncItem,
+    },
+    #[valid_for(SyntaxKind::IMPL_ITEM)]
+    ImplItem {
+        funcs: FuncItem,
+    }
 }
 
 #[ast_node]

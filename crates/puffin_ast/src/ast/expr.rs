@@ -8,7 +8,22 @@ pub enum Expr {
     #[valid_for(SyntaxKind::BIN_EXPR)]
     BinExpr {
         lhs: Expr,
-        bin_op: (Add<SyntaxKind::PLUS>, Subtract<SyntaxKind::MINUS>, Multiply<SyntaxKind::STAR>, Divide<SyntaxKind::SLASH>),
+        bin_op: (
+            Add<SyntaxKind::PLUS>,
+            Subtract<SyntaxKind::MINUS>,
+            Multiply<SyntaxKind::STAR>,
+            Divide<SyntaxKind::SLASH>,
+            Equal<SyntaxKind::EQEQ>,
+            NotEqual<SyntaxKind::NEQ>,
+            Greater<SyntaxKind::GT>,
+            GreaterEqual<SyntaxKind::GTEQ>,
+            Less<SyntaxKind::LT>,
+            LessEqual<SyntaxKind::LTEQ>,
+            And<SyntaxKind::KW_AND>,
+            And2<SyntaxKind::AMPAMP>,
+            Or<SyntaxKind::KW_OR>,
+            Or2<SyntaxKind::PIPEPIPE>,
+        ),
         rhs: Expr,
     },
     #[valid_for(SyntaxKind::PAT_EXPR)]

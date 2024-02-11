@@ -15,6 +15,10 @@ use rowan::{GreenNode, GreenNodeBuilder, Checkpoint};
 enum BindingPower {
     None,
     Assign, // =
+    And, // and
+    Or, // or
+    Equality, // == !=
+    Comparison, // < <= > >=
     Term, //+ -
     Factor, // * /
     Primary
@@ -51,6 +55,13 @@ fn get_parse_rule<'a, 'b, 'c>(tk: &'a Token) -> ParseRule<'b, 'c> {
             | SyntaxKind::INT
             | SyntaxKind::IDENT
             | SyntaxKind::STRING => ParseRule { prefix: Some(Parser::pattern_expr), infix: None, binding_power: BindingPower::Primary as u8 },
+        SyntaxKind::KW_AND => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::And as u8 },
+        SyntaxKind::KW_OR => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Or as u8 },
+        SyntaxKind::EQEQ | SyntaxKind::NEQ => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Equality as u8 },
+        SyntaxKind::GTEQ
+            | SyntaxKind::LTEQ
+            | SyntaxKind::LT
+            | SyntaxKind::GT => ParseRule { prefix: None, infix: Some(Parser::binary), binding_power: BindingPower::Comparison as u8 },
         SyntaxKind::EQ => ParseRule {prefix: None, infix: Some(Parser::assign), binding_power: BindingPower::Assign as u8},
         _ => ParseRule { prefix: None, infix: None, binding_power: BindingPower::None as u8  },
     }

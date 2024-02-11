@@ -1,23 +1,50 @@
+use std::fmt::Display;
+
 use puffin_ast::ast;
-use super::{HirNode, common::Ident};
+use puffin_source::id::Arena;
+use crate::{id::TypeID, resolver::ConcreteType};
+
+use super::{HirNode, common::{Ident, Type}};
 
 
 /// A pattern
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Pattern {
-    Literal(Literal),
-    Ident(Ident),
+    Literal {
+        literal: Literal,
+        ty: TypeID,
+    },
+    Ident {
+        ident: Ident,
+        ty: TypeID
+    },
     /// Missing pattern
-    Missing,
+    Missing(TypeID),
 }
 
-impl HirNode for Pattern {
-    type AstSource = ast::pat::Pat;
-
-    fn from_ast(ast: &Self::AstSource) -> Self {
+impl Pattern {
+    pub fn from_ast(ast: &ast::pat::Pat, ty_alloc: &mut Arena<Type>) -> Self {
         match ast.kind() {
-            ast::pat::PatKind::IdentPat(i) => Self::Ident(Ident::from_ast(&i.ident().unwrap())),
-            ast::pat::PatKind::LiteralPat(l) => Self::Literal(Literal::from_ast(&l)),
+            ast::pat::PatKind::IdentPat(i) => Self::Ident{
+                ident: Ident::from_ast(&i.ident().unwrap()),
+                ty: ty_alloc.alloc(Type::Unknown)
+            },
+            ast::pat::PatKind::LiteralPat(l) => {
+                match Literal::from_ast(&l) {
+                    l@Literal::Int(_) => Self::Literal { literal: l, ty: ty_alloc.alloc(Type::Concrete(ConcreteType::Int)) },
+                    l@Literal::Float(_) => Self::Literal { literal: l, ty: ty_alloc.alloc(Type::Concrete(ConcreteType::Float)) }
+                }
+            },
+        }
+    }
+}
+
+impl Display for Pattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Pattern::Literal { literal, .. } => write!(f, "Literal{:?}", literal),
+            Pattern::Ident { ident, .. } => write!(f, "Ident{:?}", ident),
+            Pattern::Missing(_) => write!(f, "Missing"),
         }
     }
 }

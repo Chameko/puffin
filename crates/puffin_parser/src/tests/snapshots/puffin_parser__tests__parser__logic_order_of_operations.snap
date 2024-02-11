@@ -1,0 +1,45 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"1 <= 2 and 3 == 3 or 0 != 1\")"
+---
+SOURCE_FILE@0..=26
+    EXPR_STMT@0..=26
+        BIN_EXPR@0..=26
+            BIN_EXPR@0..=6
+                PAT_EXPR@0..=0
+                    LIT_PAT@0..=0
+                        1 |INT@0..0
+                  |WHITESPACE@1..1
+                <= |LTEQ@2..3
+                  |WHITESPACE@4..4
+                PAT_EXPR@5..=5
+                    LIT_PAT@5..=5
+                        2 |INT@5..5
+                  |WHITESPACE@6..6
+            and |KW_AND@7..9
+              |WHITESPACE@10..10
+            BIN_EXPR@11..=26
+                BIN_EXPR@11..=17
+                    PAT_EXPR@11..=11
+                        LIT_PAT@11..=11
+                            3 |INT@11..11
+                      |WHITESPACE@12..12
+                    == |EQEQ@13..14
+                      |WHITESPACE@15..15
+                    PAT_EXPR@16..=16
+                        LIT_PAT@16..=16
+                            3 |INT@16..16
+                      |WHITESPACE@17..17
+                or |KW_OR@18..19
+                  |WHITESPACE@20..20
+                BIN_EXPR@21..=26
+                    PAT_EXPR@21..=21
+                        LIT_PAT@21..=21
+                            0 |INT@21..21
+                      |WHITESPACE@22..22
+                    != |NEQ@23..24
+                      |WHITESPACE@25..25
+                    PAT_EXPR@26..=26
+                        LIT_PAT@26..=26
+                            1 |INT@26..26
+

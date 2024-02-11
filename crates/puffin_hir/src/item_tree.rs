@@ -1,10 +1,15 @@
-use puffin_ast::ast::item::{ItemKind, FuncItem};
+use puffin_ast::ast::item::{ItemKind, FuncItem, TraitItem, ImplItem};
 use puffin_source::id::{ID, InFile};
 use puffin_vfs::FileID;
 use std::sync::Arc;
 use std::marker::PhantomData;
 use std::ops::Index;
-use crate::{signature::FunctionSignature, id::{ItemID, Arena}, def::DefDatabase, model::{Function, FunctionSource}};
+use crate::{
+    signature::{FunctionSignature, TraitSignature, ImplSignature},
+    id::{ItemID, Arena},
+    def::DefDatabase,
+    model::{Function, FunctionSource, TraitSource, ImplSource, traits::Trait, impls::Impl, TraitID, },
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
@@ -16,23 +21,30 @@ pub struct ItemTree {
 pub struct ItemTreeData {
     pub file: FileID,
     functions: Arena<Function>,
+    traits: Arena<Trait>,
+    impls: Arena<Impl>,
 }
 
 impl ItemTree {
     pub fn item_tree_query(db: &dyn DefDatabase, file: FileID) -> Arc<Self> {
         let ast_map = db.ast_map(file);
         let root = db.ast(file);
-        let mut top_level = vec![];
-        let mut data = ItemTreeData::new(file);
+        let (mut data, mut top_level) = ItemTreeData::new(file, db);
         for item in root.interpret() {
             match item.kind() {
                 ItemKind::FuncItem(func) => {
                     let ast_id = ast_map.ast_id(&func);
-                    if let Some(func) =Function::func_item(func, &mut data, ast_id) {
+                    if let Some(func) = Function::func_item(func, &mut data, ast_id) {
                         let func = func.in_file(file);
                         db.intern_function(Function::to_sig_id(func));
                         top_level.push(ModItem::from(func));
                     }
+                },
+                ItemKind::TraitItem(trt) => {
+                    unimplemented!()
+                }
+                ItemKind::ImplItem(impl_p) => {
+                    unimplemented!()
                 }
             }
         }
@@ -51,14 +63,43 @@ impl ItemTree {
             }
         }).collect()
     }
+
+    /// Grab all the implementations of a trait
+    pub fn trait_impls(&self, trait_id: TraitID) -> Vec<ItemID<Impl>> {
+        self.top_level.iter().filter_map(|i| {
+            if let ModItem::Impl(i) = i  {
+                if self[*i].signature.trait_id == trait_id {
+                    Some(*i)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }).collect()
+    }
+
+    /// Find a trait by signature
+    pub fn find_trait(&self, trait_sig: TraitSignature, db: &dyn DefDatabase) -> Option<TraitID> {
+        for (id, Trait{ signature, ..}) in self.data.traits.iter() {
+            if *signature == trait_sig {
+                return Some(db.intern_trait(Trait::to_sig_id(id.in_file(self.data.file))))
+            }
+        }
+        None
+    }
 }
 
 impl ItemTreeData {
-    pub fn new(file: FileID) -> Self {
-        Self {
+    pub fn new(file: FileID, db: &dyn DefDatabase) -> (Self, Vec<ModItem>) {
+        // Creates item tree data and top level with std traits and impls
+        let (traits, impls, top_level) = Default::default();
+        (Self {
             file,
             functions: Arena::new(),
-        }
+            impls,
+            traits,
+        }, top_level)
     }
 
     pub fn alloc_func(&mut self, func: Function) -> ID<Function> {
@@ -241,7 +282,11 @@ macro_rules! mod_item  {
     };
 }
 
-mod_item!(Function in functions -> FunctionSource | FunctionSignature >> FuncItem);
+mod_item!(
+    Function in functions -> FunctionSource | FunctionSignature >> FuncItem,
+    Trait in traits -> TraitSource | TraitSignature >> TraitItem,
+    Impl in impls -> ImplSource | ImplSignature >> ImplItem
+);
 
 pub trait ItemTreeNode : Clone {
     type AstSource: Clone;

@@ -28,25 +28,44 @@ pub enum Expr {
     /// A pattern expression
     Pattern(PatID),
     /// A missing expression
-    Missing,
+    Missing(TypeID),
 }
 
 /// A binary operation
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BinOp {
     Add,
-    Subtract,
-    Multiply,
-    Divide,
+    Sub,
+    Mul,
+    Div,
+    And,
+    Or,
+    Equal,
+    NotEqual,
+    GreaterEqual,
+    LessEqual,
+    Greater,
+    Less,
 }
 
 impl From<ast::expr::BinOpKind>  for BinOp {
     fn from(value: ast::expr::BinOpKind) -> Self {
+        
         match value {
             ast::expr::BinOpKind::Add => Self::Add,
-            ast::expr::BinOpKind::Subtract => Self::Subtract,
-            ast::expr::BinOpKind::Multiply => Self::Multiply,
-            ast::expr::BinOpKind::Divide => Self::Divide,
+            ast::expr::BinOpKind::Subtract => Self::Sub,
+            ast::expr::BinOpKind::Multiply => Self::Mul,
+            ast::expr::BinOpKind::Divide => Self::Div,
+            ast::expr::BinOpKind::And
+                | ast::expr::BinOpKind::And2 => Self::And,
+            ast::expr::BinOpKind::Or
+                | ast::expr::BinOpKind::Or2 => Self::Or,
+            ast::expr::BinOpKind::Equal => Self::Equal,
+            ast::expr::BinOpKind::NotEqual => Self::NotEqual,
+            ast::expr::BinOpKind::GreaterEqual => Self::GreaterEqual,
+            ast::expr::BinOpKind::LessEqual => Self::LessEqual,
+            ast::expr::BinOpKind::Less => Self::Less,
+            ast::expr::BinOpKind::Greater => Self::Greater,
         }
     }
 }

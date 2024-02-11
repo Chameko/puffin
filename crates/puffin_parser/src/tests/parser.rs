@@ -140,6 +140,26 @@ fn fn_with_param() {
 }
 
 #[test]
-fn multiple_assign() {
-    insta::assert_snapshot!(standard_test("a = b = c = 1"));
+fn equality() {
+    insta::assert_snapshot!(standard_test("a == b != c"));
+}
+
+#[test]
+fn and() {
+    insta::assert_snapshot!(standard_test("a and b && c"));
+}
+
+#[test]
+fn or() {
+    insta::assert_snapshot!(standard_test("a or b || c"));
+}
+
+#[test]
+fn comparison() {
+    insta::assert_snapshot!(standard_test("1 > 2 >= 3 < 1 <= 4"));
+}
+
+#[test]
+fn logic_order_of_operations() {
+    insta::assert_snapshot!(standard_test("1 <= 2 and 3 == 3 or 0 != 1"));
 }

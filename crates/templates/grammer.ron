@@ -21,6 +21,7 @@ Grammer(
     ],
     multi_char_tokens: [
         ["==", "EQEQ"],
+        ["!=", "NEQ"],
         [">=", "GTEQ"],
         ["<=", "LTEQ"],
         ["&&", "AMPAMP"],
@@ -43,6 +44,8 @@ Grammer(
         "INT",
         "FLOAT",
         "STRING",
+        "TRUE",
+        "FALSE",
     ],
     tokens: [
         "ERROR",
@@ -71,5 +74,7 @@ Grammer(
         "TYPE_BIND",
         "PATH_TYPE",
         "CONCRETE_TYPE",
+        "TRAIT_ITEM",
+        "IMPL_ITEM",
     ]
 )

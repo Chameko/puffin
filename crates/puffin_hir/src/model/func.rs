@@ -1,15 +1,16 @@
+use puffin_ast::ast::AstNode;
 use puffin_ast::ast::{item::FuncItem, AstMap};
-use std::sync::Arc;
 use puffin_ast::{ast, AstPtr};
-use puffin_source::id::{ID, InFile, Arena};
+use puffin_source::id::{Arena, InFile, ID};
+use std::sync::Arc;
 
 use crate::def::DefDatabase;
 use crate::item_tree::SplitItemTreeNode;
 use crate::resolver::ConcreteType;
-use crate::{signature::FunctionSignature, item_tree::ItemTreeData};
+use crate::{item_tree::ItemTreeData, signature::FunctionSignature};
 
-use super:: FunctionID;
-use super::common::{Type, Ident};
+use super::common::{Ident, Type};
+use super::{FunctionID, HirNode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
@@ -19,24 +20,57 @@ pub struct Function {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionSource {
+    pub type_map: AstMap<Type, ast::common::Type>,
     pub ast_id: InFile<ID<ast::item::FuncItem>>,
 }
 
 impl FunctionSource {
-    pub fn new(ast_id: InFile<ID<ast::item::FuncItem>>) -> Self {
-        Self {
-            ast_id,
-        }
+    pub fn new(type_map: AstMap<Type, ast::common::Type>, ast_id: InFile<ID<ast::item::FuncItem>>) -> Self {
+        Self { ast_id, type_map }
     }
 }
 
 impl Function {
-    pub fn func_item(item: FuncItem, data: &mut ItemTreeData, id: InFile<ID<FuncItem>>) -> Option<ID<Self>> {
-        let rtrn = item.rtrn().is_some();
-        let arity = item.param().count();
-        let name = Ident::from_ast(&item.name()?);
-        let sig = FunctionSignature::new(name, arity as u32, rtrn);
-        let source = FunctionSource::new(id);
+    pub fn func_item(
+        func: FuncItem,
+        data: &mut ItemTreeData,
+        id: InFile<ID<FuncItem>>,
+    ) -> Option<ID<Self>> {
+        let file = id.file;
+        let mut type_map = AstMap::new();
+        let mut type_alloc = Arena::new();
+        // Get the parameters
+        let parameters = func.param().next().unwrap().parameters();
+        let param = parameters.into_iter().map(|param| {
+            // Get the type and record it
+            let ty = Type::optional_from_ast(&param.ty());
+            let ty_ast_ptr = if let Some(ty) = param.ty() {
+                AstPtr::from_ast(&ty).in_file(file)
+            } else {
+                // We use the pattern's locaion if the type isn't present
+                let pat = param.name().next().unwrap();
+                AstPtr::new(&pat.syntax()).in_file(file)
+            };
+            let id = type_alloc.alloc(ty);
+            type_map.record(id, ty_ast_ptr);
+            id
+        }).collect();
+        // Get the return type
+        let rtrn = if let Some(ty) = func.rtrn() {
+            let rtrn = Type::from_ast(&ty);
+            let rtrn_ast_ptr = AstPtr::from_ast(&ty).in_file(file);
+            let rtrn_id = type_alloc.alloc(rtrn);
+            type_map.record(rtrn_id, rtrn_ast_ptr);
+            rtrn_id
+        } else {
+            // If there is no return type then we return an empty.
+            // We also don't record a mapping back as there isn't one
+            let rtrn = Type::Concrete(ConcreteType::Empty);
+            type_alloc.alloc(rtrn)
+        };
+        let name = Ident::from_ast(&func.name()?);
+        let sig = FunctionSignature::new(name, type_alloc, param, rtrn);
+        let source = FunctionSource::new(type_map, id);
         let func = Self {
             signature: sig,
             source,

@@ -29,6 +29,7 @@ pub enum SyntaxKind {
     NL,
     COMMA,
     EQEQ,
+    NEQ,
     GTEQ,
     LTEQ,
     AMPAMP,
@@ -47,6 +48,8 @@ pub enum SyntaxKind {
     INT,
     FLOAT,
     STRING,
+    TRUE,
+    FALSE,
     ERROR,
     IDENT,
     WHITESPACE,
@@ -70,7 +73,9 @@ pub enum SyntaxKind {
     FUNC_RETURN,
     TYPE_BIND,
     PATH_TYPE,
-    CONCRETE_TYPE,// Allows for casting from u16 safely
+    CONCRETE_TYPE,
+    TRAIT_ITEM,
+    IMPL_ITEM,// Allows for casting from u16 safely
     __LAST,
 }
 
@@ -132,6 +137,9 @@ macro_rules! T {
     };
     (==) => {
         $crate::SyntaxKind::EQEQ
+    };
+    (!=) => {
+        $crate::SyntaxKind::NEQ
     };
     (>=) => {
         $crate::SyntaxKind::GTEQ
@@ -220,6 +228,7 @@ impl SyntaxKind {
         | NL
         | COMMA
         | EQEQ
+        | NEQ
         | GTEQ
         | LTEQ
         | AMPAMP
@@ -233,6 +242,8 @@ impl SyntaxKind {
             INT
             | FLOAT
             | STRING
+            | TRUE
+            | FALSE
         )
     }
 }
@@ -274,6 +285,7 @@ impl std::fmt::Display for SyntaxKind {
 "),
             SyntaxKind::COMMA => write!(f, ","),
             SyntaxKind::EQEQ => write!(f, "=="),
+            SyntaxKind::NEQ => write!(f, "!="),
             SyntaxKind::GTEQ => write!(f, ">="),
             SyntaxKind::LTEQ => write!(f, "<="),
             SyntaxKind::AMPAMP => write!(f, "&&"),
@@ -292,6 +304,8 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::INT => write!(f, "INT"),
             SyntaxKind::FLOAT => write!(f, "FLOAT"),
             SyntaxKind::STRING => write!(f, "STRING"),
+            SyntaxKind::TRUE => write!(f, "TRUE"),
+            SyntaxKind::FALSE => write!(f, "FALSE"),
             SyntaxKind::ERROR => write!(f, "ERROR"),
             SyntaxKind::IDENT => write!(f, "IDENT"),
             SyntaxKind::WHITESPACE => write!(f, " "),
@@ -316,6 +330,8 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::TYPE_BIND => write!(f, "TYPE_BIND"),
             SyntaxKind::PATH_TYPE => write!(f, "PATH_TYPE"),
             SyntaxKind::CONCRETE_TYPE => write!(f, "CONCRETE_TYPE"),
+            SyntaxKind::TRAIT_ITEM => write!(f, "TRAIT_ITEM"),
+            SyntaxKind::IMPL_ITEM => write!(f, "IMPL_ITEM"),
             SyntaxKind::EOF => write!(f, "EOF"),
             SyntaxKind::__LAST => write!(f, "__LAST")
         }

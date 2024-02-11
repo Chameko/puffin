@@ -22,6 +22,12 @@ pub struct Ident {
 }
 
 impl Ident {
+    pub fn new(str: &str) -> Self {
+        Self {
+            name: SmolStr::from(str)
+        }
+    }
+
     pub fn from_ast(ty: &ast::pat::Ident) -> Self {
         Self {
             name: SmolStr::new(ty.syntax().text())
@@ -50,8 +56,6 @@ pub enum Type {
     Concrete(ConcreteType),
     /// A function type
     Func(FunctionType),
-    /// A generic
-    Generic(usize),
     /// An unknown type
     Unknown,
 }

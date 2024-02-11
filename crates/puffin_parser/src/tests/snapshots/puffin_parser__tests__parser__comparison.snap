@@ -1,0 +1,38 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"1 > 2 >= 3 < 1 <= 4\")"
+---
+SOURCE_FILE@0..=18
+    EXPR_STMT@0..=18
+        BIN_EXPR@0..=18
+            BIN_EXPR@0..=14
+                BIN_EXPR@0..=10
+                    BIN_EXPR@0..=5
+                        PAT_EXPR@0..=0
+                            LIT_PAT@0..=0
+                                1 |INT@0..0
+                          |WHITESPACE@1..1
+                        > |GT@2..2
+                          |WHITESPACE@3..3
+                        PAT_EXPR@4..=4
+                            LIT_PAT@4..=4
+                                2 |INT@4..4
+                          |WHITESPACE@5..5
+                    >= |GTEQ@6..7
+                      |WHITESPACE@8..8
+                    PAT_EXPR@9..=9
+                        LIT_PAT@9..=9
+                            3 |INT@9..9
+                      |WHITESPACE@10..10
+                < |LT@11..11
+                  |WHITESPACE@12..12
+                PAT_EXPR@13..=13
+                    LIT_PAT@13..=13
+                        1 |INT@13..13
+                  |WHITESPACE@14..14
+            <= |LTEQ@15..16
+              |WHITESPACE@17..17
+            PAT_EXPR@18..=18
+                LIT_PAT@18..=18
+                    4 |INT@18..18
+
