@@ -45,6 +45,11 @@ pub enum SyntaxKind {
     KW_FLOAT,
     KW_STRING,
     KW_BOOL,
+    KW_TRAIT,
+    KW_IMPL,
+    KW_FOR,
+    KW_SELF,
+    KW_COMPTIME,
     INT,
     FLOAT,
     STRING,
@@ -59,23 +64,29 @@ pub enum SyntaxKind {
     PAT_EXPR,
     PRINT_STMT,
     LET_STMT,
-    BLOCK_STMT,
     LIT_PAT,
     IDENT_PAT,
+    SELF_PAT,
     ASSIGN_EXPR,
     IF_STMT,
     WHILE_STMT,
     BIN_EXPR,
     PREFIX_EXPR,
     PAREN_EXPR,
+    BLOCK_EXPR,
+    FUNC_EXPR,
     FUNC_ITEM,
     FUNC_PARAM,
     FUNC_RETURN,
     TYPE_BIND,
     PATH_TYPE,
     CONCRETE_TYPE,
+    COMPTIME_TYPE,
     TRAIT_ITEM,
-    IMPL_ITEM,// Allows for casting from u16 safely
+    IMPL_ITEM,
+    IMPL_TRAIT,
+    COMPTIME_EXPR,
+    TRAIT_EXPR,// Allows for casting from u16 safely
     __LAST,
 }
 
@@ -186,6 +197,21 @@ macro_rules! T {
     (bool) => {
         $crate::SyntaxKind::KW_BOOL
     };
+    (trait) => {
+        $crate::SyntaxKind::KW_TRAIT
+    };
+    (impl) => {
+        $crate::SyntaxKind::KW_IMPL
+    };
+    (for) => {
+        $crate::SyntaxKind::KW_FOR
+    };
+    (self) => {
+        $crate::SyntaxKind::KW_SELF
+    };
+    (comptime) => {
+        $crate::SyntaxKind::KW_COMPTIME
+    };
 }
 
 impl SyntaxKind {
@@ -203,6 +229,11 @@ impl SyntaxKind {
         | KW_FLOAT
         | KW_STRING
         | KW_BOOL
+        | KW_TRAIT
+        | KW_IMPL
+        | KW_FOR
+        | KW_SELF
+        | KW_COMPTIME
         )
     }
 
@@ -301,6 +332,11 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::KW_FLOAT => write!(f, "float"),
             SyntaxKind::KW_STRING => write!(f, "string"),
             SyntaxKind::KW_BOOL => write!(f, "bool"),
+            SyntaxKind::KW_TRAIT => write!(f, "trait"),
+            SyntaxKind::KW_IMPL => write!(f, "impl"),
+            SyntaxKind::KW_FOR => write!(f, "for"),
+            SyntaxKind::KW_SELF => write!(f, "self"),
+            SyntaxKind::KW_COMPTIME => write!(f, "comptime"),
             SyntaxKind::INT => write!(f, "INT"),
             SyntaxKind::FLOAT => write!(f, "FLOAT"),
             SyntaxKind::STRING => write!(f, "STRING"),
@@ -315,23 +351,29 @@ impl std::fmt::Display for SyntaxKind {
             SyntaxKind::PAT_EXPR => write!(f, "PAT_EXPR"),
             SyntaxKind::PRINT_STMT => write!(f, "PRINT_STMT"),
             SyntaxKind::LET_STMT => write!(f, "LET_STMT"),
-            SyntaxKind::BLOCK_STMT => write!(f, "BLOCK_STMT"),
             SyntaxKind::LIT_PAT => write!(f, "LIT_PAT"),
             SyntaxKind::IDENT_PAT => write!(f, "IDENT_PAT"),
+            SyntaxKind::SELF_PAT => write!(f, "SELF_PAT"),
             SyntaxKind::ASSIGN_EXPR => write!(f, "ASSIGN_EXPR"),
             SyntaxKind::IF_STMT => write!(f, "IF_STMT"),
             SyntaxKind::WHILE_STMT => write!(f, "WHILE_STMT"),
             SyntaxKind::BIN_EXPR => write!(f, "BIN_EXPR"),
             SyntaxKind::PREFIX_EXPR => write!(f, "PREFIX_EXPR"),
             SyntaxKind::PAREN_EXPR => write!(f, "PAREN_EXPR"),
+            SyntaxKind::BLOCK_EXPR => write!(f, "BLOCK_EXPR"),
+            SyntaxKind::FUNC_EXPR => write!(f, "FUNC_EXPR"),
             SyntaxKind::FUNC_ITEM => write!(f, "FUNC_ITEM"),
             SyntaxKind::FUNC_PARAM => write!(f, "FUNC_PARAM"),
             SyntaxKind::FUNC_RETURN => write!(f, "FUNC_RETURN"),
             SyntaxKind::TYPE_BIND => write!(f, "TYPE_BIND"),
             SyntaxKind::PATH_TYPE => write!(f, "PATH_TYPE"),
             SyntaxKind::CONCRETE_TYPE => write!(f, "CONCRETE_TYPE"),
+            SyntaxKind::COMPTIME_TYPE => write!(f, "COMPTIME_TYPE"),
             SyntaxKind::TRAIT_ITEM => write!(f, "TRAIT_ITEM"),
             SyntaxKind::IMPL_ITEM => write!(f, "IMPL_ITEM"),
+            SyntaxKind::IMPL_TRAIT => write!(f, "IMPL_TRAIT"),
+            SyntaxKind::COMPTIME_EXPR => write!(f, "COMPTIME_EXPR"),
+            SyntaxKind::TRAIT_EXPR => write!(f, "TRAIT_EXPR"),
             SyntaxKind::EOF => write!(f, "EOF"),
             SyntaxKind::__LAST => write!(f, "__LAST")
         }

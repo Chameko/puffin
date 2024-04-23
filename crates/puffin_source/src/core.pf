@@ -1,0 +1,18 @@
+trait Add(T: type) {
+    fun add(lhs: Self, rhs: T) > T {}
+}
+
+trait Sub(T: type) {
+    fun sub(lhs: T, rhs: T) > T {}
+}
+
+trait Mul(T: type) {
+    fun mul(lhs: T, rhs: T) > T {}
+}
+
+trait Div(T: type) {
+    fun div(lhs: T, rhs: T) > T {}
+}
+
+impl Add(int) for int {}
+impl Add(int) for float {}

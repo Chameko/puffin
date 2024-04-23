@@ -1,0 +1,12 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"trait Add {}\")"
+---
+SOURCE_FILE@0..=11
+    TRAIT_ITEM@0..=11
+        trait |KW_TRAIT@0..4
+          |WHITESPACE@5..5
+        Add |IDENT@6..8
+          |WHITESPACE@9..9
+        { |L_BRACE@10..10
+        } |R_BRACE@11..11

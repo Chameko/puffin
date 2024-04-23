@@ -38,8 +38,15 @@ pub struct VFS {
 impl VFS {
     /// Create a new [`VFS`]
     pub fn new() -> Self {
+        let mut interner = PathInterner::new();
+        // Reserve FileID(0) to be the core library implicitly included
+        interner.intern(AbsPath::assert_new(
+            &std::env::current_dir()
+            .expect("cannot access current working directory")
+            .join("core.pf")
+        ));
         Self {
-            interner: PathInterner::new(),
+            interner
         }
     }
     /// Either adds a path and returns the [`FileID`] or returns the [`FileID`] if it already exists

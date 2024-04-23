@@ -1,0 +1,41 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"fun add(self, rhs: int) { self + rhs }\")"
+---
+SOURCE_FILE@0..=37
+    FUNC_ITEM@0..=37
+        fun |KW_FUN@0..2
+          |WHITESPACE@3..3
+        add |IDENT@4..6
+        FUNC_PARAM@7..=22
+            ( |L_PAREN@7..7
+            TYPE_BIND@8..=11
+                self |KW_SELF@8..11
+            , |COMMA@12..12
+              |WHITESPACE@13..13
+            TYPE_BIND@14..=21
+                IDENT_PAT@14..=16
+                    rhs |IDENT@14..16
+                : |COLON@17..17
+                  |WHITESPACE@18..18
+                CONCRETE_TYPE@19..=21
+                    int |KW_INT@19..21
+            ) |R_PAREN@22..22
+          |WHITESPACE@23..23
+        BLOCK_EXPR@24..=37
+            { |L_BRACE@24..24
+              |WHITESPACE@25..25
+            EXPR_STMT@26..=36
+                BIN_EXPR@26..=36
+                    PAT_EXPR@26..=29
+                        SELF_PAT@26..=29
+                            self |KW_SELF@26..29
+                      |WHITESPACE@30..30
+                    + |PLUS@31..31
+                      |WHITESPACE@32..32
+                    PAT_EXPR@33..=35
+                        IDENT_PAT@33..=35
+                            rhs |IDENT@33..35
+                      |WHITESPACE@36..36
+            } |R_BRACE@37..37
+

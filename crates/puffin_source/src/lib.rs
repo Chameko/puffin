@@ -7,6 +7,9 @@ use relative_path::RelativePathBuf;
 use std::sync::Arc;
 use crate::module::{ModuleTree, generate_module_tree};
 
+/// We use a core puffin file to load define our core components, but don't actually define any functionality
+pub static CORE: &'static str = include_str!("./core.pf");
+
 /// Type use for marking slices of text in the source files
 pub type TextSlice = std::ops::RangeInclusive<u32>;
 
@@ -45,7 +48,8 @@ pub struct SourceTree {
 }
 
 impl SourceTree {
-    pub fn new(dir: FileID, sources: Vec<Source>) -> Self {
+    pub fn new(dir: FileID, mut sources: Vec<Source>) -> Self {
+        sources.push(Source{ file: FileID(0), text: String::from(CORE)});
         Self {
             dir,
             sources,

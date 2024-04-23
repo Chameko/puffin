@@ -1,0 +1,68 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"fun Add(T: type) {\\n  trait Add {\\n    fun add(self, rhs: T) {}\\n  }\\n}\\n\")"
+---
+SOURCE_FILE@0..=67
+    FUNC_ITEM@0..=66
+        fun |KW_FUN@0..2
+          |WHITESPACE@3..3
+        Add |IDENT@4..6
+        FUNC_PARAM@7..=15
+            ( |L_PAREN@7..7
+            TYPE_BIND@8..=14
+                IDENT_PAT@8..=8
+                    T |IDENT@8..8
+                : |COLON@9..9
+                  |WHITESPACE@10..10
+                PATH_TYPE@11..=14
+                    type |IDENT@11..14
+            ) |R_PAREN@15..15
+          |WHITESPACE@16..16
+        BLOCK_EXPR@17..=66
+            { |L_BRACE@17..17
+            
+ |NL@18..18
+               |WHITESPACE@19..20
+            EXPR_STMT@21..=65
+                TRAIT_EXPR@21..=64
+                    TRAIT_ITEM@21..=64
+                        trait |KW_TRAIT@21..25
+                          |WHITESPACE@26..26
+                        Add |IDENT@27..29
+                          |WHITESPACE@30..30
+                        { |L_BRACE@31..31
+                        
+ |NL@32..32
+                             |WHITESPACE@33..36
+                        FUNC_ITEM@37..=60
+                            fun |KW_FUN@37..39
+                              |WHITESPACE@40..40
+                            add |IDENT@41..43
+                            FUNC_PARAM@44..=57
+                                ( |L_PAREN@44..44
+                                TYPE_BIND@45..=48
+                                    self |KW_SELF@45..48
+                                , |COMMA@49..49
+                                  |WHITESPACE@50..50
+                                TYPE_BIND@51..=56
+                                    IDENT_PAT@51..=53
+                                        rhs |IDENT@51..53
+                                    : |COLON@54..54
+                                      |WHITESPACE@55..55
+                                    PATH_TYPE@56..=56
+                                        T |IDENT@56..56
+                                ) |R_PAREN@57..57
+                              |WHITESPACE@58..58
+                            BLOCK_EXPR@59..=60
+                                { |L_BRACE@59..59
+                                } |R_BRACE@60..60
+                        
+ |NL@61..61
+                           |WHITESPACE@62..63
+                        } |R_BRACE@64..64
+                
+ |NL@65..65
+            } |R_BRACE@66..66
+    
+ |NL@67..67
+

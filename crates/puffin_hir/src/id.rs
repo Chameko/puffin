@@ -1,6 +1,9 @@
-pub use puffin_source::id::{ID, Arena, InFile};
+pub use puffin_source::id::{Arena, InFile, ID};
 
-use crate::{model::{Expr, Stmt, Pattern, common::Type}, resolver::typemap::Constraint};
+use crate::{
+    model::{common::Type, Expr, Pattern, Stmt},
+    resolver::constraint::Constraint,
+};
 
 pub type ExprID = ID<Expr>;
 pub type StmtID = ID<Stmt>;

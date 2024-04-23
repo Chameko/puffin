@@ -1,8 +1,12 @@
-use crate::id::{ExprID, PatID, TypeID};
+use crate::{
+    id::{ExprID, PatID, StmtID, TypeID},
+};
 use puffin_ast::ast;
 
+use super::common::Ident;
+
 /// An expression
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
     /// A binary expression
     Binary {
@@ -23,16 +27,24 @@ pub enum Expr {
         assign_to: ExprID,
         ty: TypeID,
     },
+    /// A block expression
+    Block { stmts: Vec<StmtID>, ret: Vec<TypeID> },
     /// A paren expression
     Paren(ExprID),
     /// A pattern expression
     Pattern(PatID),
     /// A missing expression
     Missing(TypeID),
+    /// A function expression
+    Func{
+        name: Ident,
+        param: Vec<ExprID>,
+        ty: TypeID
+    },
 }
 
 /// A binary operation
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BinOp {
     Add,
     Sub,
@@ -48,18 +60,15 @@ pub enum BinOp {
     Less,
 }
 
-impl From<ast::expr::BinOpKind>  for BinOp {
+impl From<ast::expr::BinOpKind> for BinOp {
     fn from(value: ast::expr::BinOpKind) -> Self {
-        
         match value {
             ast::expr::BinOpKind::Add => Self::Add,
             ast::expr::BinOpKind::Subtract => Self::Sub,
             ast::expr::BinOpKind::Multiply => Self::Mul,
             ast::expr::BinOpKind::Divide => Self::Div,
-            ast::expr::BinOpKind::And
-                | ast::expr::BinOpKind::And2 => Self::And,
-            ast::expr::BinOpKind::Or
-                | ast::expr::BinOpKind::Or2 => Self::Or,
+            ast::expr::BinOpKind::And | ast::expr::BinOpKind::And2 => Self::And,
+            ast::expr::BinOpKind::Or | ast::expr::BinOpKind::Or2 => Self::Or,
             ast::expr::BinOpKind::Equal => Self::Equal,
             ast::expr::BinOpKind::NotEqual => Self::NotEqual,
             ast::expr::BinOpKind::GreaterEqual => Self::GreaterEqual,
@@ -73,14 +82,14 @@ impl From<ast::expr::BinOpKind>  for BinOp {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PrefixOp {
     Negate,
-    Not
+    Not,
 }
 
-impl From<ast::expr::PrefixOpKind> for PrefixOp{
+impl From<ast::expr::PrefixOpKind> for PrefixOp {
     fn from(value: ast::expr::PrefixOpKind) -> Self {
         match value {
-            ast::expr::PrefixOpKind::Negate => Self::Negate ,
-            ast::expr::PrefixOpKind::Not => Self::Not ,
+            ast::expr::PrefixOpKind::Negate => Self::Negate,
+            ast::expr::PrefixOpKind::Not => Self::Not,
         }
     }
 }

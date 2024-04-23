@@ -1,14 +1,18 @@
-use std::path::{PathBuf, Path};
+use heck::{ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use std::collections::HashMap;
-use tera::{Value};
-use heck::{ToSnakeCase, ToUpperCamelCase, ToShoutySnakeCase};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
+use tera::Value;
 
 // Whether the tool should verify the generated files or update them
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Mode {
     Verify,
-    Update
+    Update,
 }
+
+/// Used to provide sequential IDs to the std items;
+static STD_COUNTER: AtomicU32 = AtomicU32::new(0);
 
 /// Path to ron file that supplies Puffin's grammer
 pub const GRAMMER: &str = "crates/templates/grammer.ron";
@@ -16,6 +20,13 @@ pub const GRAMMER: &str = "crates/templates/grammer.ron";
 pub const SYNTAX_KIND: &str = "crates/templates/syntax_kind.rs.tera";
 /// Path to location of generated syntax kind file
 pub const SYNTAX_KIND_TARGET: &str = "crates/puffin_ast/src/syntax_kind.rs";
+
+/// Path to the std impls ron file
+pub const STD: &str = "crates/templates/std.ron";
+/// Path to the std impls template file
+pub const STD_IMPLS_TEMPLATE: &str = "crates/templates/impls.rs.tera";
+/// Path to the std impls target
+pub const STD_IMPLS_TARGET: &str = "crates/puffin_hir/src/std/impl_std.rs";
 
 /// Creates a tera instance with the provided filters and functions. Taken from [Mun](https://github.com/mun-lang/mun).
 fn create_tera() -> tera::Tera {
@@ -33,7 +44,12 @@ fn create_tera() -> tera::Tera {
             let val = val.as_array().unwrap();
             elements.extend(val.iter().cloned());
         }
-        Ok(tera::Value::Array(elements))
+        Ok(Value::Array(elements))
+    });
+    res.register_function("next_id", |_: &HashMap<String, Value>| {
+        Ok(Value::Number(
+            STD_COUNTER.fetch_add(1, Ordering::SeqCst).into(),
+        ))
     });
 
     return res;
@@ -62,8 +78,20 @@ pub fn generate(mode: Mode) -> anyhow::Result<()> {
     generate_from_template(&syntax_kind, &grammer, &syntax_kind_target, mode)
 }
 
+pub fn std(mode: Mode) -> anyhow::Result<()> {
+    let std = project_root().join(STD);
+    let std_impls = project_root().join(STD_IMPLS_TEMPLATE);
+    let std_impls_target = project_root().join(Path::new(STD_IMPLS_TARGET));
+    generate_from_template(&std_impls, &std, &std_impls_target, mode)
+}
+
 /// Generates a file from the template
-fn generate_from_template(template: &Path, src: &Path, target: &Path, mode: Mode) -> anyhow::Result<()> {
+fn generate_from_template(
+    template: &Path,
+    src: &Path,
+    target: &Path,
+    mode: Mode,
+) -> anyhow::Result<()> {
     let template = std::fs::read_to_string(template)?;
     let src: ron::Value = {
         let text = std::fs::read_to_string(src)?;
@@ -82,13 +110,13 @@ fn update(path: &Path, new_contents: &str, mode: Mode) -> anyhow::Result<()> {
 
     // No changes to report so we simply exit
     if old_contents == new_contents {
-        return Ok(())
+        return Ok(());
     }
 
     if mode == Mode::Verify {
         // If we are verifying, report the changes
         let changes = similar::TextDiff::from_lines(&old_contents, &new_contents);
-        
+
         for change in changes.iter_all_changes() {
             let sign = match change.tag() {
                 similar::ChangeTag::Delete => "-",
@@ -107,7 +135,11 @@ fn update(path: &Path, new_contents: &str, mode: Mode) -> anyhow::Result<()> {
 
 /// Provides the project root
 fn project_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(2).unwrap().to_path_buf()
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap()
+        .to_path_buf()
 }
 
 #[cfg(test)]
@@ -118,6 +150,13 @@ mod template_test {
     fn grammer_is_fresh() {
         if let Err(e) = super::generate(Mode::Verify) {
             panic!("Please update syntax by running cargo gen-syntax as it's out of date\n{e}")
+        }
+    }
+
+    #[test]
+    fn std_is_fresh() {
+        if let Err(e) = super::std(Mode::Verify) {
+            panic!("Please update std by running cargo gen-std as it's out of date\n{e}")
         }
     }
 }

@@ -1,14 +1,26 @@
-use crate::{id::{Arena, ExprID, PatID, TypeID, StmtID}, def::DefDatabase, model::HirNode, resolver::ConcreteType};
-use puffin_ast::{AstMap, ast::{self, AstNode}, AstPtr};
+use super::{
+    common::{FunctionType, Ident, Type, TypeBind},
+    Expr, FunctionID, Pattern, Stmt, Trait,
+};
+use crate::{
+    def::DefDatabase,
+    id::{Arena, ExprID, PatID, StmtID, TypeID},
+    model::HirNode,
+    resolver::ConcreteType,
+};
+use itertools::Itertools;
+use puffin_ast::{
+    ast::{self, AstNode},
+    AstMap, AstPtr,
+};
 use puffin_source::id::InFile;
 use puffin_vfs::FileID;
-use super::{Pattern, FunctionID, Stmt, Expr, common::{Type, TypeBind, FunctionType}};
 
 /// The body of a function.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FuncBody {
     /// The source for the block in the AST
-    pub source: StmtID,
+    pub source: ExprID,
     /// The parameters in a function
     pub param: Vec<(PatID, TypeID)>,
     /// The return type of the function
@@ -20,19 +32,19 @@ pub struct FuncBody {
     /// The [Arena] used to allocate various type [crate::id::ID]s
     pub type_alloc: Arena<Type>,
     /// The [Arena] used to allocate various statement [crate::id::ID]s
-    pub stmt_alloc:  Arena<Stmt>,
+    pub stmt_alloc: Arena<Stmt>,
 }
 
 /// Maps the various [crate::id::ID]s in [Body] to their [AstPtr]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct FuncBodySourceMap {
+pub struct BodySourceMap {
     pub expr_map: AstMap<Expr, ast::expr::Expr>,
     pub pat_map: AstMap<Pattern, ast::pat::Pat>,
     pub type_map: AstMap<Type, ast::common::Type>,
     pub stmt_map: AstMap<Stmt, ast::stmt::Stmt>,
 }
 
-impl FuncBodySourceMap {
+impl BodySourceMap {
     pub fn new() -> Self {
         Self::default()
     }
@@ -41,7 +53,7 @@ impl FuncBodySourceMap {
         self.expr_map.record(id, ptr);
     }
 
-    pub fn record_pat(&mut  self, id: PatID, ptr: InFile<AstPtr<ast::pat::Pat>>) {
+    pub fn record_pat(&mut self, id: PatID, ptr: InFile<AstPtr<ast::pat::Pat>>) {
         self.pat_map.record(id, ptr);
     }
 
@@ -56,13 +68,16 @@ impl FuncBodySourceMap {
 
 impl FuncBody {
     /// Maps the [Body] of a function from AST to HIR and produces a [BodySourceMap] to map back from HIR to AST
-    pub fn body_and_source_query(db: &dyn DefDatabase, id: FunctionID) -> (FuncBody, FuncBodySourceMap) {
+    pub fn body_and_source_query(
+        db: &dyn DefDatabase,
+        id: FunctionID,
+    ) -> (FuncBody, BodySourceMap) {
         let file = db.lookup_intern_function(id).file;
         let func_sig = &db.item_tree(file)[db.lookup_intern_function(id)];
 
         // Initialise body building
-        let mut body_builder = BodyBuilder::new(file);
-        let mut body_param =  vec![];
+        let mut body_builder = BodyBuilder::new(file, db);
+        let mut body_param = vec![];
 
         //  Map from a function ID to the ast source
         let func_src = db.function_source(id);
@@ -108,10 +123,10 @@ impl FuncBody {
             body_builder.type_alloc.alloc(rtrn)
         };
 
-        let source = body_builder.stmt(func.block().next().map(|b| b.into()));
+        let source = body_builder.expr(func.block().next().map(|b| b.into()));
 
         let body = FuncBody {
-            stmt_alloc:  body_builder.stmt_alloc,
+            stmt_alloc: body_builder.stmt_alloc,
             expr_alloc: body_builder.expr_alloc,
             pat_alloc: body_builder.pat_alloc,
             type_alloc: body_builder.type_alloc,
@@ -123,27 +138,61 @@ impl FuncBody {
     }
 }
 
+/// The body of a comptime expression
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ComptimeBody {
+    /// Entry expr into the comptime body
+    pub entry: ExprID,
+    /// The [Arena] used to allocate various expression [crate::id::ID]s
+    pub expr_alloc: Arena<Expr>,
+    /// The [Arena] used to allocate various pattern [crate::id::ID]s
+    pub pat_alloc: Arena<Pattern>,
+    /// The [Arena] used to allocate various type [crate::id::ID]s
+    pub type_alloc: Arena<Type>,
+    /// The [Arena] used to allocate various statement [crate::id::ID]s
+    pub stmt_alloc: Arena<Stmt>,
+    /// Source
+    pub src_map: BodySourceMap,
+}
+
+impl ComptimeBody {
+    pub fn new(expr: Option<ast::expr::Expr>, file: FileID, db: &dyn DefDatabase) -> Self {
+        let mut body_builder = BodyBuilder::new(file, db);
+        let entry = body_builder.expr(expr);
+        Self {
+            entry,
+            expr_alloc: body_builder.expr_alloc,
+            pat_alloc: body_builder.pat_alloc,
+            type_alloc: body_builder.type_alloc,
+            stmt_alloc: body_builder.stmt_alloc,
+            src_map: body_builder.src_map,
+        }
+    }
+}
+
 /// Used to build a [`Body`] by mapping the AST types to their HIR equivalents
-#[derive(Clone, Debug)]
-struct BodyBuilder {
-    src_map: FuncBodySourceMap,
+#[derive(Clone)]
+pub struct BodyBuilder<'a> {
+    src_map: BodySourceMap,
     expr_alloc: Arena<Expr>,
     pat_alloc: Arena<Pattern>,
     type_alloc: Arena<Type>,
     stmt_alloc: Arena<Stmt>,
     file: FileID,
+    db: &'a dyn DefDatabase,
 }
 
-impl BodyBuilder {
+impl<'a> BodyBuilder<'a> {
     /// Create a new [BodyBuilder]
-    pub fn new(file: FileID) -> Self {
+    pub fn new(file: FileID, db: &'a dyn DefDatabase) -> Self {
         Self {
             file,
             expr_alloc: Arena::default(),
             pat_alloc: Arena::default(),
             type_alloc: Arena::default(),
             stmt_alloc: Arena::default(),
-            src_map: FuncBodySourceMap::default(),
+            src_map: BodySourceMap::default(),
+            db,
         }
     }
 
@@ -154,7 +203,7 @@ impl BodyBuilder {
                 ast::stmt::StmtKind::ExprStmt(e) => {
                     let expr = self.expr(e.expr().last());
                     self.alloc_stmt(Stmt::ExprStmt(expr))
-                },
+                }
                 ast::stmt::StmtKind::LetStmt(l) => {
                     // Get the type bind
                     let bind = l.bind().next().unwrap();
@@ -162,7 +211,8 @@ impl BodyBuilder {
                     // Extract and record the pattern
                     let pat = Pattern::from_ast(&bind.name().next().unwrap(), &mut self.type_alloc);
                     let pat_id = self.alloc_pat(pat);
-                    let pat_ast_ptr = AstPtr::from_ast(&bind.name().next().unwrap()).in_file(self.file);
+                    let pat_ast_ptr =
+                        AstPtr::from_ast(&bind.name().next().unwrap()).in_file(self.file);
                     self.record_pat(pat_id, pat_ast_ptr);
 
                     // Extract and record the type
@@ -175,30 +225,15 @@ impl BodyBuilder {
                     // Map the possible expression
                     let expr = l.expr().map(|e| self.expr(Some(e)));
 
-                    self.alloc_stmt(Stmt::Let { bind: TypeBind::new(pat_id, ty_id), expr })
-                },
-                ast::stmt::StmtKind::BlockStmt(b) => {
-                    let mut ids = vec![];
-                    for stmt in b.stmts() {
-                        ids.push(self.stmt(Some(stmt)));
-                    }
-                    self.alloc_stmt(Stmt::Block { stmts: ids })
-                },
-                ast::stmt::StmtKind::WhileStmt(w) => {
-                    let cond = self.expr(w.condition().last());
-                    let exec = self.stmt(w.inner().last().map(|s| s.into()));
-                    self.alloc_stmt(Stmt::While { condition: cond, exec })
-                },
-                ast::stmt::StmtKind::IfStmt(i) => {
-                    let cond = self.expr(i.condition().last());
-                    let truthy = self.stmt(i.truthy().map(|t| t.into()).last());
-                    let falsey = i.falsy().map(|f| self.stmt(Some(f.into())));
-                    self.alloc_stmt(Stmt::If { condition: cond, truthy, falsey })
-                },
+                    self.alloc_stmt(Stmt::Let {
+                        bind: TypeBind::new(pat_id, ty_id),
+                        expr,
+                    })
+                }
                 ast::stmt::StmtKind::PrintStmt(p) => {
                     let expr = self.expr(p.output().last());
                     self.alloc_stmt(Stmt::Print(expr))
-                },
+                }
             };
             let stmt_ast_ptr = AstPtr::from_ast(&stmt).in_file(self.file);
             self.record_stmt(stmt_id, stmt_ast_ptr);
@@ -209,7 +244,7 @@ impl BodyBuilder {
     }
 
     /// Map an expression AST to HIR
-    fn expr(&mut self, expr: Option<ast::expr::Expr>) -> ExprID {
+    pub fn expr(&mut self, expr: Option<ast::expr::Expr>) -> ExprID {
         if let Some(expr) = expr {
             let id = match expr.kind() {
                 ast::expr::ExprKind::BinExpr(b) => {
@@ -218,45 +253,92 @@ impl BodyBuilder {
                     let op = b.bin_op_kind();
                     if let Some(op) = op {
                         let lhs_ty = self.alloc_type(Type::Unknown);
-                        let rhs_ty =  self.alloc_type(Type::Unknown);
-                        let ret_ty = self.alloc_type(Type::Unknown);
-                        let ty = self.type_alloc.alloc(Type::Func(FunctionType::new(vec![lhs_ty, rhs_ty], ret_ty)));
-                        self.alloc_expr(Expr::Binary { lhs, rhs, op: op.into(), ty })
+                        let rhs_ty = self.alloc_type(Type::Unknown);
+                        let ret = self.alloc_type(Type::Unknown);
+                        let ty = self
+                            .type_alloc
+                            .alloc(Type::Func(FunctionType::new(vec![lhs_ty, rhs_ty], ret)));
+                        self.alloc_expr(Expr::Binary {
+                            lhs,
+                            rhs,
+                            op: op.into(),
+                            ty,
+                        })
                     } else {
                         let ty = self.alloc_type(Type::Unknown);
                         self.alloc_expr(Expr::Missing(ty))
                     }
-                },
+                }
                 ast::expr::ExprKind::PatExpr(p) => {
                     let pat = self.pat(p.pat().last());
                     self.alloc_expr(Expr::Pattern(pat))
-                },
+                }
                 ast::expr::ExprKind::ParenExpr(p) => {
                     let expr_id = self.expr(p.expr().last());
                     self.alloc_expr(Expr::Paren(expr_id))
-                },
+                }
                 ast::expr::ExprKind::PrefixExpr(p) => {
                     let expr_id = self.expr(p.expr());
                     let op = p.prefix_op_kind();
                     if let Some(op) = op {
-                        let lhs_ty = self.alloc_type(Type::Unknown);
-                        let ret_ty = self.alloc_type(Type::Unknown);
-                        let ty = self.alloc_type(Type::Func(FunctionType::new(vec![lhs_ty], ret_ty)));
-                        self.alloc_expr(Expr::Prefix { op: op.into(), expr: expr_id, ty })
+                        let rhs = self.alloc_type(Type::Unknown);
+                        let ret = self.alloc_type(Type::Unknown);
+                        let ty =
+                            self.alloc_type(Type::Func(FunctionType::new(vec![rhs], ret)));
+                        self.alloc_expr(Expr::Prefix {
+                            op: op.into(),
+                            expr: expr_id,
+                            ty,
+                        })
                     } else {
                         let ty = self.alloc_type(Type::Unknown);
                         self.alloc_expr(Expr::Missing(ty))
                     }
-                },
+                }
+                ast::expr::ExprKind::BlockExpr(b) => {
+                    let mut stmts = vec![];
+                    let mut ret = vec![];
+                    for stmt in b.stmts() {
+                        let stmt = self.stmt(Some(stmt));
+                        stmts.push(stmt);
+                        if let Stmt::Return(_) = self.stmt_alloc[stmt] {
+                            ret.push(self.type_alloc.alloc(Type::Unknown));
+                        }
+                    }
+                    self.alloc_expr(Expr::Block { stmts, ret })
+                }
+                ast::expr::ExprKind::TraitExpr(t) => {
+                    let trt = Trait::trait_item(self.db, t.trt().next().unwrap(), self.file, Some());
+                    todo!();
+                }
                 ast::expr::ExprKind::AssignExpr(a) => {
                     let assignee = self.expr(a.assignee());
                     let assign_to = self.expr(a.assign_to());
                     let lhs_ty = self.alloc_type(Type::Unknown);
-                    let rhs_ty =  self.alloc_type(Type::Unknown);
-                    let ret_ty = self.alloc_type(Type::Unknown);
-                    let ty = self.alloc_type(Type::Func(FunctionType::new(vec![lhs_ty, rhs_ty], ret_ty)));
-                    self.alloc_expr(Expr::Assign { assignee, assign_to, ty })
-                },
+                    let rhs_ty = self.alloc_type(Type::Unknown);
+                    let ret = self.alloc_type(Type::Unknown);
+                    let ty = self
+                        .alloc_type(Type::Func(FunctionType::new(vec![lhs_ty, rhs_ty], ret)));
+                    self.alloc_expr(Expr::Assign {
+                        assignee,
+                        assign_to,
+                        ty,
+                    })
+                }
+                ast::expr::ExprKind::ComptimeExpr(c) => {
+                    todo!()
+                }
+                ast::expr::ExprKind::FuncExpr(f) => {
+                    let param = f.param().map(|e| self.expr(Some(e))).collect_vec();
+                    let mut param_ty = vec![];
+                    for _ in param.iter() {
+                        param_ty.push(self.alloc_type(Type::Unknown));
+                    }
+                    let ret = self.alloc_type(Type::Unknown);
+                    let name = Ident::from_ast(&f.name().unwrap());
+                    let ty = self.alloc_type(Type::Func(FunctionType { param: param_ty, ret }));
+                    self.alloc_expr(Expr::Func { name, param, ty})
+                }
             };
             let ptr = AstPtr::from_ast(&expr).in_file(self.file);
             self.record_expr(id, ptr);
@@ -314,13 +396,10 @@ impl BodyBuilder {
     pub fn alloc_type(&mut self, ty: Type) -> TypeID {
         self.type_alloc.alloc(ty)
     }
-
 }
 
 /// A trait body
 pub struct TraitBody {
-    /// Associated types with the trait
-    types: Vec<(PatID, TypeID)>,
     /// Bodies of the trait functions
     bodies: Vec<FuncBody>,
 }

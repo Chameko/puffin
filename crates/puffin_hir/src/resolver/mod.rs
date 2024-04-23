@@ -1,59 +1,94 @@
-use std::fmt::Display;
-use puffin_error::{CompilerError, DeferredOutput};
+use itertools::Itertools;
 use puffin_ast::ast;
-use puffin_source::id::Arena;
+use puffin_error::{CompilerError, DeferredOutput};
+use puffin_source::TextSlice;
+use std::fmt::Display;
 
-use crate::{model::{common::Ident, pattern::Literal, Function, FunctionID, Body, body::BodySourceMap}, def::DefDatabase};
-use self::{inferer::TypeBacking, func::FunctionResolver};
+use self::func::FunctionResolver;
+use crate::{
+    def::DefDatabase, id::TypeID, model::{body::BodySourceMap, common::{Ident, Type}, pattern::Literal, FuncBody, FunctionID}
+};
 
+pub mod comptime;
+pub mod constraint;
 pub mod func;
-pub mod scope;
-pub mod typemap;
+pub mod generic;
 pub mod inferer;
+pub mod scope;
+
 #[cfg(test)]
 mod tests;
 
 #[salsa::query_group(ResolveStorage)]
-pub trait ResolveDatabase : DefDatabase {
-    #[salsa::invoke(Resolver::resolve_query)]
-    fn resolve_query(&self, base: FunctionID) -> Resolver;
+pub trait ResolveDatabase: DefDatabase + Upcast<dyn DefDatabase> {
+    #[salsa::invoke(ResolvedTree::resolve_query)]
+    fn resolve_query(&self, base: FunctionID) -> Result<ResolvedTree, Vec<CompilerError>>;
 }
+
+pub trait Upcast<T: ?Sized> {
+    fn upcast(&self) -> &T;
+}
+
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Resolved {
     resolved_func: FunctionID,
-    resolved_body: Body,
+    resolved_body: FuncBody,
     resolved_body_src: BodySourceMap,
-    type_var: Arena<TypeBacking>,
     diagnostics: Vec<CompilerError>,
 }
 
 impl Resolved {
     pub fn new(
         resolved_func: FunctionID,
-        resolved_body: Body,
+        resolved_body: FuncBody,
         resolved_body_src: BodySourceMap,
-        type_var: Arena<TypeBacking>,
-        diagnostics: Vec<CompilerError>
+        diagnostics: Vec<CompilerError>,
     ) -> Self {
-        Self { resolved_func, type_var, diagnostics, resolved_body, resolved_body_src }
+        Self {
+            resolved_func,
+            diagnostics,
+            resolved_body,
+            resolved_body_src,
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct Resolver {
+pub struct ResolvedTree {
     pub resolved: Vec<Resolved>,
-    pub diagnostics: Vec<CompilerError>,
 }
 
-impl Resolver {
-    pub fn resolve_query(db: &dyn ResolveDatabase, id: FunctionID) -> Self {
+impl ResolvedTree {
+    pub fn new() -> Self {
+        Self {
+            resolved: vec![],
+        }
+    }
+    pub fn resolve_query(db: &dyn ResolveDatabase, id: FunctionID) -> Result<Self, Vec<CompilerError>> {
         let file_id = db.lookup_intern_function(id).file;
         let diagnostics = db.parse(file_id).errors;
-        Self {
-            resolved: vec![FunctionResolver::func_resolver(db, id)],
-            diagnostics
+        let mut resolver = Self {
+            resolved: vec![],
+        };
+        let func = resolver.resolve_func(db, id);
+        resolver.resolved.push(func);
+        let diagnostics = resolver.resolved
+            .iter_mut()
+            .map(|r| r.diagnostics.drain(0..r.diagnostics.len()))
+            .flatten()
+            .chain(diagnostics)
+            .collect_vec();
+
+        if !diagnostics.is_empty() {
+            Err(diagnostics)
+        } else {
+            Ok(resolver)
         }
+    }
+
+    pub fn resolve_func(&mut self, db: &dyn ResolveDatabase, id: FunctionID) -> Resolved {
+        FunctionResolver::func_resolver(db, id, self)
     }
 }
 
@@ -68,10 +103,7 @@ pub struct ResolveRequest {
 
 impl ResolveRequest {
     pub fn new(ty: ResolveRequestType, error: CompilerError) -> Self {
-        Self {
-            ty,
-            error
-        }
+        Self { ty, error }
     }
 
     /// Update the error in the resolve request with new information
@@ -90,6 +122,12 @@ impl ResolveRequest {
 pub enum ResolveRequestType {
     UnknownIdent(Ident),
     UnusedVariable(Ident),
+    UnknownFunc{
+        name: Ident,
+        area: TextSlice,
+        param: Vec<TypeID>,
+        ret: TypeID,
+    },
 }
 
 /// The concrete types that can be resolved to

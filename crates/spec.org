@@ -1,0 +1,70 @@
+#+TITLE: Puffin Spec
+This file serves as more-or-less a working specification of what I want puffin to look like and how I want it to function.
+This isn't a formal spec or anything, more just a way to keep a general idea of what direction I want the program to go and
+general parsing behaviour, etc.
+
+* Syntax
+In general stuff can be read as is with the following expansions
+- < ... > escaping for the sake of including rules
+- < a | b > a or b
+- < ... >? may contain stuffin in < ... >
+- < ... >+ contains one or more of stuff in < ... >
+- < ... >* can contain none or more of stuff in < ... >
+  
+* Modularity system
+I'm aiming for a keep-it-simple approach where each file corresponds to a "Module" which can be imported using
+#+BEGIN_SRC puffin
+  include file< /next_file >*
+#+END_SRC
+
+* Comptime
+I like the way zig uses comptime to implement both metaprogramming and templating an a neat and easy-to-understand(ish) way and hence wanted to see if I can implement a version of it into my language.
+
+There are two ways to use comptime: as a keyword and as an expression.
+** Keyword
+*** Comptime if
+A comptime if is inlined at compile time depending on the condition. *The condition must be known at compile time*
+#+BEGIN_SRC puffin
+  comptime if T == int {}
+#+END_SRC
+*** Comptime fun
+Comptime functions are used to generate item structures such as impls and structs with generic types by taking them in as parameters. As they return one of these items then the function name is treated as the item name unless the item name differs.
+#+BEGIN_SRC puffin
+  comptime fun TraitMaker() > trait {}
+#+END_SRC
+** As a type
+Comptime allows for types to be returned from a function. As a result function calls are valid syntax for a type.
+** Expression
+A comptime expression is one that is evaluated at comptime.
+* Items and parsing
+Parsing is hard. I'm writing this section with the idea that I'll be able to use it to help me write the parser and better determine which parsing function I need
+to use and what the item layout should be.
+** Top level
+Only two things can be accepted at the top level:
+- Comptime
+- Items
+  - *impl* blocks
+  - *fn* blocks
+  - *trait* blocks
+  - *struct* blocks
+  - *import* statements
+    
+** Impl
+Impl blocks are for adding functions to a struct and for implementing traits for structs
+#+BEGIN_SRC puffin
+  impl <<ident | comptime> for>? <ident | comptime>
+#+END_SRC
+
+** Function
+Function blocks for functions
+#+BEGIN_SRC puffin
+  fun name(<param<: type>?>*) {}
+#+END_SRC
+
+** Trait
+Trait blocks for defining traits
+#+BEGIN_SRC puffin
+  trait name {
+    <functions>*
+  }
+#+END_SRC

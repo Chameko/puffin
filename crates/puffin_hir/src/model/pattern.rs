@@ -1,11 +1,13 @@
 use std::fmt::Display;
 
+use crate::{id::TypeID, resolver::ConcreteType};
 use puffin_ast::ast;
 use puffin_source::id::Arena;
-use crate::{id::TypeID, resolver::ConcreteType};
 
-use super::{HirNode, common::{Ident, Type}};
-
+use super::{
+    common::{Ident, Type},
+    HirNode,
+};
 
 /// A pattern
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,8 +18,9 @@ pub enum Pattern {
     },
     Ident {
         ident: Ident,
-        ty: TypeID
+        ty: TypeID,
     },
+    SelfP(TypeID),
     /// Missing pattern
     Missing(TypeID),
 }
@@ -25,16 +28,21 @@ pub enum Pattern {
 impl Pattern {
     pub fn from_ast(ast: &ast::pat::Pat, ty_alloc: &mut Arena<Type>) -> Self {
         match ast.kind() {
-            ast::pat::PatKind::IdentPat(i) => Self::Ident{
+            ast::pat::PatKind::IdentPat(i) => Self::Ident {
                 ident: Ident::from_ast(&i.ident().unwrap()),
-                ty: ty_alloc.alloc(Type::Unknown)
+                ty: ty_alloc.alloc(Type::Unknown),
             },
-            ast::pat::PatKind::LiteralPat(l) => {
-                match Literal::from_ast(&l) {
-                    l@Literal::Int(_) => Self::Literal { literal: l, ty: ty_alloc.alloc(Type::Concrete(ConcreteType::Int)) },
-                    l@Literal::Float(_) => Self::Literal { literal: l, ty: ty_alloc.alloc(Type::Concrete(ConcreteType::Float)) }
-                }
+            ast::pat::PatKind::LiteralPat(l) => match Literal::from_ast(&l) {
+                l @ Literal::Int(_) => Self::Literal {
+                    literal: l,
+                    ty: ty_alloc.alloc(Type::Concrete(ConcreteType::Int)),
+                },
+                l @ Literal::Float(_) => Self::Literal {
+                    literal: l,
+                    ty: ty_alloc.alloc(Type::Concrete(ConcreteType::Float)),
+                },
             },
+            ast::pat::PatKind::SelfPat(slf) => Self::SelfP(ty_alloc.alloc(Type::SelfP)),
         }
     }
 }
@@ -44,6 +52,7 @@ impl Display for Pattern {
         match self {
             Pattern::Literal { literal, .. } => write!(f, "Literal{:?}", literal),
             Pattern::Ident { ident, .. } => write!(f, "Ident{:?}", ident),
+            Pattern::SelfP(_) => write!(f, "Self"),
             Pattern::Missing(_) => write!(f, "Missing"),
         }
     }

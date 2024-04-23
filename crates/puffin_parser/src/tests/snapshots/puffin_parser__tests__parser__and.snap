@@ -1,0 +1,24 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"a and b && c\")"
+---
+SOURCE_FILE@0..=11
+    EXPR_STMT@0..=11
+        BIN_EXPR@0..=11
+            BIN_EXPR@0..=7
+                PAT_EXPR@0..=0
+                    IDENT_PAT@0..=0
+                        a |IDENT@0..0
+                  |WHITESPACE@1..1
+                and |KW_AND@2..4
+                  |WHITESPACE@5..5
+                PAT_EXPR@6..=6
+                    IDENT_PAT@6..=6
+                        b |IDENT@6..6
+                  |WHITESPACE@7..7
+            && |AMPAMP@8..9
+              |WHITESPACE@10..10
+            PAT_EXPR@11..=11
+                IDENT_PAT@11..=11
+                    c |IDENT@11..11
+

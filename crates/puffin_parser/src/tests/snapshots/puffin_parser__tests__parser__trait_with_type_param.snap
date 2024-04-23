@@ -1,0 +1,54 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"trait Add(other: type) {\\n    fun add(a: other, b: other) {}\\n}\")"
+---
+SOURCE_FILE@0..=60
+    TRAIT_ITEM@0..=60
+        trait |KW_TRAIT@0..4
+          |WHITESPACE@5..5
+        Add |IDENT@6..8
+        ( |L_PAREN@9..9
+        TYPE_BIND@10..=20
+            IDENT_PAT@10..=14
+                other |IDENT@10..14
+            : |COLON@15..15
+              |WHITESPACE@16..16
+            PATH_TYPE@17..=20
+                type |IDENT@17..20
+        ) |R_PAREN@21..21
+          |WHITESPACE@22..22
+        { |L_BRACE@23..23
+        
+ |NL@24..24
+             |WHITESPACE@25..28
+        FUNC_ITEM@29..=58
+            fun |KW_FUN@29..31
+              |WHITESPACE@32..32
+            add |IDENT@33..35
+            FUNC_PARAM@36..=55
+                ( |L_PAREN@36..36
+                TYPE_BIND@37..=44
+                    IDENT_PAT@37..=37
+                        a |IDENT@37..37
+                    : |COLON@38..38
+                      |WHITESPACE@39..39
+                    PATH_TYPE@40..=44
+                        other |IDENT@40..44
+                , |COMMA@45..45
+                  |WHITESPACE@46..46
+                TYPE_BIND@47..=54
+                    IDENT_PAT@47..=47
+                        b |IDENT@47..47
+                    : |COLON@48..48
+                      |WHITESPACE@49..49
+                    PATH_TYPE@50..=54
+                        other |IDENT@50..54
+                ) |R_PAREN@55..55
+              |WHITESPACE@56..56
+            BLOCK_STMT@57..=58
+                { |L_BRACE@57..57
+                } |R_BRACE@58..58
+        
+ |NL@59..59
+        } |R_BRACE@60..60
+

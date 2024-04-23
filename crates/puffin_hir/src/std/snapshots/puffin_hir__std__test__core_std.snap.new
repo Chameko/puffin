@@ -1,0 +1,12 @@
+---
+source: crates/puffin_hir/src/std/test.rs
+assertion_line: 74
+expression: output
+---
+Trait Add ([Path(Path { elements: [Ident { name: "type" }], relative: Plain })])
+Trait Sub ([Path(Path { elements: [Ident { name: "type" }], relative: Plain })])
+Trait Mul ([Path(Path { elements: [Ident { name: "type" }], relative: Plain })])
+Trait Div ([Path(Path { elements: [Ident { name: "type" }], relative: Plain })])
+Impl Ident { name: "Add" }[Concrete(Int)] for Concrete(Int) (Direct { code: [6] })
+Impl Ident { name: "Add" }[Concrete(Int)] for Concrete(Float) (Direct { code: [6] })
+

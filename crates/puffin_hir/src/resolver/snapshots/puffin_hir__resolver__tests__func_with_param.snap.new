@@ -1,0 +1,15 @@
+---
+source: crates/puffin_hir/src/resolver/tests.rs
+assertion_line: 215
+expression: standard_test(src)
+---
+[[ {
+let c = a + b
+} ]]
+    [[ let c = a + b ]]
+    c => "Unknown" from {
+      { a + b } => "FunctionType { Unknown, Unknown, ret: Unknown }"
+        { a } => IdentIdent { name: "a" }
+        { b } => IdentIdent { name: "b" }
+    }
+

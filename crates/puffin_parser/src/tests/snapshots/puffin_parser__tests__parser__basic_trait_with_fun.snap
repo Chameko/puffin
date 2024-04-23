@@ -1,0 +1,44 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"trait Add {\\n   fun add(a: int, b: int) {}\\n}\")"
+---
+SOURCE_FILE@0..=42
+    TRAIT_ITEM@0..=42
+        trait |KW_TRAIT@0..4
+          |WHITESPACE@5..5
+        Add |IDENT@6..8
+          |WHITESPACE@9..9
+        { |L_BRACE@10..10
+        
+ |NL@11..11
+            |WHITESPACE@12..14
+        FUNC_ITEM@15..=40
+            fun |KW_FUN@15..17
+              |WHITESPACE@18..18
+            add |IDENT@19..21
+            FUNC_PARAM@22..=37
+                ( |L_PAREN@22..22
+                TYPE_BIND@23..=28
+                    IDENT_PAT@23..=23
+                        a |IDENT@23..23
+                    : |COLON@24..24
+                      |WHITESPACE@25..25
+                    CONCRETE_TYPE@26..=28
+                        int |KW_INT@26..28
+                , |COMMA@29..29
+                  |WHITESPACE@30..30
+                TYPE_BIND@31..=36
+                    IDENT_PAT@31..=31
+                        b |IDENT@31..31
+                    : |COLON@32..32
+                      |WHITESPACE@33..33
+                    CONCRETE_TYPE@34..=36
+                        int |KW_INT@34..36
+                ) |R_PAREN@37..37
+              |WHITESPACE@38..38
+            BLOCK_EXPR@39..=40
+                { |L_BRACE@39..39
+                } |R_BRACE@40..40
+        
+ |NL@41..41
+        } |R_BRACE@42..42

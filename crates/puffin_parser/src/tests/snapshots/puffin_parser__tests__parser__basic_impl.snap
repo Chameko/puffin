@@ -1,0 +1,18 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"impl test {\\n\\n}\")"
+---
+SOURCE_FILE@0..=13
+    IMPL_ITEM@0..=13
+        impl |KW_IMPL@0..3
+          |WHITESPACE@4..4
+        PATH_TYPE@5..=8
+            test |IDENT@5..8
+          |WHITESPACE@9..9
+        { |L_BRACE@10..10
+        
+ |NL@11..11
+        
+ |NL@12..12
+        } |R_BRACE@13..13
+

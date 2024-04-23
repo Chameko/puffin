@@ -92,18 +92,32 @@ pub enum CompilerErrorType {
     ExpectedLParen,
     /// When a right paren `)` is expected and not found
     ExpectedRParen,
+    /// When a function is expected
+    ExpectedFunction,
+    /// When the user forgets the `for` in an impl block
+    ExpectedFor,
     /// When the user forgets to insert a newline before the next expression
     ForgotNewline,
     /// When there are too many local variables and the VM can't handle them all
     TooManyLocals,
     /// When a variable is used before its declared
     UnknownVariable,
+    /// When a function is cannot be found
+    UnknownFunction,
     /// When a variable is never used
     UnusedVariable,
     /// When there is a missing `}`
     ForgotRBrace,
     /// When you cannot assign to a value
     UnassignableValue,
+    /// When a function with a corresponding name cannot be found
+    NoSuchFunction,
+    /// When a function is defined multiple times
+    MultipleFuncDef,
+    /// When a trait is defined  multiple times
+    MultipleTraitDef,
+    /// When calling a function with too many or few parameters
+    ParameterMismatch,
     /// When an error has to be reported but no information should be printed out
     Null,
     /// When two types mismatch
@@ -124,11 +138,18 @@ impl Display for CompilerErrorType {
             CompilerErrorType::ForgotNewline => write!(f, "forgot newline (`\\n`)"),
             CompilerErrorType::TooManyLocals => write!(f, "too many locals"),
             CompilerErrorType::UnknownVariable => write!(f, "unknown variable"),
+            CompilerErrorType::UnknownFunction => write!(f, "unknown function"),
             CompilerErrorType::UnusedVariable=> write!(f, "unused variable"),
             CompilerErrorType::ForgotRBrace => write!(f, "missing `}}`"),
             CompilerErrorType::UnassignableValue => write!(f, "unassignable value"),
-            CompilerErrorType::Null => write!(f, "[ERROR] should now be printed"),
+            CompilerErrorType::Null => write!(f, "[ERROR] should not be printed"),
             CompilerErrorType::TypeMismatch => write!(f, "type mismatch"),
+            CompilerErrorType::ExpectedFunction => write!(f, "expected function"),
+            CompilerErrorType::ExpectedFor => write!(f, "expected for in impl declaration"),
+            CompilerErrorType::NoSuchFunction => write!(f, "cannot find function in currect scope"),
+            CompilerErrorType::MultipleFuncDef => write!(f, "function defined multiple times"),
+            CompilerErrorType::MultipleTraitDef => write!(f, "trait defined multiple times"),
+            CompilerErrorType::ParameterMismatch => write!(f, "number of parameters in functions do not match"),
         }
     }
 }

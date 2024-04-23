@@ -1,6 +1,9 @@
-use fxhash::FxHashMap;
-use puffin_source::{id::{Arena, ID}, TextSlice};
 use crate::id::TypeID;
+use fxhash::FxHashMap;
+use puffin_source::{
+    id::{Arena, ID},
+    TextSlice,
+};
 
 use super::ConcreteType;
 
@@ -41,11 +44,16 @@ impl Inferer {
         self.type_var.find_mut(var).unwrap()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (ID<TypeBacking>, &TypeBacking)> + ExactSizeIterator + DoubleEndedIterator {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (ID<TypeBacking>, &TypeBacking)> + ExactSizeIterator + DoubleEndedIterator
+    {
         self.type_var.iter()
     }
 
-    pub fn types_to_remap(&self) -> std::collections::hash_map::Iter<'_, ID<TypeBacking>, ID<crate::model::common::Type>> {
+    pub fn types_to_remap(
+        &self,
+    ) -> std::collections::hash_map::Iter<'_, ID<TypeBacking>, ID<crate::model::common::Type>> {
         self.type_var_map.iter()
     }
 }

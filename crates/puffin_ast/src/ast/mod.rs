@@ -2,18 +2,21 @@
 //! Most is automagically generated through the [`puffin_macro::ast_enum`] and [`puffin_macro::ast_node`] macros which attach either a [`AstNode`] or
 //! [`AstToken`] trait as well as some helper functions and enums. Read the macro docs for a better understading of whats going on
 
+pub mod common;
 pub mod expr;
+pub mod item;
 pub mod pat;
 pub mod stmt;
-pub mod item;
-pub mod common;
 
-use std::{marker::PhantomData, hash::Hash, ops::Index};
-use crate::{SyntaxKind, SyntaxNode, SyntaxToken, SyntaxNodeChildren};
+use crate::{SyntaxKind, SyntaxNode, SyntaxNodeChildren, SyntaxToken};
 use fxhash::FxHashMap;
 use item::Item;
-use rowan::{GreenNode, Direction, TextRange};
-use puffin_source::{TextSlice, id::{InFile, ID, Arena}, FileID};
+use puffin_source::{
+    id::{Arena, InFile, ID},
+    FileID, TextSlice,
+};
+use rowan::{Direction, GreenNode, TextRange};
+use std::{hash::Hash, marker::PhantomData, ops::Index};
 
 /// The root of the Abstract Syntax Tree
 #[derive(Debug, PartialEq, Clone, Eq)]
@@ -33,7 +36,21 @@ impl Root {
         let mut items = vec![];
         for node in self.contents.children() {
             if Item::can_cast(node.kind()) {
-                items.push(Item::cast(node).expect("verified cast. Should not fail"));
+                let item = Item::cast(node).expect("verified cast. Should not fail");
+                match item.kind() {
+                    item::ItemKind::FuncItem(_) => {}
+                    item::ItemKind::TraitItem(trt) => {
+                        for func in trt.funcs() {
+                            items.push(Item::from(func));
+                        }
+                    }
+                    item::ItemKind::ImplItem(imp) => {
+                        for func in imp.funcs() {
+                            items.push(Item::from(func));
+                        }
+                    }
+                }
+                items.push(item);
             } else {
                 // Every node should either be wrapped in a stmt or an item even if its an error.
                 panic!("Unexpected syntax type: {}", node.kind());
@@ -70,7 +87,7 @@ pub struct AstPtr<T: AstNode> {
     _ty: PhantomData<T>,
 }
 
-impl<T: AstNode> AstPtr<T>  {
+impl<T: AstNode> AstPtr<T> {
     pub fn new(item: &SyntaxNode) -> Self {
         let raw = SyntaxNodePtr::new(item);
         Self {
@@ -120,7 +137,7 @@ impl<T: AstNode> Clone for AstPtr<T> {
     fn clone(&self) -> Self {
         Self {
             raw: self.raw.clone(),
-            _ty: PhantomData
+            _ty: PhantomData,
         }
     }
 }
@@ -163,21 +180,30 @@ impl<T: Clone + Eq, B: AstNode> Default for AstMap<T, B> {
 impl<T: Clone + Eq, B: AstNode> Index<ID<T>> for AstMap<T, B> {
     type Output = InFile<AstPtr<B>>;
     fn index(&self, index: ID<T>) -> &Self::Output {
-        &self.to_node.get(&index).expect("could not find id in AstMap")
+        &self
+            .to_node
+            .get(&index)
+            .expect("could not find id in AstMap")
     }
 }
 
 impl<T: Clone + Eq, B: AstNode> Index<AstPtr<B>> for AstMap<T, B> {
     type Output = ID<T>;
     fn index(&self, index: AstPtr<B>) -> &Self::Output {
-        &self.from_node.get(&index).expect("could not find pointer in AstMap")
+        &self
+            .from_node
+            .get(&index)
+            .expect("could not find pointer in AstMap")
     }
 }
 
 impl<T: Clone + Eq, B: AstNode> Index<InFile<AstPtr<B>>> for AstMap<T, B> {
     type Output = ID<T>;
     fn index(&self, index: InFile<AstPtr<B>>) -> &Self::Output {
-        &self.from_node.get(&index.element).expect("could not find pointer in AstMap")
+        &self
+            .from_node
+            .get(&index.element)
+            .expect("could not find pointer in AstMap")
     }
 }
 
@@ -192,11 +218,11 @@ impl AstIdMap {
         let ptr = SyntaxNodePtr::new(item.syntax());
         let raw = match self.raw.iter().find(|(_id, i)| **i == ptr) {
             Some((id, _)) => id,
-            None => panic!("Cannot find {:?} in AstIdMap", item.syntax())
+            None => panic!("Cannot find {:?} in AstIdMap", item.syntax()),
         };
         let id = ID {
             raw_id: raw.raw_id,
-            _ty: PhantomData
+            _ty: PhantomData,
         };
         InFile {
             file: self.file,
@@ -210,13 +236,14 @@ impl AstIdMap {
         for item in items {
             map.alloc(SyntaxNodePtr::new(item.syntax()));
         }
-        Self {
-            file,
-            raw: map,
-        }
+        Self { file, raw: map }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (ID<SyntaxNodePtr>, &SyntaxNodePtr)> + ExactSizeIterator + DoubleEndedIterator {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (ID<SyntaxNodePtr>, &SyntaxNodePtr)>
+           + ExactSizeIterator
+           + DoubleEndedIterator {
         self.raw.iter()
     }
 
@@ -224,7 +251,7 @@ impl AstIdMap {
         let snp = &self[id];
         AstPtr {
             raw: snp.clone(),
-            _ty: PhantomData
+            _ty: PhantomData,
         }
     }
 }
@@ -232,7 +259,11 @@ impl AstIdMap {
 impl<N: AstNode> Index<InFile<ID<N>>> for AstIdMap {
     type Output = SyntaxNodePtr;
     fn index(&self, index: InFile<ID<N>>) -> &Self::Output {
-        assert_eq!(index.file, self.file, "tried to find item from {:?} in ast id map from {:?}", index.file, self.file);
+        assert_eq!(
+            index.file, self.file,
+            "tried to find item from {:?} in ast id map from {:?}",
+            index.file, self.file
+        );
         let id_cast = ID {
             raw_id: index.element.raw_id,
             _ty: PhantomData,
@@ -280,7 +311,7 @@ impl<N> AstChildren<N> {
     pub fn new(parent: &SyntaxNode) -> Self {
         AstChildren {
             inner: parent.children(),
-            ph: PhantomData
+            ph: PhantomData,
         }
     }
 }

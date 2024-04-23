@@ -1,0 +1,50 @@
+Std(
+    impls: [
+        {
+            "name": "Add",
+            "impls": [
+                {
+                    "a": "Float",
+                    "b": "Float",
+                    "ret": "Float",
+                    "code": "6",
+                },
+                {
+                    "a": "Float",
+                    "b": "Int",
+                    "ret": "Float",
+                    "code": "6",
+                },
+                {
+                    "a": "Int",
+                    "b": "Int",
+                    "ret": "Int",
+                    "code": "6",
+                }
+            ]
+        },
+        {
+            "name": "Subtract",
+            "impls": [
+                {
+                    "a": "Float",
+                    "b": "Float",
+                    "ret": "Float",
+                    "code": "6",
+                },
+                {
+                    "a": "Float",
+                    "b": "Int",
+                    "ret": "Float",
+                    "code": "6",
+                },
+                {
+                    "a": "Int",
+                    "b": "Int",
+                    "ret": "Int",
+                    "code": "6",
+                }
+            ]
+        }
+    ],
+)

@@ -1,0 +1,27 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"impl Add(int, int) for test {}\")"
+---
+SOURCE_FILE@0..=29
+    IMPL_ITEM@0..=29
+        impl |KW_IMPL@0..3
+          |WHITESPACE@4..4
+        IMPL_TRAIT@5..=21
+            Add |IDENT@5..7
+            ( |L_PAREN@8..8
+            CONCRETE_TYPE@9..=11
+                int |KW_INT@9..11
+            , |COMMA@12..12
+              |WHITESPACE@13..13
+            CONCRETE_TYPE@14..=16
+                int |KW_INT@14..16
+            ) |R_PAREN@17..17
+              |WHITESPACE@18..18
+            for |KW_FOR@19..21
+          |WHITESPACE@22..22
+        PATH_TYPE@23..=26
+            test |IDENT@23..26
+          |WHITESPACE@27..27
+        { |L_BRACE@28..28
+        } |R_BRACE@29..29
+

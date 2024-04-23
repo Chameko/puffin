@@ -1,0 +1,68 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"impl Add for test{\\n    fun add(a: int, b: int) {\\n        a + b\\n    }\\n}\")"
+---
+SOURCE_FILE@0..=69
+    IMPL_ITEM@0..=69
+        impl |KW_IMPL@0..3
+          |WHITESPACE@4..4
+        IMPL_TRAIT@5..=11
+            PATH_TYPE@5..=7
+                Add |IDENT@5..7
+              |WHITESPACE@8..8
+            for |KW_FOR@9..11
+          |WHITESPACE@12..12
+        PATH_TYPE@13..=16
+            test |IDENT@13..16
+        { |L_BRACE@17..17
+        
+ |NL@18..18
+             |WHITESPACE@19..22
+        FUNC_ITEM@23..=67
+            fun |KW_FUN@23..25
+              |WHITESPACE@26..26
+            add |IDENT@27..29
+            FUNC_PARAM@30..=45
+                ( |L_PAREN@30..30
+                TYPE_BIND@31..=36
+                    IDENT_PAT@31..=31
+                        a |IDENT@31..31
+                    : |COLON@32..32
+                      |WHITESPACE@33..33
+                    CONCRETE_TYPE@34..=36
+                        int |KW_INT@34..36
+                , |COMMA@37..37
+                  |WHITESPACE@38..38
+                TYPE_BIND@39..=44
+                    IDENT_PAT@39..=39
+                        b |IDENT@39..39
+                    : |COLON@40..40
+                      |WHITESPACE@41..41
+                    CONCRETE_TYPE@42..=44
+                        int |KW_INT@42..44
+                ) |R_PAREN@45..45
+              |WHITESPACE@46..46
+            BLOCK_EXPR@47..=67
+                { |L_BRACE@47..47
+                
+ |NL@48..48
+                         |WHITESPACE@49..56
+                EXPR_STMT@57..=62
+                    BIN_EXPR@57..=61
+                        PAT_EXPR@57..=57
+                            IDENT_PAT@57..=57
+                                a |IDENT@57..57
+                          |WHITESPACE@58..58
+                        + |PLUS@59..59
+                          |WHITESPACE@60..60
+                        PAT_EXPR@61..=61
+                            IDENT_PAT@61..=61
+                                b |IDENT@61..61
+                    
+ |NL@62..62
+                     |WHITESPACE@63..66
+                } |R_BRACE@67..67
+        
+ |NL@68..68
+        } |R_BRACE@69..69
+

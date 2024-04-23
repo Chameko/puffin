@@ -1,0 +1,43 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"hello(add(1 + 2, 3 + 4), 2)\")"
+---
+SOURCE_FILE@0..=26
+    EXPR_STMT@0..=26
+        FUNC_EXPR@0..=26
+            hello |IDENT@0..4
+            FUNC_PARAM@5..=26
+                ( |L_PAREN@5..5
+                FUNC_EXPR@6..=22
+                    add |IDENT@6..8
+                    FUNC_PARAM@9..=22
+                        ( |L_PAREN@9..9
+                        BIN_EXPR@10..=14
+                            PAT_EXPR@10..=10
+                                LIT_PAT@10..=10
+                                    1 |INT@10..10
+                              |WHITESPACE@11..11
+                            + |PLUS@12..12
+                              |WHITESPACE@13..13
+                            PAT_EXPR@14..=14
+                                LIT_PAT@14..=14
+                                    2 |INT@14..14
+                        , |COMMA@15..15
+                          |WHITESPACE@16..16
+                        BIN_EXPR@17..=21
+                            PAT_EXPR@17..=17
+                                LIT_PAT@17..=17
+                                    3 |INT@17..17
+                              |WHITESPACE@18..18
+                            + |PLUS@19..19
+                              |WHITESPACE@20..20
+                            PAT_EXPR@21..=21
+                                LIT_PAT@21..=21
+                                    4 |INT@21..21
+                        ) |R_PAREN@22..22
+                , |COMMA@23..23
+                  |WHITESPACE@24..24
+                PAT_EXPR@25..=25
+                    LIT_PAT@25..=25
+                        2 |INT@25..25
+                ) |R_PAREN@26..26

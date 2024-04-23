@@ -11,7 +11,7 @@ SOURCE_FILE@0..=13
             ( |L_PAREN@9..9
             ) |R_PAREN@10..10
           |WHITESPACE@11..11
-        BLOCK_STMT@12..=13
+        BLOCK_EXPR@12..=13
             { |L_BRACE@12..12
             } |R_BRACE@13..13
 

@@ -1,0 +1,25 @@
+---
+source: crates/puffin_hir/src/resolver/tests.rs
+assertion_line: 209
+expression: standard_test(src)
+---
+[[ {
+let a = 1
+let b = 2
+let c = a + b
+} ]]
+    [[ let a = 1 ]]
+    a => "Unknown" from {
+      { 1 } => LiteralInt(1)
+    }
+    [[ let b = 2 ]]
+    b => "Unknown" from {
+      { 2 } => LiteralInt(2)
+    }
+    [[ let c = a + b ]]
+    c => "Unknown" from {
+      { a + b } => "FunctionType { Concrete(Int), Concrete(Int), ret: Unknown }"
+        { a } => IdentIdent { name: "a" }
+        { b } => IdentIdent { name: "b" }
+    }
+

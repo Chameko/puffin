@@ -617,4 +617,3 @@ fn extract_field_tuple_enum(elems: &syn::punctuated::Punctuated<syn::Type, syn::
         extra_func,
     })
 }
-

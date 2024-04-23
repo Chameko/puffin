@@ -1,16 +1,18 @@
+use super::common::{Comptime, ComptimeKW, Type, TypeBind};
+use super::expr::BlockExpr;
+use super::pat::Ident;
+use super::{AstNode, AstToken, SyntaxKind};
 use puffin_macro::{ast_enum, ast_node};
-use super::common::{TypeBind, Type};
-use super::{AstNode, SyntaxKind, AstToken};
-use super::{pat::Ident, stmt::BlockStmt};
 
 #[ast_enum]
 pub enum Item {
     #[valid_for(SyntaxKind::FUNC_ITEM)]
     FuncItem {
+        comptime: (ComptimeKW),
         name: (Ident),
         param: FuncParen,
         rtrn: Option<Type>,
-        block: BlockStmt,
+        block: BlockExpr,
     },
     #[valid_for(SyntaxKind::TRAIT_ITEM)]
     TraitItem {
@@ -19,8 +21,17 @@ pub enum Item {
     },
     #[valid_for(SyntaxKind::IMPL_ITEM)]
     ImplItem {
+        trait_impl: Option<ImplTrait>,
+        implementee: Type,
         funcs: FuncItem,
-    }
+    },
+}
+
+#[ast_node]
+#[valid_for(SyntaxKind::IMPL_TRAIT)]
+pub struct ImplTrait {
+    comptime: Option<Comptime>,
+    name: (Ident),
 }
 
 #[ast_node]

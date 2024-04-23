@@ -1,0 +1,76 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "item_test(\"impl Add(int, int) for test{\\n    fun add(a: int, b: int) {\\n        a + b\\n    }\\n}\")"
+---
+SOURCE_FILE@0..=79
+    IMPL_ITEM@0..=79
+        impl |KW_IMPL@0..3
+          |WHITESPACE@4..4
+        IMPL_TRAIT@5..=21
+            COMPTIME_TYPE@5..=17
+                Add |IDENT@5..7
+                FUNC_PARAM@8..=17
+                    ( |L_PAREN@8..8
+                    CONCRETE_TYPE@9..=11
+                        int |KW_INT@9..11
+                    , |COMMA@12..12
+                      |WHITESPACE@13..13
+                    CONCRETE_TYPE@14..=16
+                        int |KW_INT@14..16
+                    ) |R_PAREN@17..17
+              |WHITESPACE@18..18
+            for |KW_FOR@19..21
+          |WHITESPACE@22..22
+        PATH_TYPE@23..=26
+            test |IDENT@23..26
+        { |L_BRACE@27..27
+        
+ |NL@28..28
+             |WHITESPACE@29..32
+        FUNC_ITEM@33..=77
+            fun |KW_FUN@33..35
+              |WHITESPACE@36..36
+            add |IDENT@37..39
+            FUNC_PARAM@40..=55
+                ( |L_PAREN@40..40
+                TYPE_BIND@41..=46
+                    IDENT_PAT@41..=41
+                        a |IDENT@41..41
+                    : |COLON@42..42
+                      |WHITESPACE@43..43
+                    CONCRETE_TYPE@44..=46
+                        int |KW_INT@44..46
+                , |COMMA@47..47
+                  |WHITESPACE@48..48
+                TYPE_BIND@49..=54
+                    IDENT_PAT@49..=49
+                        b |IDENT@49..49
+                    : |COLON@50..50
+                      |WHITESPACE@51..51
+                    CONCRETE_TYPE@52..=54
+                        int |KW_INT@52..54
+                ) |R_PAREN@55..55
+              |WHITESPACE@56..56
+            BLOCK_EXPR@57..=77
+                { |L_BRACE@57..57
+                
+ |NL@58..58
+                         |WHITESPACE@59..66
+                EXPR_STMT@67..=72
+                    BIN_EXPR@67..=71
+                        PAT_EXPR@67..=67
+                            IDENT_PAT@67..=67
+                                a |IDENT@67..67
+                          |WHITESPACE@68..68
+                        + |PLUS@69..69
+                          |WHITESPACE@70..70
+                        PAT_EXPR@71..=71
+                            IDENT_PAT@71..=71
+                                b |IDENT@71..71
+                    
+ |NL@72..72
+                     |WHITESPACE@73..76
+                } |R_BRACE@77..77
+        
+ |NL@78..78
+        } |R_BRACE@79..79

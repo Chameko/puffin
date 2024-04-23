@@ -68,4 +68,9 @@ impl TokenStream {
     pub fn last(&self) -> Option<&Token> {
         self.tokens.last()
     }
+
+    /// Used to get the cursor position in the token stream
+    pub fn cursor(&self) -> usize {
+        self.cursor
+    }
 }

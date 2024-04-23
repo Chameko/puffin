@@ -1,6 +1,6 @@
+use puffin_vfs::FileID;
 use std::hash::Hash;
 use std::marker::PhantomData;
-use puffin_vfs::FileID;
 
 use crate::module::ModuleData;
 
@@ -15,7 +15,7 @@ pub struct ID<T: Clone> {
     pub _ty: PhantomData<T>,
 }
 
-impl<T: Clone> ID<T>  {
+impl<T: Clone> ID<T> {
     pub fn in_file(self, file: FileID) -> InFile<ID<T>> {
         InFile::new(self, file)
     }
@@ -49,10 +49,7 @@ pub struct InFile<T: Clone> {
 
 impl<T: Clone> InFile<T> {
     pub fn new(element: T, file: FileID) -> Self {
-        Self {
-            element,
-            file,
-        }
+        Self { element, file }
     }
 }
 
@@ -68,9 +65,7 @@ pub struct Arena<T: Clone> {
 impl<T: Clone> Arena<T> {
     /// Create a new [Area]
     pub fn new() -> Self {
-        Self {
-            inner: vec![],
-        }
+        Self { inner: vec![] }
     }
 
     /// Allocate a new [ID]
@@ -89,14 +84,18 @@ impl<T: Clone> Arena<T> {
         self.inner.get_mut(id.raw_id)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (ID<T>, &T)> + ExactSizeIterator + DoubleEndedIterator {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (ID<T>, &T)> + ExactSizeIterator + DoubleEndedIterator {
         self.inner
             .iter()
             .enumerate()
             .map(|(idx, value)| (idx.into(), value))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (ID<T>, &mut T)> + ExactSizeIterator + DoubleEndedIterator {
+    pub fn iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (ID<T>, &mut T)> + ExactSizeIterator + DoubleEndedIterator {
         self.inner
             .iter_mut()
             .enumerate()

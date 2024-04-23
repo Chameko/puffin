@@ -1,0 +1,25 @@
+---
+source: crates/puffin_parser/src/tests/parser.rs
+expression: "standard_test(\"comptime { 1 + 2 }\")"
+---
+SOURCE_FILE@0..=17
+    EXPR_STMT@0..=17
+        COMPTIME_EXPR@0..=17
+            comptime |KW_COMPTIME@0..7
+              |WHITESPACE@8..8
+            BLOCK_EXPR@9..=17
+                { |L_BRACE@9..9
+                  |WHITESPACE@10..10
+                EXPR_STMT@11..=16
+                    BIN_EXPR@11..=16
+                        PAT_EXPR@11..=11
+                            LIT_PAT@11..=11
+                                1 |INT@11..11
+                          |WHITESPACE@12..12
+                        + |PLUS@13..13
+                          |WHITESPACE@14..14
+                        PAT_EXPR@15..=15
+                            LIT_PAT@15..=15
+                                2 |INT@15..15
+                          |WHITESPACE@16..16
+                } |R_BRACE@17..17

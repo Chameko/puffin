@@ -10,18 +10,7 @@ pub enum Stmt {
         bind: TypeBind,
         expr: Option<ExprID>,
     },
-    While {
-        condition: ExprID,
-        exec: StmtID,
-    },
-    If {
-        condition: ExprID,
-        truthy: StmtID,
-        falsey: Option<StmtID>,
-    },
-    Block {
-        stmts: Vec<StmtID>,
-    },
+    Return(ExprID),
     /// A missing stmt
     Missing,
 }

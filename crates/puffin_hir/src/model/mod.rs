@@ -1,23 +1,26 @@
-pub mod func;
-pub mod expr;
-pub mod pattern;
 pub mod body;
-pub mod stmt;
 pub mod common;
-pub mod traits;
+pub mod expr;
+pub mod func;
 pub mod impls;
+pub mod pattern;
+pub mod stmt;
+pub mod traits;
 
-use crate::{id::ItemID, signature::{FunctionSignature, TraitSignature, ImplSignature}};
+use crate::{
+    id::ItemID,
+    signature::{FunctionSignature, ImplSignature, TraitSignature},
+};
 
-pub use func::{Function, FunctionSource};
-pub use traits::{Trait, TraitSource};
-pub use impls::{Impl, ImplSource};
-pub use expr::Expr;
-pub use pattern::Pattern;
 pub use body::FuncBody;
+pub use expr::Expr;
+pub use func::{Function, FunctionSource};
+pub use impls::{Impl, ImplSource};
+pub use pattern::Pattern;
 use puffin_ast::ast::AstNode;
 use puffin_parser::parser::ParserDatabase;
 pub use stmt::Stmt;
+pub use traits::{Trait, TraitSource};
 
 /// A function ID used to refer to a function in a semi-stable way
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]

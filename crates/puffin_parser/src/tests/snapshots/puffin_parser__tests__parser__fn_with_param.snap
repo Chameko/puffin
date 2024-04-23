@@ -27,7 +27,7 @@ SOURCE_FILE@0..=32
                     Point |IDENT@24..28
             ) |R_PAREN@29..29
           |WHITESPACE@30..30
-        BLOCK_STMT@31..=32
+        BLOCK_EXPR@31..=32
             { |L_BRACE@31..31
             } |R_BRACE@32..32
 

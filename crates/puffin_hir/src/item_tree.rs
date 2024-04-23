@@ -1,15 +1,19 @@
-use puffin_ast::ast::item::{ItemKind, FuncItem, TraitItem, ImplItem};
-use puffin_source::id::{ID, InFile};
+use crate::{
+    def::DefDatabase,
+    id::{Arena, ExprID, ItemID},
+    model::{
+        body::ComptimeBody, common::Type, impls::Impl, traits::Trait, Function, FunctionID, FunctionSource, ImplSource, Stmt, TraitID, TraitSource
+    },
+    signature::{FunctionSignature, ImplSignature, TraitSignature},
+};
+use itertools::Itertools;
+use puffin_ast::ast::item::{FuncItem, ImplItem, ItemKind, TraitItem};
+use puffin_error::{CompilerError, CompilerErrorType, DeferredHighlight, DeferredOutput, Level};
+use puffin_source::{id::{InFile, ID}, TextSlice};
 use puffin_vfs::FileID;
-use std::sync::Arc;
 use std::marker::PhantomData;
 use std::ops::Index;
-use crate::{
-    signature::{FunctionSignature, TraitSignature, ImplSignature},
-    id::{ItemID, Arena},
-    def::DefDatabase,
-    model::{Function, FunctionSource, TraitSource, ImplSource, traits::Trait, impls::Impl, TraitID, },
-};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
@@ -20,93 +24,217 @@ pub struct ItemTree {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTreeData {
     pub file: FileID,
-    functions: Arena<Function>,
-    traits: Arena<Trait>,
-    impls: Arena<Impl>,
+    pub functions: Arena<Function>,
+    pub traits: Arena<Trait>,
+    pub impls: Arena<Impl>,
 }
 
 impl ItemTree {
     pub fn item_tree_query(db: &dyn DefDatabase, file: FileID) -> Arc<Self> {
         let ast_map = db.ast_map(file);
         let root = db.ast(file);
-        let (mut data, mut top_level) = ItemTreeData::new(file, db);
+        let mut data = ItemTreeData::new(file);
+        let mut top_level = vec![];
         for item in root.interpret() {
             match item.kind() {
                 ItemKind::FuncItem(func) => {
                     let ast_id = ast_map.ast_id(&func);
-                    if let Some(func) = Function::func_item(func, &mut data, ast_id) {
-                        let func = func.in_file(file);
-                        db.intern_function(Function::to_sig_id(func));
-                        top_level.push(ModItem::from(func));
-                    }
-                },
+                    let func = data
+                        .alloc_func(Function::func_item(func, ast_id))
+                        .in_file(file);
+                    db.intern_function(Function::to_sig_id(func));
+                    top_level.push(ModItem::from(func));
+                }
                 ItemKind::TraitItem(trt) => {
-                    unimplemented!()
+                    let trt = data
+                        .alloc_trait(Trait::trait_item(db, trt, file))
+                        .in_file(file);
+                    db.intern_trait(Trait::to_sig_id(trt));
+                    top_level.push(ModItem::from(trt));
                 }
                 ItemKind::ImplItem(impl_p) => {
-                    unimplemented!()
+                    let impl_p = data
+                        .alloc_impl(Impl::impl_item(db, impl_p, file))
+                        .in_file(file);
+                    db.intern_impl(Impl::to_sig_id(impl_p));
+                    top_level.push(ModItem::Impl(impl_p));
                 }
             }
         }
-        Arc::new(Self {
-            top_level,
-            data,
-        })
+        Arc::new(Self { top_level, data })
+    }
+
+    /// Reports any duplicate names in the item tree
+    pub fn verify_item_tree_names(&self) -> Vec<CompilerError> {
+        let mut names = vec![];
+        let mut errors = vec![];
+        for func in self.functions() {
+            let name = &self[func].signature.name;
+            if !names.contains(name) {
+                let funcs = self.find_fn_by_name(&name.name, self[func].source.name.clone());
+                if let Err(e) = funcs {
+                    errors.push(e);
+                }
+                names.push(name.clone());
+            }
+        }
+        let mut names = vec![];
+        for trt in self.traits() {
+            let name = &self[trt].signature.name;
+            if !names.contains(name) {
+                names.push(name.clone());
+                let dup_trts = self.traits()
+                    .into_iter()
+                    .filter_map(|trt2| {
+                        if &self[trt2].signature.name == name
+                            && &self[trt].source.ast_id != &self[trt2].source.ast_id {
+                            Some(trt2)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect_vec();
+                if !dup_trts.is_empty() {
+                    let mut hl = vec![DeferredHighlight {
+                            area: self[trt].source.name.clone(),
+                            level: Level::Error,
+                            msg: format!("defined multiple times")
+                    }];
+                    for dup_trt in dup_trts {
+                        hl.push(DeferredHighlight {
+                            area: self[dup_trt].source.name.clone(),
+                            msg: "defined here".to_string(),
+                            level: Level::Info
+                        });
+                    }
+                    errors.push(CompilerError {
+                        level: Level::Error,
+                        ty: CompilerErrorType::MultipleFuncDef,
+                        contents: vec![DeferredOutput::Code {
+                            src: self.data.file,
+                            highlight: hl
+                        }]
+                    });
+                }
+            }
+        }
+        errors
     }
 
     pub fn functions(&self) -> Vec<ItemID<Function>> {
-        self.top_level.iter().filter_map(|i| {
-            if let ModItem::Function(f) = i {
-                Some(*f)
-            } else {
-                None
-            }
-        }).collect()
-    }
-
-    /// Grab all the implementations of a trait
-    pub fn trait_impls(&self, trait_id: TraitID) -> Vec<ItemID<Impl>> {
-        self.top_level.iter().filter_map(|i| {
-            if let ModItem::Impl(i) = i  {
-                if self[*i].signature.trait_id == trait_id {
-                    Some(*i)
+        self.top_level
+            .iter()
+            .filter_map(|i| {
+                if let ModItem::Function(f) = i {
+                    Some(*f)
                 } else {
                     None
                 }
-            } else {
-                None
-            }
-        }).collect()
+            })
+            .collect()
+    }
+
+    pub fn traits(&self) -> Vec<ItemID<Trait>> {
+        self.top_level
+            .iter()
+            .filter_map(|i| {
+                if let ModItem::Trait(t) = i {
+                    Some(*t)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     /// Find a trait by signature
     pub fn find_trait(&self, trait_sig: TraitSignature, db: &dyn DefDatabase) -> Option<TraitID> {
-        for (id, Trait{ signature, ..}) in self.data.traits.iter() {
+        for (id, Trait { signature, .. }) in self.data.traits.iter() {
             if *signature == trait_sig {
-                return Some(db.intern_trait(Trait::to_sig_id(id.in_file(self.data.file))))
+                return Some(db.intern_trait(Trait::to_sig_id(id.in_file(self.data.file))));
             }
         }
         None
     }
+
+    /// Finds a function by name
+    pub fn find_fn_by_name(&self, name: &str, area: TextSlice) -> Result<ItemID<Function>, CompilerError> {
+        let mut funcs = vec![];
+        for item in &self.top_level {
+            match item {
+                ModItem::Function(id) => {
+                    let func = &self[*id];
+                    if func.signature.name == name {
+                        funcs.push((id, func.source.name.clone()));
+                    }
+                },
+                _ => (),
+            }
+        }
+        if funcs.is_empty() {
+            Err(CompilerError {
+                level: Level::Error,
+                ty: CompilerErrorType::NoSuchFunction,
+                contents: vec![DeferredOutput::Code {
+                    src: self.data.file,
+                    highlight: vec![DeferredHighlight{
+                        area,
+                        level: Level::Error,
+                        msg: format!("cannot find function with name {}", name)
+                    }]
+                }]
+            })
+        } else if funcs.len() > 1 {
+            let mut hl = vec![DeferredHighlight {
+                    area,
+                    level: Level::Error,
+                    msg: format!("defined multiple times")
+            }];
+            for func in funcs {
+                hl.push(DeferredHighlight {
+                    area: func.1,
+                    msg: "defined here".to_string(),
+                    level: Level::Info
+                });
+            }
+            Err(CompilerError {
+                level: Level::Error,
+                ty: CompilerErrorType::MultipleFuncDef,
+                contents: vec![DeferredOutput::Code {
+                    src: self.data.file,
+                    highlight: hl
+                }]
+            })
+        } else {
+            Ok(*funcs[0].0)
+        }
+    }
 }
 
 impl ItemTreeData {
-    pub fn new(file: FileID, db: &dyn DefDatabase) -> (Self, Vec<ModItem>) {
+    pub fn new(file: FileID) -> Self {
         // Creates item tree data and top level with std traits and impls
-        let (traits, impls, top_level) = Default::default();
-        (Self {
+        let (traits, impls, functions) = Default::default();
+        Self {
             file,
-            functions: Arena::new(),
-            impls,
             traits,
-        }, top_level)
+            impls,
+            functions,
+        }
     }
 
     pub fn alloc_func(&mut self, func: Function) -> ID<Function> {
         self.functions.alloc(func)
     }
-}
 
+    pub fn alloc_trait(&mut self, trt: Trait) -> ID<Trait> {
+        self.traits.alloc(trt)
+    }
+
+    pub fn alloc_impl(&mut self, impl_p: Impl) -> ID<Impl> {
+        self.impls.alloc(impl_p)
+    }
+}
 
 macro_rules! mod_item  {
     ($( $typ:ident in $fld:ident -> $src:ident | $sig:ident >> $ast:ident),+ $( $typ2:ident in $fld2:ident >> $ast2:ident)*) => {
@@ -288,7 +416,7 @@ mod_item!(
     Impl in impls -> ImplSource | ImplSignature >> ImplItem
 );
 
-pub trait ItemTreeNode : Clone {
+pub trait ItemTreeNode: Clone {
     type AstSource: Clone;
     fn ast_id(&self) -> InFile<ID<Self::AstSource>>;
     fn lookup(tree: &ItemTree, index: ItemID<Self>) -> &Self;
@@ -296,7 +424,7 @@ pub trait ItemTreeNode : Clone {
     fn id_to_mod_item(id: ItemID<Self>) -> ModItem;
 }
 
-pub trait SplitItemTreeNode : ItemTreeNode {
+pub trait SplitItemTreeNode: ItemTreeNode {
     type Signature: Clone;
     type Source: Clone;
 

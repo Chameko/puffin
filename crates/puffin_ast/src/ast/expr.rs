@@ -1,6 +1,8 @@
+use super::item::{FuncParen, TraitItem};
+use super::pat::{Ident, Pat};
+use super::stmt::Stmt;
+use crate::ast::{AstNode, AstToken};
 use crate::SyntaxKind;
-use super::pat::Pat;
-use crate::ast::AstNode;
 use puffin_macro::ast_enum;
 
 #[ast_enum]
@@ -27,22 +29,25 @@ pub enum Expr {
         rhs: Expr,
     },
     #[valid_for(SyntaxKind::PAT_EXPR)]
-    PatExpr {
-        pat: Pat,
-    },
+    PatExpr { pat: Pat },
     #[valid_for(SyntaxKind::PAREN_EXPR)]
-    ParenExpr {
-        expr: Expr
-    },
+    ParenExpr { expr: Expr },
     #[valid_for(SyntaxKind::PREFIX_EXPR)]
     PrefixExpr {
         prefix_op: (Negate<SyntaxKind::MINUS>, Not<SyntaxKind::EXCLAMATION>),
-        expr: Option<Expr>
+        expr: Option<Expr>,
     },
     #[valid_for(SyntaxKind::ASSIGN_EXPR)]
-    AssignExpr {
-        assignee: Expr,
-        assign_to: Expr,
+    AssignExpr { assignee: Expr, assign_to: Expr },
+    #[valid_for(SyntaxKind::TRAIT_EXPR)]
+    TraitExpr { trt: TraitItem },
+    #[valid_for(SyntaxKind::BLOCK_EXPR)]
+    BlockExpr { stmts: Stmt },
+    #[valid_for(SyntaxKind::COMPTIME_EXPR)]
+    ComptimeExpr { comptime: Expr },
+    #[valid_for(SyntaxKind::FUNC_EXPR)]
+    FuncExpr {
+        name: (Ident),
+        param: Expr,
     }
 }
-

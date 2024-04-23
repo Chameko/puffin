@@ -1,6 +1,6 @@
+use super::tokenstream::Token;
 use puffin_ast::SyntaxKind;
 use std::{iter::Peekable, str::Chars};
-use super::tokenstream::Token;
 
 /// The lexer responsible for taking a raw file as a string and converting it to a flat array of [`Token`]
 pub struct Lexer<'a> {
@@ -64,6 +64,11 @@ impl<'a> Lexer<'a> {
             "string" => Some(SyntaxKind::KW_STRING),
             "true" => Some(SyntaxKind::TRUE),
             "false" => Some(SyntaxKind::FALSE),
+            "trait" => Some(SyntaxKind::KW_TRAIT),
+            "for" => Some(SyntaxKind::KW_FOR),
+            "impl" => Some(SyntaxKind::KW_IMPL),
+            "self" => Some(SyntaxKind::KW_SELF),
+            "comptime" => Some(SyntaxKind::KW_COMPTIME),
             s => {
                 if let Some(char) = s.chars().next() {
                     if char.is_numeric() {
@@ -78,7 +83,10 @@ impl<'a> Lexer<'a> {
         };
         let working_clone = std::mem::take(&mut self.working);
         if let Some(ty) = ret {
-            let ret = Some(Token::new(ty, self.col..=(self.col + working_clone.len() as u32 - 1)));
+            let ret = Some(Token::new(
+                ty,
+                self.col..=(self.col + working_clone.len() as u32 - 1),
+            ));
             self.col += working_clone.len() as u32;
             ret
         } else {
@@ -98,7 +106,10 @@ impl<'a> Lexer<'a> {
         if let Some(tk) = self.scan_working() {
             tokens.push(tk);
         }
-        tokens.push(Token::new(ty, self.col..=(self.col + string.len() as u32 - 1)));
+        tokens.push(Token::new(
+            ty,
+            self.col..=(self.col + string.len() as u32 - 1),
+        ));
         self.col += string.len() as u32;
     }
 
@@ -109,41 +120,41 @@ impl<'a> Lexer<'a> {
                 '&' => {
                     if let Some('&') = self.peek() {
                         self.next();
-                        self.symbol( SyntaxKind::AMPAMP, "&&", tokens);
+                        self.symbol(SyntaxKind::AMPAMP, "&&", tokens);
                     } else {
-                        self.symbol( SyntaxKind::AMP, "&", tokens);
+                        self.symbol(SyntaxKind::AMP, "&", tokens);
                     }
                 }
                 '|' => {
                     if let Some('|') = self.peek() {
                         self.next();
-                        self.symbol( SyntaxKind::PIPEPIPE, "||", tokens);
+                        self.symbol(SyntaxKind::PIPEPIPE, "||", tokens);
                     } else {
-                        self.symbol( SyntaxKind::PIPE, "|", tokens);
+                        self.symbol(SyntaxKind::PIPE, "|", tokens);
                     }
                 }
                 '=' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        self.symbol( SyntaxKind::EQEQ, "==", tokens);
+                        self.symbol(SyntaxKind::EQEQ, "==", tokens);
                     } else {
-                        self.symbol( SyntaxKind::EQ, "=", tokens)
+                        self.symbol(SyntaxKind::EQ, "=", tokens)
                     }
                 }
                 '>' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        self.symbol( SyntaxKind::GTEQ, ">=", tokens);
+                        self.symbol(SyntaxKind::GTEQ, ">=", tokens);
                     } else {
-                        self.symbol( SyntaxKind::GT, ">", tokens);
+                        self.symbol(SyntaxKind::GT, ">", tokens);
                     }
                 }
                 '<' => {
                     if let Some('=') = self.peek() {
                         self.next();
-                        self.symbol( SyntaxKind::LTEQ, "<=", tokens);
+                        self.symbol(SyntaxKind::LTEQ, "<=", tokens);
                     } else {
-                        self.symbol( SyntaxKind::LT, "<", tokens);
+                        self.symbol(SyntaxKind::LT, "<", tokens);
                     }
                 }
                 '.' => {
@@ -152,10 +163,10 @@ impl<'a> Lexer<'a> {
                         if c.is_numeric() {
                             self.working.push('.')
                         } else {
-                            self.symbol( SyntaxKind::DOT, ".", tokens);
+                            self.symbol(SyntaxKind::DOT, ".", tokens);
                         }
                     } else {
-                        self.symbol( SyntaxKind::DOT, ".", tokens)
+                        self.symbol(SyntaxKind::DOT, ".", tokens)
                     }
                 }
                 '/' => {
@@ -167,17 +178,17 @@ impl<'a> Lexer<'a> {
                             comment.push(self.next().unwrap());
                             peek = self.peek();
                         }
-                        self.symbol( SyntaxKind::COMMENT, "//", tokens);
+                        self.symbol(SyntaxKind::COMMENT, "//", tokens);
                     } else {
-                        self.symbol( SyntaxKind::SLASH, "/", tokens);
+                        self.symbol(SyntaxKind::SLASH, "/", tokens);
                     }
                 }
                 ' ' => {
                     let mut length = 1;
                     let mut col = self.col;
                     while let Some(' ') = self.peek() {
-                         length += 1;
-                         self.next();
+                        length += 1;
+                        self.next();
                     }
                     if let Some(tk) = self.scan_working() {
                         // Update the column as we may have scanned a new token
@@ -192,24 +203,24 @@ impl<'a> Lexer<'a> {
                         self.next();
                         self.symbol(SyntaxKind::NEQ, "!=", tokens);
                     } else {
-                        self.symbol( SyntaxKind::EXCLAMATION, "!", tokens)
+                        self.symbol(SyntaxKind::EXCLAMATION, "!", tokens)
                     }
-                },
-                '+' => self.symbol( SyntaxKind::PLUS, "+", tokens),
-                '-' => self.symbol( SyntaxKind::MINUS, "-", tokens),
-                '*' => self.symbol( SyntaxKind::STAR, "*", tokens),
-                '(' => self.symbol( SyntaxKind::L_PAREN, "(", tokens),
-                ')' => self.symbol( SyntaxKind::R_PAREN, ")", tokens),
+                }
+                '+' => self.symbol(SyntaxKind::PLUS, "+", tokens),
+                '-' => self.symbol(SyntaxKind::MINUS, "-", tokens),
+                '*' => self.symbol(SyntaxKind::STAR, "*", tokens),
+                '(' => self.symbol(SyntaxKind::L_PAREN, "(", tokens),
+                ')' => self.symbol(SyntaxKind::R_PAREN, ")", tokens),
                 '{' => self.symbol(SyntaxKind::L_BRACE, "{", tokens),
                 '}' => self.symbol(SyntaxKind::R_BRACE, "}", tokens),
                 ',' => self.symbol(SyntaxKind::COMMA, ",", tokens),
                 ':' => self.symbol(SyntaxKind::COLON, ":", tokens),
-                '\n' => self.symbol( SyntaxKind::NL, "\n", tokens),
+                '\n' => self.symbol(SyntaxKind::NL, "\n", tokens),
                 c => {
-                    if c.is_alphanumeric() {
+                    if c.is_alphanumeric() || c == '_' {
                         self.working.push(c)
                     } else {
-                        self.symbol( SyntaxKind::ERROR, &c.to_string(), tokens)
+                        self.symbol(SyntaxKind::ERROR, &c.to_string(), tokens)
                     }
                 }
             }
@@ -229,9 +240,14 @@ mod lexer_test {
     fn test_base(input: &str) -> String {
         let lexer = super::Lexer::new(input);
         let tokens = lexer.start_scan();
-        tokens.into_iter().map(|t| {
-            input.get(*t.col.start() as usize..=*t.col.end() as usize).unwrap()
-        }).collect::<String>()
+        tokens
+            .into_iter()
+            .map(|t| {
+                input
+                    .get(*t.col.start() as usize..=*t.col.end() as usize)
+                    .unwrap()
+            })
+            .collect::<String>()
     }
 
     #[test]
@@ -247,14 +263,59 @@ mod lexer_test {
         let tokens = lexer.start_scan();
         let output = tokens
             .into_iter()
-            .map(|p| { match p {
-                Token {ty: super::SyntaxKind::KW_AND, ..} => format!("|and:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                Token {ty: super::SyntaxKind::KW_OR, ..} => format!("|or:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                Token {ty: super::SyntaxKind::WHITESPACE, ..} => format!("|whitespace:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                Token {ty: super::SyntaxKind::IDENT, ..} => format!("|ident:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                Token {ty: super::SyntaxKind::SOURCE_FILE, ..}  => format!("|src:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                _ => format!("error:{}", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-            }})
+            .map(|p| match p {
+                Token {
+                    ty: super::SyntaxKind::KW_AND,
+                    ..
+                } => format!(
+                    "|and:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                Token {
+                    ty: super::SyntaxKind::KW_OR,
+                    ..
+                } => format!(
+                    "|or:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                Token {
+                    ty: super::SyntaxKind::WHITESPACE,
+                    ..
+                } => format!(
+                    "|whitespace:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                Token {
+                    ty: super::SyntaxKind::IDENT,
+                    ..
+                } => format!(
+                    "|ident:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                Token {
+                    ty: super::SyntaxKind::SOURCE_FILE,
+                    ..
+                } => format!(
+                    "|src:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                _ => format!(
+                    "error:{}",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+            })
             .collect::<String>();
         insta::assert_snapshot!(output);
     }
@@ -267,11 +328,48 @@ mod lexer_test {
         let output = tokens
             .into_iter()
             .map(|p| match p {
-                Token {ty: super::SyntaxKind::FLOAT, .. } => format!("|float:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                Token {ty: super::SyntaxKind::INT, .. } => format!("|int:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                Token {ty: super::SyntaxKind::WHITESPACE, .. } => format!("|whitespace:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                Token {ty: super::SyntaxKind::SOURCE_FILE, .. }  => format!("|src:{}|", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
-                _ => format!("error:{}", input.get(*p.col.start() as usize..=*p.col.end() as usize).unwrap()),
+                Token {
+                    ty: super::SyntaxKind::FLOAT,
+                    ..
+                } => format!(
+                    "|float:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                Token {
+                    ty: super::SyntaxKind::INT,
+                    ..
+                } => format!(
+                    "|int:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                Token {
+                    ty: super::SyntaxKind::WHITESPACE,
+                    ..
+                } => format!(
+                    "|whitespace:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                Token {
+                    ty: super::SyntaxKind::SOURCE_FILE,
+                    ..
+                } => format!(
+                    "|src:{}|",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
+                _ => format!(
+                    "error:{}",
+                    input
+                        .get(*p.col.start() as usize..=*p.col.end() as usize)
+                        .unwrap()
+                ),
             })
             .collect::<String>();
         insta::assert_snapshot!(output);
